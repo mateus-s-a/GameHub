@@ -1,0 +1,30 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "Backend API and Socket server for GamesHub",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev src/index.ts",
+    "lint": "eslint \"src/**/*.ts\"",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@gameshub/core": "*",
+    "@gameshub/tic-tac-toe": "*",
+    "@gameshub/types": "*",
+    "@prisma/client": "^7.4.2",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "socket.io": "^4.8.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.24",
+    "prisma": "^7.4.2",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  }
+}

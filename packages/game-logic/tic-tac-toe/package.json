@@ -1,0 +1,13 @@
+{
+  "name": "@gameshub/tic-tac-toe",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@gameshub/types": "*"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "typescript": "^5.3.3"
+  }
+}
