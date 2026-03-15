@@ -13,6 +13,7 @@
     "@gameshub/core": "*",
     "@gameshub/tic-tac-toe": "*",
     "@gameshub/types": "*",
+    "@gameshub/rock-paper-scissors": "*",
     "@prisma/client": "^7.4.2",
     "cors": "^2.8.5",
     "express": "^4.21.0",
