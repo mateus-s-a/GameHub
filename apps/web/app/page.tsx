@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 export default function HubMenu() {
   const games = [
@@ -81,7 +82,7 @@ export default function HubMenu() {
                 <div className="mt-8 flex items-center text-sm font-iosevka-bold text-cyan-400 group-hover:text-cyan-300 transition-colors">
                   ENTER MATCHMAKING{" "}
                   <span className="ml-2 group-hover:translate-x-1 transition-transform">
-                    →
+                    <ArrowRight className="w-5 h-5" />
                   </span>
                 </div>
               )}

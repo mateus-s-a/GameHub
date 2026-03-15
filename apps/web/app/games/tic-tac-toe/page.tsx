@@ -5,6 +5,7 @@ import { io, Socket } from "socket.io-client";
 import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
+import { Wifi, WifiOff } from "lucide-react";
 
 type PlayerMark = "X" | "O" | null;
 
@@ -235,9 +236,17 @@ export default function Home() {
         {/* Status Indicators */}
         <div className="flex justify-between w-full mb-6 text-sm font-semibold tracking-wide">
           <span
-            className={`px-3 py-1 rounded-full ${socketId ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}
+            className={`px-3 py-1 flex items-center gap-2 rounded-full border ${socketId ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}
           >
-            {socketId ? "● Connected" : "○ Disconnected"}
+            {socketId ? (
+              <>
+                <Wifi className="w-4 h-4" /> Connected
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-4 h-4" /> Disconnected
+              </>
+            )}
           </span>
           {yourMark && (
             <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-400">

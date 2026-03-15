@@ -6,6 +6,7 @@ import { GTFRoundState, GTFPlayer } from "@gameshub/guess-the-flag";
 import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
+import { Wifi, WifiOff } from "lucide-react";
 
 interface GameState {
   state: GTFRoundState;
@@ -188,8 +189,8 @@ export default function GuessTheFlagGame() {
         {/* Scoreboard */}
         <div className="w-full flex justify-between items-center bg-gray-900 rounded-xl p-4">
           <div className="text-center w-1/3">
-            <p className="text-sm text-gray-400 border-b border-gray-700 pb-1 mb-2">
-              You
+            <p className="text-sm text-gray-400 border-b border-gray-700 pb-1 mb-2 flex items-center justify-center gap-2">
+              You {socketId ? <Wifi className="w-3 h-3 text-emerald-400" /> : <WifiOff className="w-3 h-3 text-red-500" />}
             </p>
             <p className="text-4xl font-iosevka-bold text-emerald-400">
               {me?.score || 0}
@@ -204,8 +205,8 @@ export default function GuessTheFlagGame() {
             </p>
           </div>
           <div className="text-center w-1/3">
-            <p className="text-sm text-gray-400 border-b border-gray-700 pb-1 mb-2">
-              Opponent
+            <p className="text-sm text-gray-400 border-b border-gray-700 pb-1 mb-2 flex items-center justify-center gap-2">
+              Opponent {roomId && !waitingOpponent(gameState) ? <Wifi className="w-3 h-3 text-emerald-400" /> : <WifiOff className="w-3 h-3 text-red-500" />}
             </p>
             <p className="text-4xl font-iosevka-bold text-red-400">
               {opp?.score || 0}
@@ -352,4 +353,9 @@ export default function GuessTheFlagGame() {
       </div>
     </div>
   );
+}
+
+// Utility to check if second player is fully connected
+function waitingOpponent(gameState: GameState) {
+   return gameState.players.length < 2 || gameState.state === 'waiting_players';
 }

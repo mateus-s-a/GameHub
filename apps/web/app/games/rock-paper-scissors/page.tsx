@@ -10,6 +10,7 @@ import {
 import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
+import { Wifi, WifiOff, Mountain, FileText, Scissors, HelpCircle } from "lucide-react";
 
 interface GameState {
   state: RoundState;
@@ -189,7 +190,9 @@ export default function RPSGame() {
         {/* Scoreboard */}
         <div className="flex justify-between items-center bg-gray-900 rounded-xl p-4">
           <div className="text-center">
-            <p className="text-sm text-gray-400">You</p>
+            <p className="text-sm text-gray-400 mb-1 flex items-center justify-center gap-2">
+               You {socketId ? <Wifi className="w-3 h-3 text-emerald-400" /> : <WifiOff className="w-3 h-3 text-red-500" />}
+            </p>
             <p className="text-3xl font-iosevka-bold text-emerald-400">
               {me?.score || 0}
             </p>
@@ -203,7 +206,9 @@ export default function RPSGame() {
             </p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-400">Opponent</p>
+             <p className="text-sm text-gray-400 mb-1 flex items-center justify-center gap-2">
+               Opponent {roomId && !waitingOpponent(gameState) ? <Wifi className="w-3 h-3 text-emerald-400" /> : <WifiOff className="w-3 h-3 text-red-500" />}
+             </p>
             <p className="text-3xl font-iosevka-bold text-red-400">
               {opp?.score || 0}
             </p>
@@ -240,16 +245,16 @@ export default function RPSGame() {
         {gameState.state === "reveal_phase" ||
         gameState.state === "game_over" ? (
           <div className="flex justify-around items-center py-8">
-            <div className="text-center">
-              <div className="text-6xl mb-4">
-                {getEmoji(gameState.choices?.[me!.id] || "rock")}
+            <div className="text-center flex flex-col items-center">
+              <div className="mb-4">
+                {getIcon(gameState.choices?.[me!.id], 64)}
               </div>
               <p className="text-emerald-400">Your Choice</p>
             </div>
             <div className="text-4xl font-iosevka-bold text-gray-600">VS</div>
-            <div className="text-center">
-              <div className="text-6xl mb-4">
-                {getEmoji(gameState.choices?.[opp!.id] || "rock")}
+            <div className="text-center flex flex-col items-center">
+              <div className="mb-4">
+                {getIcon(gameState.choices?.[opp!.id], 64)}
               </div>
               <p className="text-red-400">Opponent</p>
             </div>
@@ -261,13 +266,13 @@ export default function RPSGame() {
                 key={choice}
                 disabled={me?.hasCommitted}
                 onClick={() => commitChoice(choice)}
-                className={`py-8 text-5xl rounded-xl transition-all ${
+                className={`py-8 rounded-xl transition-all flex justify-center items-center ${
                   localChoice === choice
                     ? "bg-purple-600 border-2 border-purple-400 scale-105"
                     : "bg-gray-700 hover:bg-gray-600 border border-transparent"
                 } ${me?.hasCommitted && localChoice !== choice ? "opacity-20" : ""}`}
               >
-                {getEmoji(choice)}
+                {getIcon(choice, 48)}
               </button>
             ))}
           </div>
@@ -305,15 +310,20 @@ export default function RPSGame() {
   );
 }
 
-function getEmoji(choice: RPSChoice) {
+function getIcon(choice: RPSChoice | undefined, size: number) {
   switch (choice) {
     case "rock":
-      return "🪨";
+      return <Mountain size={size} />;
     case "paper":
-      return "📄";
+      return <FileText size={size} />;
     case "scissors":
-      return "✂️";
+      return <Scissors size={size} />;
     default:
-      return "❓";
+      return <HelpCircle size={size} />;
   }
+}
+
+// Utility to check if second player is fully connected
+function waitingOpponent(gameState: GameState) {
+   return gameState.players.length < 2 || gameState.state === 'waiting_players';
 }
