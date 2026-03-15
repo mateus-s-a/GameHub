@@ -1,0 +1,161 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { io, Socket } from "socket.io-client";
+import { GTFRoundState, GTFPlayer } from "@gameshub/guess-the-flag";
+
+interface GameState {
+  state: GTFRoundState;
+  currentRound: number;
+  maxRounds: number;
+  players: GTFPlayer[];
+  flagUrl: string | null;
+  options: string[];
+  correctCountry: string | null;
+}
+
+export default function GuessTheFlagGame() {
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socketId, setSocketId] = useState<string | null>(null);
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [localChoice, setLocalChoice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const s: Socket = io("http://localhost:3001/gtf");
+    setSocket(s);
+
+    s.on("connect", () => {
+      setSocketId(s.id || null);
+      s.emit("joinMatchmaking");
+    });
+
+    s.on("matchFound", ({ roomId }) => {
+      setRoomId(roomId);
+      s.emit("joinRoom", roomId);
+    });
+
+    s.on("gameState", (state: GameState) => {
+      setGameState(state);
+      if (state.state === 'guessing_phase' && !state.players.find(p => p.id === s.id)?.hasGuessed) {
+        setLocalChoice(null);
+      }
+    });
+
+    s.on("opponentDisconnected", () => {
+      alert("Opponent disconnected!");
+      setRoomId(null);
+      setGameState(null);
+      s.emit("joinMatchmaking");
+    });
+
+    return () => { s.disconnect(); };
+  }, []);
+
+  const submitGuess = (guess: string) => {
+    if (socket && roomId && gameState?.state === 'guessing_phase') {
+      setLocalChoice(guess);
+      socket.emit("submitGuess", { roomId, guess });
+    }
+  };
+
+  if (!roomId || !gameState) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white font-iosevka-regular text-2xl">
+        {socketId ? "Searching for an opponent in Matchmaking..." : "Connecting to Socket Hub..."}
+      </div>
+    );
+  }
+
+  const me = gameState.players.find(p => p.id === socketId);
+  const opp = gameState.players.find(p => p.id !== socketId);
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center py-12 px-8 font-iosevka-regular overflow-y-auto">
+      <h1 className="text-4xl font-iosevka-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">
+        Guess the Flag PvP
+      </h1>
+
+      <div className="w-full max-w-4xl bg-gray-800 rounded-2xl p-8 border border-gray-700 shadow-2xl space-y-8 flex flex-col items-center">
+        {/* Scoreboard */}
+        <div className="w-full flex justify-between items-center bg-gray-900 rounded-xl p-4">
+          <div className="text-center w-1/3">
+            <p className="text-sm text-gray-400 border-b border-gray-700 pb-1 mb-2">You</p>
+            <p className="text-4xl font-iosevka-bold text-emerald-400">{me?.score || 0}</p>
+          </div>
+          <div className="text-center w-1/3">
+            <p className="text-gray-500 uppercase tracking-widest text-xs border-b border-gray-700 pb-1 mb-2">Round</p>
+            <p className="text-2xl">{gameState.currentRound} / {gameState.maxRounds}</p>
+          </div>
+          <div className="text-center w-1/3">
+            <p className="text-sm text-gray-400 border-b border-gray-700 pb-1 mb-2">Opponent</p>
+            <p className="text-4xl font-iosevka-bold text-red-400">{opp?.score || 0}</p>
+          </div>
+        </div>
+
+        {/* State Information */}
+        <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-gray-900/50 rounded-lg">
+          {gameState.state === 'guessing_phase' && !me?.hasGuessed && <span className="text-blue-400 animate-pulse font-iosevka-medium">Who does this flag belong to?</span>}
+          {gameState.state === 'guessing_phase' && me?.hasGuessed && <span className="text-gray-400 italic">Waiting for opponent to guess...</span>}
+          {gameState.state === 'round_result' && <span className="text-yellow-400 font-iosevka-bold text-2xl drop-shadow-md">Round Over!</span>}
+          {gameState.state === 'game_over' && <span className="text-emerald-400 font-iosevka-bold text-2xl drop-shadow-md">Game Over!</span>}
+        </div>
+
+        {/* Battle Arena */}
+        <div className="flex flex-col items-center justify-center w-full max-w-2xl gap-8">
+          {/* Default state flag (waiting or guessing) */}
+          {(gameState.state === 'guessing_phase' || gameState.state === 'waiting_players') && gameState.flagUrl && (
+            <div className="w-full max-w-sm aspect-video bg-gray-950 rounded-xl overflow-hidden shadow-xl ring-2 ring-gray-700 relative flex items-center justify-center p-4">
+               <img src={gameState.flagUrl} alt="Guess the Flag" className="object-contain w-full h-full drop-shadow-lg" />
+            </div>
+          )}
+
+          {/* Results phase flag and choices */}
+          {(gameState.state === 'round_result' || gameState.state === 'game_over') ? (
+            <div className="w-full flex flex-col items-center gap-6">
+              <div className="w-full max-w-sm aspect-video bg-gray-950 rounded-xl overflow-hidden shadow-xl ring-4 ring-emerald-500/50 relative flex items-center justify-center p-4 mb-4">
+                 <img src={gameState.flagUrl || ""} alt="Correct Flag" className="object-contain w-full h-full drop-shadow-lg" />
+              </div>
+
+              <div className="w-full bg-gray-900 rounded-xl p-6 text-center border border-gray-700 shadow-inner">
+                <p className="text-gray-400 text-sm mb-2 uppercase tracking-wide">The correct answer was</p>
+                <p className="text-4xl font-iosevka-bold text-emerald-400 drop-shadow-md">{gameState.correctCountry}</p>
+              </div>
+
+              <div className="flex w-full justify-between items-center gap-4 mt-4">
+                <div className="w-1/2 bg-gray-900 p-4 rounded-xl border border-gray-700 text-center">
+                  <p className="text-gray-500 text-xs uppercase mb-2">You Guessed</p>
+                  <p className={`text-xl font-iosevka-medium ${me?.currentGuess === gameState.correctCountry ? 'text-emerald-400' : 'text-red-400 line-through decoration-2'}`}>
+                    {me?.currentGuess || "Nothing"}
+                  </p>
+                </div>
+                <div className="w-1/2 bg-gray-900 p-4 rounded-xl border border-gray-700 text-center">
+                  <p className="text-gray-500 text-xs uppercase mb-2">Opponent Guessed</p>
+                  <p className={`text-xl font-iosevka-medium ${opp?.currentGuess === gameState.correctCountry ? 'text-emerald-400' : 'text-red-400 line-through decoration-2'}`}>
+                    {opp?.currentGuess || "Nothing"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 w-full mt-4">
+              {gameState.options.map(option => (
+                <button
+                  key={option}
+                  disabled={me?.hasGuessed}
+                  onClick={() => submitGuess(option)}
+                  className={`py-6 px-4 text-xl rounded-xl transition-all font-iosevka-medium ${localChoice === option
+                      ? 'bg-orange-600 border-2 border-orange-400 scale-[1.02] shadow-[0_0_15px_rgba(249,115,22,0.4)]'
+                      : 'bg-gray-700 hover:bg-gray-600 border border-transparent hover:border-gray-500'
+                    } ${me?.hasGuessed && localChoice !== option ? 'opacity-30' : ''}`}
+                >
+                  <span className="truncate block w-full text-center">{option}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -14,16 +14,16 @@ export default function HubMenu() {
       id: "rock-paper-scissors",
       title: "Rock-Paper-Scissors",
       description: "A mental battle of hidden choices and commitments.",
-      status: "coming_soon",
-      href: "#",
+      status: "active",
+      href: "/games/rock-paper-scissors",
       color: "from-purple-500 to-pink-600"
     },
     {
       id: "guess-the-flag",
       title: "Guess the Flag PvP",
       description: "High-speed geographical trivia against live opponents.",
-      status: "coming_soon",
-      href: "#",
+      status: "active",
+      href: "/games/guess-the-flag",
       color: "from-orange-500 to-red-600"
     }
   ];

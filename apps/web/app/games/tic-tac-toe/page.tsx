@@ -15,6 +15,8 @@ interface GameState {
 export default function Home() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [socketId, setSocketId] = useState<string | null>(null);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState(false);
   
   const [board, setBoard] = useState<PlayerMark[]>(Array(9).fill(null));
   const [currentPlayer, setCurrentPlayer] = useState<PlayerMark>('X');
@@ -27,13 +29,34 @@ export default function Home() {
 
     s.on("connect", () => {
       setSocketId(s.id || null);
+      s.emit("joinMatchmaking");
+    });
+
+    s.on("matchFound", ({ roomId }) => {
+      setRoomId(roomId);
+      s.emit("joinRoom", roomId);
+    });
+
+    s.on("waitingForOpponent", () => {
+      setWaiting(true);
     });
 
     s.on("gameState", (state: GameState) => {
+      setWaiting(false);
       setBoard(state.board);
       setCurrentPlayer(state.currentPlayer);
       setWinner(state.winner);
       if (state.yourMark) setYourMark(state.yourMark);
+    });
+
+    s.on("opponentDisconnected", () => {
+      alert("Opponent disconnected!");
+      setRoomId(null);
+      setWaiting(false);
+      setBoard(Array(9).fill(null));
+      setWinner(null);
+      setYourMark(null);
+      s.emit("joinMatchmaking");
     });
 
     s.on("disconnect", () => {
@@ -46,21 +69,34 @@ export default function Home() {
   }, []);
 
   const handleMove = (index: number) => {
-    if (socket && !board[index] && !winner && currentPlayer === yourMark) {
+    if (socket && roomId && !board[index] && !winner && currentPlayer === yourMark) {
       // Optimistic update
       const newBoard = [...board];
       newBoard[index] = yourMark;
       setBoard(newBoard);
       
-      socket.emit('makeMove', index);
+      socket.emit('makeMove', { roomId, index });
     }
   };
 
   const resetGame = () => {
     if (socket) {
-      socket.emit('reset');
+      setRoomId(null);
+      setWaiting(false);
+      setBoard(Array(9).fill(null));
+      setWinner(null);
+      setYourMark(null);
+      socket.emit('joinMatchmaking');
     }
   };
+
+  if (!roomId || waiting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white font-sans text-2xl">
+        {!socketId ? "Connecting to Socket Hub..." : (waiting ? "Waiting for opposing player to join room..." : "Searching for an opponent in Matchmaking...")}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-sans">

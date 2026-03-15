@@ -4,14 +4,30 @@ export class TicTacToeLogic {
   board: PlayerMark[];
   currentPlayer: PlayerMark;
   winner: PlayerMark | 'Draw';
+  players: Map<string, PlayerMark>;
   
   constructor() {
     this.board = Array(9).fill(null);
     this.currentPlayer = 'X';
     this.winner = null;
+    this.players = new Map();
   }
 
-  makeMove(index: number, playerMark: PlayerMark): boolean {
+  addPlayer(id: string): PlayerMark | null {
+    if (this.players.size >= 2 || this.players.has(id)) return null;
+    const mark: PlayerMark = this.players.size === 0 ? 'X' : 'O';
+    this.players.set(id, mark);
+    return mark;
+  }
+
+  removePlayer(id: string) {
+    this.players.delete(id);
+  }
+
+  makeMove(id: string, index: number): boolean {
+    const playerMark = this.players.get(id);
+    if (!playerMark) return false;
+
     if (this.winner || this.board[index] || playerMark !== this.currentPlayer) {
       return false; // Invalid move
     }
@@ -50,5 +66,13 @@ export class TicTacToeLogic {
     this.board = Array(9).fill(null);
     this.currentPlayer = 'X';
     this.winner = null;
+  }
+
+  getPublicState() {
+    return {
+      board: this.board,
+      currentPlayer: this.currentPlayer,
+      winner: this.winner
+    };
   }
 }

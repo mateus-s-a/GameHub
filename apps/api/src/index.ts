@@ -4,7 +4,25 @@ import { Server, Socket } from "socket.io";
 import cors from "cors";
 import { TicTacToeLogic, PlayerMark } from "@gameshub/tic-tac-toe";
 import { RPSLogic, RPSChoice } from "@gameshub/rock-paper-scissors";
+import { GuessTheFlagLogic, GTFCountry } from "@gameshub/guess-the-flag";
 import { randomUUID } from "crypto";
+
+// Load countries
+let allCountries: GTFCountry[] = [];
+async function loadCountries() {
+  try {
+    const res = await fetch("https://restcountries.com/v3.1/all?fields=name,flags");
+    const data = await res.json();
+    allCountries = data.map((c: any) => ({
+      name: c.name.common,
+      flagUrl: c.flags.svg || c.flags.png
+    }));
+    console.log(`Loaded ${allCountries.length} countries for Guess the Flag`);
+  } catch (error) {
+    console.error("Failed to load countries:", error);
+  }
+}
+loadCountries();
 
 const app = express();
 app.use(cors());
@@ -61,10 +79,9 @@ function leaveQueue(socketId: string) {
   }
 }
 
-// --- Tic-Tac-Toe Namespace ---
 const tttNamespace = io.of('/ttt');
 const tttGames = new Map<string, TicTacToeLogic>();
-const tttPlayers = new Map<string, PlayerMark>();
+const tttSocketRooms = new Map<string, string>();
 
 tttNamespace.on('connection', (socket: Socket) => {
   console.log('A user connected to Tic-Tac-Toe:', socket.id);
@@ -80,38 +97,48 @@ tttNamespace.on('connection', (socket: Socket) => {
     const game = tttGames.get(roomId);
     if (!game) return;
 
+    tttSocketRooms.set(socket.id, roomId);
+    game.addPlayer(socket.id);
+
     const roomClients = tttNamespace.adapter.rooms.get(roomId);
     if (roomClients?.size === 1) {
-      tttPlayers.set(socket.id, 'X');
-    } else {
-      tttPlayers.set(socket.id, 'O');
+      socket.emit('waitingForOpponent');
+    } else if (roomClients?.size === 2) {
+      // Both are here, send state to each with their mark
+      for (const clientId of roomClients) {
+        const clientSocket = tttNamespace.sockets.get(clientId);
+        if (clientSocket) {
+          clientSocket.emit('gameState', {
+            ...game.getPublicState(),
+            yourMark: game.players.get(clientId)
+          });
+        }
+      }
     }
-
-    socket.emit('gameState', {
-      board: game.board,
-      currentPlayer: game.currentPlayer,
-      winner: game.winner,
-      yourMark: tttPlayers.get(socket.id)
-    });
   });
 
   socket.on('makeMove', ({ roomId, index }: { roomId: string, index: number }) => {
     const game = tttGames.get(roomId);
-    const mark = tttPlayers.get(socket.id);
-    if (!game || !mark) return;
+    if (!game) return;
 
-    if (game.makeMove(index, mark)) {
-      tttNamespace.to(roomId).emit('gameState', {
-        board: game.board,
-        currentPlayer: game.currentPlayer,
-        winner: game.winner
-      });
+    if (game.makeMove(socket.id, index)) {
+      tttNamespace.to(roomId).emit('gameState', game.getPublicState());
     }
   });
 
   socket.on('disconnect', () => {
     leaveQueue(socket.id);
-    tttPlayers.delete(socket.id);
+
+    const roomId = tttSocketRooms.get(socket.id);
+    if (roomId) {
+      const game = tttGames.get(roomId);
+      if (game) {
+        game.removePlayer(socket.id);
+      }
+      tttSocketRooms.delete(socket.id);
+      tttNamespace.to(roomId).emit('opponentDisconnected');
+      tttGames.delete(roomId);
+    }
   });
 });
 
@@ -168,6 +195,106 @@ rpsNamespace.on('connection', (socket: Socket) => {
     }
   });
 });
+
+// --- Guess the Flag Namespace ---
+const gtfNamespace = io.of('/gtf');
+const gtfGames = new Map<string, GuessTheFlagLogic>();
+
+gtfNamespace.on('connection', (socket: Socket) => {
+  console.log('A user connected to Guess the Flag:', socket.id);
+
+  socket.on('joinMatchmaking', () => {
+    joinQueue(socket, 'gtf', gtfNamespace, (roomId) => {
+      gtfGames.set(roomId, new GuessTheFlagLogic(5));
+    });
+  });
+
+  socket.on('joinRoom', (roomId: string) => {
+    socket.join(roomId);
+    const game = gtfGames.get(roomId);
+    if (!game) return;
+
+    game.addPlayer(socket.id);
+    gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
+
+    // When 2 players join, state becomes guessing_phase. Start a round.
+    if (game.state === 'guessing_phase' && game.players.size === 2 && !game.currentCountry) {
+      startGTFRound(roomId, game);
+    }
+  });
+
+  socket.on('submitGuess', ({ roomId, guess }: { roomId: string, guess: string }) => {
+    const game = gtfGames.get(roomId);
+    if (!game) return;
+
+    if (game.submitGuess(socket.id, guess)) {
+      gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
+
+      if (game.state === 'round_result') {
+        setTimeout(() => {
+          game.nextRound();
+          if (game.state === 'guessing_phase') {
+            startGTFRound(roomId, game);
+          } else if (game.state === 'game_over') {
+            gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
+          }
+        }, 5000); // 5 second break between rounds
+      }
+    }
+  });
+
+  socket.on('disconnect', () => {
+    leaveQueue(socket.id);
+    for (const [roomId, game] of gtfGames.entries()) {
+      if (game.players.has(socket.id)) {
+        game.removePlayer(socket.id);
+        gtfNamespace.to(roomId).emit('opponentDisconnected');
+        gtfGames.delete(roomId);
+      }
+    }
+  });
+});
+
+function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
+  if (allCountries.length < 4) return;
+  
+  // Pick 4 random distinct countries
+  const options: GTFCountry[] = [];
+  while (options.length < 4) {
+    const pick = allCountries[Math.floor(Math.random() * allCountries.length)];
+    if (!pick) continue;
+    if (!options.find((o) => o.name === pick.name)) {
+      options.push(pick);
+    }
+  }
+
+  // Pick one as the correct answer
+  const correct = options[Math.floor(Math.random() * options.length)];
+  if (!correct) return;
+  
+  game.startRound(correct, options.map(o => o.name));
+  gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
+
+  // Set a 15-second timer
+  setTimeout(() => {
+    // Need to cast to any or access property to prevent TS from narrowing state incorrectly across method calls
+    if ((game as any).state === 'guessing_phase' && game.currentCountry?.name === correct.name) {
+      game.timeoutRound();
+      gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
+      
+      if ((game as any).state === 'round_result') {
+        setTimeout(() => {
+          game.nextRound();
+          if ((game as any).state === 'guessing_phase') {
+            startGTFRound(roomId, game);
+          } else if ((game as any).state === 'game_over') {
+            gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
+          }
+        }, 5000);
+      }
+    }
+  }, 15000);
+}
 
 app.get("/", (req, res) => {
   res.send("GamesHub API is running");
