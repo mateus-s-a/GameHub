@@ -12,6 +12,7 @@ interface GameState {
   flagUrl: string | null;
   options: string[];
   correctCountry: string | null;
+  rematchRequests?: string[];
 }
 
 export default function GuessTheFlagGame() {
@@ -20,6 +21,7 @@ export default function GuessTheFlagGame() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [localChoice, setLocalChoice] = useState<string | null>(null);
+  const [rematchRequested, setRematchRequested] = useState(false);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/gtf");
@@ -42,10 +44,15 @@ export default function GuessTheFlagGame() {
       }
     });
 
+    s.on("rematchStarted", () => {
+      setRematchRequested(false);
+    });
+
     s.on("opponentDisconnected", () => {
       alert("Opponent disconnected!");
       setRoomId(null);
       setGameState(null);
+      setRematchRequested(false);
       s.emit("joinMatchmaking");
     });
 
@@ -56,6 +63,23 @@ export default function GuessTheFlagGame() {
     if (socket && roomId && gameState?.state === 'guessing_phase') {
       setLocalChoice(guess);
       socket.emit("submitGuess", { roomId, guess });
+    }
+  };
+
+  const requestRematch = () => {
+    if (socket && roomId) {
+      setRematchRequested(true);
+      socket.emit('requestRematch', roomId);
+    }
+  };
+
+  const playAgain = () => {
+    if (socket && roomId) {
+      socket.emit('leaveRoom', roomId);
+      setRoomId(null);
+      setGameState(null);
+      setRematchRequested(false);
+      socket.emit('joinMatchmaking');
     }
   };
 
@@ -155,6 +179,31 @@ export default function GuessTheFlagGame() {
             </div>
           )}
         </div>
+
+        {/* End Game Options */}
+        {gameState.state === 'game_over' && (
+          <div className="w-full flex flex-col gap-3 mt-6">
+            <button
+              onClick={requestRematch}
+              disabled={rematchRequested}
+              className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg transition-all
+                ${rematchRequested 
+                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed border outline-none border-gray-600'
+                  : 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 hover:shadow-xl active:scale-95 text-white'}`}
+            >
+              {rematchRequested 
+                ? "Waiting for Opponent..." 
+                : (gameState.rematchRequests?.find(id => id !== socketId) ? "Accept Rematch" : "Request Rematch")}
+            </button>
+            <button
+              onClick={playAgain}
+              className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all active:scale-95"
+            >
+              Play New Opponent
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );

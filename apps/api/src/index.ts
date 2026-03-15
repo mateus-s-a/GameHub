@@ -126,6 +126,48 @@ tttNamespace.on('connection', (socket: Socket) => {
     }
   });
 
+  socket.on('requestRematch', (roomId: string) => {
+    const game = tttGames.get(roomId);
+    if (!game) return;
+
+    if (game.requestRematch(socket.id)) {
+      // Both want a rematch!
+      game.reset();
+      tttNamespace.to(roomId).emit('rematchStarted');
+      tttNamespace.to(roomId).emit('gameState', {
+        ...game.getPublicState(),
+        yourMark: null // Tell clients to reuse their known marks if they want, but here we just broad cast public state
+      });
+      // Actually we should re-emit properly
+      const roomClients = tttNamespace.adapter.rooms.get(roomId);
+      if (roomClients) {
+        for (const clientId of roomClients) {
+          const clientSocket = tttNamespace.sockets.get(clientId);
+          if (clientSocket) {
+            clientSocket.emit('gameState', {
+              ...game.getPublicState(),
+              yourMark: game.players.get(clientId)
+            });
+          }
+        }
+      }
+    } else {
+      // Just one so far
+      tttNamespace.to(roomId).emit('gameState', game.getPublicState());
+    }
+  });
+
+  socket.on('leaveRoom', (roomId: string) => {
+    const game = tttGames.get(roomId);
+    if (game) {
+      game.removePlayer(socket.id);
+      socket.leave(roomId);
+      tttSocketRooms.delete(socket.id);
+      tttNamespace.to(roomId).emit('opponentDisconnected');
+      tttGames.delete(roomId);
+    }
+  });
+
   socket.on('disconnect', () => {
     leaveQueue(socket.id);
 
@@ -179,6 +221,29 @@ rpsNamespace.on('connection', (socket: Socket) => {
           rpsNamespace.to(roomId).emit('gameState', game.getPublicState());
         }, 3000);
       }
+    }
+  });
+
+  socket.on('requestRematch', (roomId: string) => {
+    const game = rpsGames.get(roomId);
+    if (!game) return;
+
+    if (game.requestRematch(socket.id)) {
+      game.reset();
+      rpsNamespace.to(roomId).emit('rematchStarted');
+      rpsNamespace.to(roomId).emit('gameState', game.getPublicState());
+    } else {
+      rpsNamespace.to(roomId).emit('gameState', game.getPublicState());
+    }
+  });
+
+  socket.on('leaveRoom', (roomId: string) => {
+    const game = rpsGames.get(roomId);
+    if (game) {
+      game.removePlayer(socket.id);
+      socket.leave(roomId);
+      rpsNamespace.to(roomId).emit('opponentDisconnected');
+      rpsGames.delete(roomId);
     }
   });
 
@@ -240,6 +305,29 @@ gtfNamespace.on('connection', (socket: Socket) => {
           }
         }, 5000); // 5 second break between rounds
       }
+    }
+  });
+
+  socket.on('requestRematch', (roomId: string) => {
+    const game = gtfGames.get(roomId);
+    if (!game) return;
+
+    if (game.requestRematch(socket.id)) {
+      game.reset();
+      gtfNamespace.to(roomId).emit('rematchStarted');
+      startGTFRound(roomId, game); // Start new round automatically
+    } else {
+      gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
+    }
+  });
+
+  socket.on('leaveRoom', (roomId: string) => {
+    const game = gtfGames.get(roomId);
+    if (game) {
+      game.removePlayer(socket.id);
+      socket.leave(roomId);
+      gtfNamespace.to(roomId).emit('opponentDisconnected');
+      gtfGames.delete(roomId);
     }
   });
 

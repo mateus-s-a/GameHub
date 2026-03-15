@@ -19,6 +19,7 @@ export class GuessTheFlagLogic {
   players: Map<string, GTFPlayer>;
   maxRounds: number;
   currentRound: number;
+  rematchRequests: Set<string>;
   
   // The current correct country flag and name
   currentCountry: GTFCountry | null = null;
@@ -30,6 +31,7 @@ export class GuessTheFlagLogic {
     this.players = new Map();
     this.maxRounds = maxRounds;
     this.currentRound = 1;
+    this.rematchRequests = new Set();
   }
 
   addPlayer(id: string): boolean {
@@ -44,7 +46,27 @@ export class GuessTheFlagLogic {
 
   removePlayer(id: string) {
     this.players.delete(id);
+    this.rematchRequests.delete(id);
     this.state = 'waiting_players';
+  }
+
+  requestRematch(id: string): boolean {
+    if (!this.players.has(id)) return false;
+    this.rematchRequests.add(id);
+    return this.rematchRequests.size === 2;
+  }
+
+  reset() {
+    this.state = 'waiting_players';
+    this.currentRound = 1;
+    this.currentCountry = null;
+    this.currentOptions = [];
+    this.rematchRequests.clear();
+    for (const player of this.players.values()) {
+      player.hasGuessed = false;
+      player.currentGuess = null;
+      player.score = 0;
+    }
   }
 
   startRound(country: GTFCountry, options: string[]) {
@@ -114,6 +136,7 @@ export class GuessTheFlagLogic {
         // Only reveal guesses in result or game over phase, to prevent cheating
         currentGuess: (this.state === 'round_result' || this.state === 'game_over') ? p.currentGuess : null
       })),
+      rematchRequests: Array.from(this.rematchRequests),
       flagUrl: this.currentCountry?.flagUrl || null,
       options: this.currentOptions,
       // Only reveal the correct country name in the result state

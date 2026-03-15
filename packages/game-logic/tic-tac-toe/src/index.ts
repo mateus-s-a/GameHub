@@ -5,12 +5,14 @@ export class TicTacToeLogic {
   currentPlayer: PlayerMark;
   winner: PlayerMark | 'Draw';
   players: Map<string, PlayerMark>;
+  rematchRequests: Set<string>;
   
   constructor() {
     this.board = Array(9).fill(null);
     this.currentPlayer = 'X';
     this.winner = null;
     this.players = new Map();
+    this.rematchRequests = new Set();
   }
 
   addPlayer(id: string): PlayerMark | null {
@@ -22,6 +24,13 @@ export class TicTacToeLogic {
 
   removePlayer(id: string) {
     this.players.delete(id);
+    this.rematchRequests.delete(id);
+  }
+
+  requestRematch(id: string): boolean {
+    if (!this.players.has(id)) return false;
+    this.rematchRequests.add(id);
+    return this.rematchRequests.size === 2; // Returns true if both want a rematch
   }
 
   makeMove(id: string, index: number): boolean {
@@ -66,13 +75,16 @@ export class TicTacToeLogic {
     this.board = Array(9).fill(null);
     this.currentPlayer = 'X';
     this.winner = null;
+    this.rematchRequests.clear();
   }
 
   getPublicState() {
     return {
       board: this.board,
       currentPlayer: this.currentPlayer,
-      winner: this.winner
+      winner: this.winner,
+      players: Array.from(this.players.entries()).map(([id, mark]) => ({ id, mark })),
+      rematchRequests: Array.from(this.rematchRequests)
     };
   }
 }

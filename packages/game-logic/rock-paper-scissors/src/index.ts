@@ -14,6 +14,7 @@ export class RPSLogic {
   maxRounds: number;
   currentRound: number;
   private timer: NodeJS.Timeout | null = null;
+  rematchRequests: Set<string>;
   
   constructor(maxRounds = 3) {
     this.state = 'waiting_players';
@@ -21,6 +22,7 @@ export class RPSLogic {
     this.commitments = new Map();
     this.maxRounds = maxRounds;
     this.currentRound = 1;
+    this.rematchRequests = new Set();
   }
 
   addPlayer(id: string): boolean {
@@ -36,8 +38,26 @@ export class RPSLogic {
   removePlayer(id: string) {
     this.players.delete(id);
     this.commitments.delete(id);
+    this.rematchRequests.delete(id);
     this.state = 'waiting_players';
     if (this.timer) clearTimeout(this.timer);
+  }
+
+  requestRematch(id: string): boolean {
+    if (!this.players.has(id)) return false;
+    this.rematchRequests.add(id);
+    return this.rematchRequests.size === 2;
+  }
+
+  reset() {
+    this.state = 'commit_phase';
+    this.currentRound = 1;
+    this.commitments.clear();
+    this.rematchRequests.clear();
+    for (const player of this.players.values()) {
+      player.hasCommitted = false;
+      player.score = 0;
+    }
   }
 
   commitChoice(playerId: string, choice: RPSChoice): boolean {
@@ -108,6 +128,7 @@ export class RPSLogic {
       maxRounds: this.maxRounds,
       // Do NOT send the commitments if in commit_phase to prevent cheating
       players: Array.from(this.players.values()),
+      rematchRequests: Array.from(this.rematchRequests),
       ...(this.state === 'reveal_phase' || this.state === 'game_over' 
            ? { choices: Object.fromEntries(this.commitments) } 
            : {})

@@ -9,6 +9,8 @@ interface GameState {
   board: PlayerMark[];
   currentPlayer: PlayerMark;
   winner: PlayerMark | 'Draw';
+  players: { id: string, mark: PlayerMark }[];
+  rematchRequests?: string[];
   yourMark?: PlayerMark;
 }
 
@@ -17,11 +19,14 @@ export default function Home() {
   const [socketId, setSocketId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
+  const [rematchRequested, setRematchRequested] = useState(false);
   
   const [board, setBoard] = useState<PlayerMark[]>(Array(9).fill(null));
   const [currentPlayer, setCurrentPlayer] = useState<PlayerMark>('X');
   const [winner, setWinner] = useState<PlayerMark | 'Draw'>(null);
   const [yourMark, setYourMark] = useState<PlayerMark>(null);
+  const [players, setPlayers] = useState<{ id: string, mark: PlayerMark }[]>([]);
+  const [rematchRequests, setRematchRequests] = useState<string[]>([]);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/ttt");
@@ -46,16 +51,23 @@ export default function Home() {
       setBoard(state.board);
       setCurrentPlayer(state.currentPlayer);
       setWinner(state.winner);
+      setPlayers(state.players || []);
+      setRematchRequests(state.rematchRequests || []);
       if (state.yourMark) setYourMark(state.yourMark);
     });
 
+    s.on("rematchStarted", () => {
+      setRematchRequested(false);
+    });
+
     s.on("opponentDisconnected", () => {
-      alert("Opponent disconnected!");
+      alert("Opponent left the room.");
       setRoomId(null);
       setWaiting(false);
       setBoard(Array(9).fill(null));
       setWinner(null);
       setYourMark(null);
+      setRematchRequested(false);
       s.emit("joinMatchmaking");
     });
 
@@ -79,13 +91,22 @@ export default function Home() {
     }
   };
 
-  const resetGame = () => {
-    if (socket) {
+  const requestRematch = () => {
+    if (socket && roomId) {
+      setRematchRequested(true);
+      socket.emit('requestRematch', roomId);
+    }
+  };
+
+  const playAgain = () => {
+    if (socket && roomId) {
+      socket.emit('leaveRoom', roomId);
       setRoomId(null);
       setWaiting(false);
       setBoard(Array(9).fill(null));
       setWinner(null);
       setYourMark(null);
+      setRematchRequested(false);
       socket.emit('joinMatchmaking');
     }
   };
@@ -157,14 +178,28 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Reset Button */}
+        {/* End Game Options */}
         {winner && (
-          <button
-            onClick={resetGame}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all active:scale-95"
-          >
-            Play Again
-          </button>
+          <div className="w-full flex flex-col gap-3 mt-6">
+            <button
+              onClick={requestRematch}
+              disabled={rematchRequested}
+              className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg transition-all
+                ${rematchRequested 
+                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed border outline-none border-gray-600'
+                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-xl active:scale-95 text-white'}`}
+            >
+              {rematchRequested 
+                ? "Waiting for Opponent..." 
+                : (rematchRequests.find(id => id !== socketId) ? "Accept Rematch" : "Request Rematch")}
+            </button>
+            <button
+              onClick={playAgain}
+              className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all active:scale-95"
+            >
+              Play New Opponent
+            </button>
+          </div>
         )}
       </div>
     </div>
