@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { GTFRoundState, GTFPlayer } from "@gameshub/guess-the-flag";
+import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
+import TimerDisplay from "../../components/TimerDisplay";
 
 interface GameState {
   state: GTFRoundState;
@@ -13,6 +15,9 @@ interface GameState {
   options: string[];
   correctCountry: string | null;
   rematchRequests?: string[];
+  timeLimit?: number;
+  turnEndTime?: number | null;
+  region?: string;
 }
 
 export default function GuessTheFlagGame() {
@@ -22,6 +27,7 @@ export default function GuessTheFlagGame() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [localChoice, setLocalChoice] = useState<string | null>(null);
   const [rematchRequested, setRematchRequested] = useState(false);
+  const [setupNeeded, setSetupNeeded] = useState(false);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/gtf");
@@ -29,7 +35,13 @@ export default function GuessTheFlagGame() {
 
     s.on("connect", () => {
       setSocketId(s.id || null);
-      s.emit("joinMatchmaking");
+      s.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          s.emit("joinMatchmaking");
+        } else {
+          setSetupNeeded(true);
+        }
+      });
     });
 
     s.on("matchFound", ({ roomId }) => {
@@ -53,7 +65,13 @@ export default function GuessTheFlagGame() {
       setRoomId(null);
       setGameState(null);
       setRematchRequested(false);
-      s.emit("joinMatchmaking");
+      s.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          s.emit("joinMatchmaking");
+        } else {
+          setSetupNeeded(true);
+        }
+      });
     });
 
     return () => { s.disconnect(); };
@@ -79,9 +97,30 @@ export default function GuessTheFlagGame() {
       setRoomId(null);
       setGameState(null);
       setRematchRequested(false);
-      socket.emit('joinMatchmaking');
+      socket.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          socket.emit("joinMatchmaking");
+        } else {
+          setSetupNeeded(true);
+        }
+      });
     }
   };
+
+  const handleStartGame = (config: GameSetupConfig) => {
+    if (socket) {
+      socket.emit("joinMatchmaking", config);
+      setSetupNeeded(false);
+    }
+  };
+
+  if (setupNeeded && !roomId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 border-8 border-gray-800">
+        <GameSetup onStart={handleStartGame} gameId="gtf" />
+      </div>
+    );
+  }
 
   if (!roomId || !gameState) {
     return (
@@ -124,6 +163,10 @@ export default function GuessTheFlagGame() {
           {gameState.state === 'round_result' && <span className="text-yellow-400 font-iosevka-bold text-2xl drop-shadow-md">Round Over!</span>}
           {gameState.state === 'game_over' && <span className="text-emerald-400 font-iosevka-bold text-2xl drop-shadow-md">Game Over!</span>}
         </div>
+
+        {gameState.state === 'guessing_phase' && !me?.hasGuessed && (
+          <TimerDisplay turnEndTime={gameState.turnEndTime || null} />
+        )}
 
         {/* Battle Arena */}
         <div className="flex flex-col items-center justify-center w-full max-w-2xl gap-8">

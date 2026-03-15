@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { RPSChoice, RoundState, PlayerState } from "@gameshub/rock-paper-scissors";
+import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
+import TimerDisplay from "../../components/TimerDisplay";
 
 interface GameState {
   state: RoundState;
@@ -11,6 +13,8 @@ interface GameState {
   players: PlayerState[];
   choices?: Record<string, RPSChoice>;
   rematchRequests?: string[];
+  timeLimit?: number;
+  turnEndTime?: number | null;
 }
 
 export default function RPSGame() {
@@ -20,6 +24,7 @@ export default function RPSGame() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [localChoice, setLocalChoice] = useState<RPSChoice | null>(null);
   const [rematchRequested, setRematchRequested] = useState(false);
+  const [setupNeeded, setSetupNeeded] = useState(false);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/rps");
@@ -27,7 +32,13 @@ export default function RPSGame() {
 
     s.on("connect", () => {
       setSocketId(s.id || null);
-      s.emit("joinMatchmaking");
+      s.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          s.emit("joinMatchmaking");
+        } else {
+          setSetupNeeded(true);
+        }
+      });
     });
 
     s.on("matchFound", ({ roomId }) => {
@@ -51,7 +62,13 @@ export default function RPSGame() {
       setRoomId(null);
       setGameState(null);
       setRematchRequested(false);
-      s.emit("joinMatchmaking"); // auto requeue for MVP
+      s.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          s.emit("joinMatchmaking");
+        } else {
+          setSetupNeeded(true);
+        }
+      });
     });
 
     return () => { s.disconnect(); };
@@ -77,9 +94,30 @@ export default function RPSGame() {
       setRoomId(null);
       setGameState(null);
       setRematchRequested(false);
-      socket.emit('joinMatchmaking');
+      socket.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          socket.emit("joinMatchmaking");
+        } else {
+          setSetupNeeded(true);
+        }
+      });
     }
   };
+
+  const handleStartGame = (config: GameSetupConfig) => {
+    if (socket) {
+      socket.emit("joinMatchmaking", config);
+      setSetupNeeded(false);
+    }
+  };
+
+  if (setupNeeded && !roomId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 border-8 border-gray-800">
+        <GameSetup onStart={handleStartGame} gameId="rps" />
+      </div>
+    );
+  }
 
   if (!roomId || !gameState) {
     return (
@@ -122,6 +160,10 @@ export default function RPSGame() {
           {gameState.state === 'reveal_phase' && <span className="text-yellow-400 font-iosevka-bold">Revealing Choices...</span>}
           {gameState.state === 'game_over' && <span className="text-emerald-400 font-iosevka-bold">Game Over!</span>}
         </div>
+
+        {gameState.state === 'commit_phase' && !me?.hasCommitted && (
+          <TimerDisplay turnEndTime={gameState.turnEndTime || null} />
+        )}
 
         {/* Battle Arena */}
         {gameState.state === 'reveal_phase' || gameState.state === 'game_over' ? (

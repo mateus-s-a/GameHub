@@ -1,5 +1,10 @@
 export type PlayerMark = 'X' | 'O' | null;
 
+export interface TTTConfig {
+  maxRounds?: number;
+  timeLimit?: number; // 0 means unlimited
+}
+
 export class TicTacToeLogic {
   board: PlayerMark[];
   currentPlayer: PlayerMark;
@@ -7,12 +12,24 @@ export class TicTacToeLogic {
   players: Map<string, PlayerMark>;
   rematchRequests: Set<string>;
   
-  constructor() {
+  maxRounds: number;
+  currentRound: number;
+  timeLimit: number;
+  turnEndTime: number | null;
+  scores: Record<'X' | 'O', number>;
+  
+  constructor(config?: TTTConfig) {
     this.board = Array(9).fill(null);
     this.currentPlayer = 'X';
     this.winner = null;
     this.players = new Map();
     this.rematchRequests = new Set();
+
+    this.maxRounds = config?.maxRounds || 1;
+    this.timeLimit = config?.timeLimit || 0;
+    this.currentRound = 1;
+    this.turnEndTime = null;
+    this.scores = { 'X': 0, 'O': 0 };
   }
 
   addPlayer(id: string): PlayerMark | null {
@@ -33,6 +50,14 @@ export class TicTacToeLogic {
     return this.rematchRequests.size === 2; // Returns true if both want a rematch
   }
 
+  startTurnTimer() {
+    if (this.timeLimit > 0) {
+      this.turnEndTime = Date.now() + this.timeLimit * 1000;
+    } else {
+      this.turnEndTime = null;
+    }
+  }
+
   makeMove(id: string, index: number): boolean {
     const playerMark = this.players.get(id);
     if (!playerMark) return false;
@@ -46,6 +71,9 @@ export class TicTacToeLogic {
     
     if (!this.winner) {
       this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
+      this.startTurnTimer();
+    } else if (this.winner !== 'Draw') {
+      this.scores[this.winner as 'X' | 'O']++;
     }
     
     return true;
@@ -71,11 +99,22 @@ export class TicTacToeLogic {
     }
   }
 
+  nextRound() {
+    this.board = Array(9).fill(null);
+    // Alternate starting player each round
+    this.currentPlayer = this.currentRound % 2 === 0 ? 'X' : 'O';
+    this.winner = null;
+    this.turnEndTime = null;
+  }
+
   reset() {
     this.board = Array(9).fill(null);
     this.currentPlayer = 'X';
     this.winner = null;
     this.rematchRequests.clear();
+    this.currentRound = 1;
+    this.scores = { 'X': 0, 'O': 0 };
+    this.turnEndTime = null;
   }
 
   getPublicState() {
@@ -84,7 +123,12 @@ export class TicTacToeLogic {
       currentPlayer: this.currentPlayer,
       winner: this.winner,
       players: Array.from(this.players.entries()).map(([id, mark]) => ({ id, mark })),
-      rematchRequests: Array.from(this.rematchRequests)
+      rematchRequests: Array.from(this.rematchRequests),
+      maxRounds: this.maxRounds,
+      currentRound: this.currentRound,
+      timeLimit: this.timeLimit,
+      turnEndTime: this.turnEndTime,
+      scores: this.scores
     };
   }
 }

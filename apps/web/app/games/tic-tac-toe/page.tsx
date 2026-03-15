@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
+import TimerDisplay from "../../components/TimerDisplay";
 
 type PlayerMark = 'X' | 'O' | null;
 
@@ -11,6 +13,11 @@ interface GameState {
   winner: PlayerMark | 'Draw';
   players: { id: string, mark: PlayerMark }[];
   rematchRequests?: string[];
+  maxRounds?: number;
+  currentRound?: number;
+  timeLimit?: number;
+  turnEndTime?: number | null;
+  scores?: Record<'X' | 'O', number>;
   yourMark?: PlayerMark;
 }
 
@@ -19,6 +26,7 @@ export default function Home() {
   const [socketId, setSocketId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
+  const [setupNeeded, setSetupNeeded] = useState(false);
   const [rematchRequested, setRematchRequested] = useState(false);
   
   const [board, setBoard] = useState<PlayerMark[]>(Array(9).fill(null));
@@ -27,6 +35,8 @@ export default function Home() {
   const [yourMark, setYourMark] = useState<PlayerMark>(null);
   const [players, setPlayers] = useState<{ id: string, mark: PlayerMark }[]>([]);
   const [rematchRequests, setRematchRequests] = useState<string[]>([]);
+  const [scores, setScores] = useState<Record<'X' | 'O', number>>({ 'X': 0, 'O': 0 });
+  const [gameStateData, setGameStateData] = useState<GameState | null>(null);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/ttt");
@@ -34,7 +44,14 @@ export default function Home() {
 
     s.on("connect", () => {
       setSocketId(s.id || null);
-      s.emit("joinMatchmaking");
+      s.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          s.emit("joinMatchmaking");
+          setWaiting(true);
+        } else {
+          setSetupNeeded(true);
+        }
+      });
     });
 
     s.on("matchFound", ({ roomId }) => {
@@ -48,11 +65,14 @@ export default function Home() {
 
     s.on("gameState", (state: GameState) => {
       setWaiting(false);
+      setSetupNeeded(false);
+      setGameStateData(state);
       setBoard(state.board);
       setCurrentPlayer(state.currentPlayer);
       setWinner(state.winner);
       setPlayers(state.players || []);
       setRematchRequests(state.rematchRequests || []);
+      if (state.scores) setScores(state.scores);
       if (state.yourMark) setYourMark(state.yourMark);
     });
 
@@ -68,7 +88,14 @@ export default function Home() {
       setWinner(null);
       setYourMark(null);
       setRematchRequested(false);
-      s.emit("joinMatchmaking");
+      s.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          s.emit("joinMatchmaking");
+          setWaiting(true);
+        } else {
+          setSetupNeeded(true);
+        }
+      });
     });
 
     s.on("disconnect", () => {
@@ -107,9 +134,32 @@ export default function Home() {
       setWinner(null);
       setYourMark(null);
       setRematchRequested(false);
-      socket.emit('joinMatchmaking');
+      socket.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          socket.emit("joinMatchmaking");
+          setWaiting(true);
+        } else {
+          setSetupNeeded(true);
+        }
+      });
     }
   };
+
+  const handleStartGame = (config: GameSetupConfig) => {
+    if (socket) {
+      socket.emit("joinMatchmaking", config);
+      setSetupNeeded(false);
+      setWaiting(true);
+    }
+  };
+
+  if (setupNeeded && !roomId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 border-8 border-gray-800">
+        <GameSetup onStart={handleStartGame} gameId="ttt" />
+      </div>
+    );
+  }
 
   if (!roomId || waiting) {
     return (
@@ -139,24 +189,32 @@ export default function Home() {
           )}
         </div>
 
-        {/* Game State Messages */}
-        <div className="text-2xl font-bold mb-6 h-8">
-          {winner ? (
-            winner === 'Draw' ? (
-              <span className="text-yellow-400">It's a Draw!</span>
-            ) : (
-              <span className="text-green-400">{winner} Wins!</span>
-            )
-          ) : (
-            <span>
-              {currentPlayer === yourMark ? (
-                <span className="text-blue-400">Your Turn</span>
-              ) : (
-                <span className="text-gray-400">Waiting for {currentPlayer}...</span>
-              )}
-            </span>
-          )}
+        {/* Score & Turn System */}
+        <div className="flex justify-between items-center w-full mb-8 font-iosevka-bold">
+          <div className={`flex flex-col items-center bg-gray-800 px-6 py-4 rounded-xl border-b-4 ${currentPlayer === 'X' ? 'border-blue-500 shadow-[0_4px_15px_rgba(59,130,246,0.3)]' : 'border-gray-600'} transition-all`}>
+            {/* Player X Label */}
+            <span className="text-blue-500 text-3xl mb-1">X</span>
+            {yourMark === 'X' && <span className="text-gray-400 text-xs uppercase tracking-widest">(You)</span>}
+            <span className="text-white text-xl mt-1">Wins: {scores['X']}</span>
+          </div>
+
+          <div className="flex flex-col items-center flex-1 mx-4">
+            <span className="text-4xl text-gray-500 italic mb-2">VS</span>
+            {gameStateData?.maxRounds && <div className="text-gray-400 text-sm">Round {gameStateData.currentRound} / {gameStateData.maxRounds}</div>}
+            <div className="text-gray-400 text-sm mt-3 font-semibold text-center">
+              {winner ? (winner === 'Draw' ? 'Draw!' : `${winner} Wins!`) : currentPlayer === yourMark ? 'Your Turn' : 'Waiting...'}
+            </div>
+          </div>
+
+          <div className={`flex flex-col items-center bg-gray-800 px-6 py-4 rounded-xl border-b-4 ${currentPlayer === 'O' ? 'border-red-500 shadow-[0_4px_15px_rgba(239,68,68,0.3)]' : 'border-gray-600'} transition-all`}>
+             {/* Player O Label */}
+            <span className="text-red-500 text-3xl mb-1">O</span>
+            {yourMark === 'O' && <span className="text-gray-400 text-xs uppercase tracking-widest">(You)</span>}
+            <span className="text-white text-xl mt-1">Wins: {scores['O']}</span>
+          </div>
         </div>
+
+        {!winner && <TimerDisplay turnEndTime={gameStateData?.turnEndTime || null} />}
 
         {/* Board */}
         <div className="grid grid-cols-3 gap-3 bg-gray-700 p-3 rounded-2xl mb-8">

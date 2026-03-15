@@ -11,11 +11,12 @@ import { randomUUID } from "crypto";
 let allCountries: GTFCountry[] = [];
 async function loadCountries() {
   try {
-    const res = await fetch("https://restcountries.com/v3.1/all?fields=name,flags");
+    const res = await fetch("https://restcountries.com/v3.1/all?fields=name,flags,region");
     const data = await res.json();
     allCountries = data.map((c: any) => ({
       name: c.name.common,
-      flagUrl: c.flags.svg || c.flags.png
+      flagUrl: c.flags.svg || c.flags.png,
+      region: c.region || "Unknown"
     }));
     console.log(`Loaded ${allCountries.length} countries for Guess the Flag`);
   } catch (error) {
@@ -35,43 +36,46 @@ const io = new Server(server, {
   }
 });
 
-// --- Matchmaking Queue System ---
-const matchQueue = new Map<string, string[]>(); // gameId -> socketId[]
+interface QueueEntry {
+  socketId: string;
+  config: any;
+}
+const matchQueue = new Map<string, QueueEntry[]>(); // gameId -> QueueEntry[]
 
-function joinQueue(socket: Socket, gameId: string, namespace: ReturnType<typeof io.of>, createGameCallback: (roomId: string) => void) {
+function joinQueue(socket: Socket, gameId: string, config: any, namespace: ReturnType<typeof io.of>, createGameCallback: (roomId: string, config: any) => void) {
   if (!matchQueue.has(gameId)) matchQueue.set(gameId, []);
   
   const queue = matchQueue.get(gameId)!;
-  if (!queue.includes(socket.id)) {
-    queue.push(socket.id);
+  if (!queue.find(q => q.socketId === socket.id)) {
+    queue.push({ socketId: socket.id, config });
     console.log(`[Queue] ${socket.id} joined ${gameId} queue. Waiting: ${queue.length}`);
   }
 
   if (queue.length >= 2) {
-    const p1 = queue.shift()!;
-    const p2 = queue.shift()!;
+    const p1Entry = queue.shift()!;
+    const p2Entry = queue.shift()!;
     const roomId = randomUUID();
     
-    // Initialize game state specific to this room
-    createGameCallback(roomId);
+    // Initialize game state specific to this room using p1 config (Host)
+    createGameCallback(roomId, p1Entry.config);
 
     // Get socket instances
-    const p1Socket = namespace.sockets.get(p1);
-    const p2Socket = namespace.sockets.get(p2);
+    const p1Socket = namespace.sockets.get(p1Entry.socketId);
+    const p2Socket = namespace.sockets.get(p2Entry.socketId);
 
     if (p1Socket && p2Socket) {
       p1Socket.join(roomId);
       p2Socket.join(roomId);
       
       namespace.to(roomId).emit('matchFound', { roomId });
-      console.log(`[Matchmaking] Room ${roomId} created for ${p1} and ${p2}`);
+      console.log(`[Matchmaking] Room ${roomId} created for ${p1Entry.socketId} and ${p2Entry.socketId}`);
     }
   }
 }
 
 function leaveQueue(socketId: string) {
   for (const [gameId, queue] of matchQueue.entries()) {
-    const index = queue.indexOf(socketId);
+    const index = queue.findIndex(q => q.socketId === socketId);
     if (index !== -1) {
       queue.splice(index, 1);
       console.log(`[Queue] ${socketId} left ${gameId} queue.`);
@@ -86,9 +90,15 @@ const tttSocketRooms = new Map<string, string>();
 tttNamespace.on('connection', (socket: Socket) => {
   console.log('A user connected to Tic-Tac-Toe:', socket.id);
   
-  socket.on('joinMatchmaking', () => {
-    joinQueue(socket, 'ttt', tttNamespace, (roomId) => {
-      tttGames.set(roomId, new TicTacToeLogic());
+  socket.on('checkQueue', (callback: (hasPending: boolean) => void) => {
+    const queue = matchQueue.get('ttt');
+    callback(queue ? queue.length > 0 : false);
+  });
+
+  socket.on('joinMatchmaking', (config?: any) => {
+    joinQueue(socket, 'ttt', config || {}, tttNamespace, (roomId, hostConfig) => {
+      // Pass host config to logic
+      tttGames.set(roomId, new TicTacToeLogic(hostConfig));
     });
   });
 
@@ -191,9 +201,14 @@ const rpsGames = new Map<string, RPSLogic>();
 rpsNamespace.on('connection', (socket: Socket) => {
   console.log('A user connected to Rock-Paper-Scissors:', socket.id);
 
-  socket.on('joinMatchmaking', () => {
-    joinQueue(socket, 'rps', rpsNamespace, (roomId) => {
-      rpsGames.set(roomId, new RPSLogic(3));
+  socket.on('checkQueue', (callback: (hasPending: boolean) => void) => {
+    const queue = matchQueue.get('rps');
+    callback(queue ? queue.length > 0 : false);
+  });
+
+  socket.on('joinMatchmaking', (config?: any) => {
+    joinQueue(socket, 'rps', config || {}, rpsNamespace, (roomId, hostConfig) => {
+      rpsGames.set(roomId, new RPSLogic(hostConfig?.maxRounds || 3, hostConfig));
     });
   });
 
@@ -268,9 +283,14 @@ const gtfGames = new Map<string, GuessTheFlagLogic>();
 gtfNamespace.on('connection', (socket: Socket) => {
   console.log('A user connected to Guess the Flag:', socket.id);
 
-  socket.on('joinMatchmaking', () => {
-    joinQueue(socket, 'gtf', gtfNamespace, (roomId) => {
-      gtfGames.set(roomId, new GuessTheFlagLogic(5));
+  socket.on('checkQueue', (callback: (hasPending: boolean) => void) => {
+    const queue = matchQueue.get('gtf');
+    callback(queue ? queue.length > 0 : false);
+  });
+
+  socket.on('joinMatchmaking', (config?: any) => {
+    joinQueue(socket, 'gtf', config || {}, gtfNamespace, (roomId, hostConfig) => {
+      gtfGames.set(roomId, new GuessTheFlagLogic(hostConfig?.maxRounds || 5, hostConfig));
     });
   });
 
@@ -344,12 +364,20 @@ gtfNamespace.on('connection', (socket: Socket) => {
 });
 
 function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
-  if (allCountries.length < 4) return;
+  let pool = allCountries;
+  if (game.region && game.region !== 'All') {
+    pool = allCountries.filter(c => c.region === game.region);
+  }
+  
+  if (pool.length < 4) {
+    // Fallback if region is too small
+    pool = allCountries;
+  }
   
   // Pick 4 random distinct countries
   const options: GTFCountry[] = [];
   while (options.length < 4) {
-    const pick = allCountries[Math.floor(Math.random() * allCountries.length)];
+    const pick = pool[Math.floor(Math.random() * pool.length)];
     if (!pick) continue;
     if (!options.find((o) => o.name === pick.name)) {
       options.push(pick);
@@ -362,27 +390,67 @@ function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
   
   game.startRound(correct, options.map(o => o.name));
   gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
+}
 
-  // Set a 15-second timer
-  setTimeout(() => {
-    // Need to cast to any or access property to prevent TS from narrowing state incorrectly across method calls
-    if ((game as any).state === 'guessing_phase' && game.currentCountry?.name === correct.name) {
+// Global Matchmaking Game Loop Enforcer
+setInterval(() => {
+  const now = Date.now();
+  
+  // Check TicTacToe
+  for (const [roomId, game] of tttGames.entries()) {
+    if (game.turnEndTime && now >= game.turnEndTime && !game.winner) {
+      const emptyIndices = game.board.map((v, i) => v === null ? i : -1).filter(i => i !== -1);
+      if (emptyIndices.length > 0) {
+        const randomObj = emptyIndices[Math.floor(Math.random() * emptyIndices.length)] as number;
+        const currentPlayerId = Array.from(game.players.entries()).find(([id, mark]) => mark === game.currentPlayer)?.[0];
+        if (currentPlayerId) {
+          game.makeMove(currentPlayerId, randomObj);
+          tttNamespace.to(roomId).emit('gameState', game.getPublicState());
+        }
+      }
+    }
+  }
+
+  // Check RPS
+  for (const [roomId, game] of rpsGames.entries()) {
+    if (game.state === 'commit_phase' && game.turnEndTime && now >= game.turnEndTime) {
+      let changed = false;
+      for (const [playerId, player] of game.players.entries()) {
+        if (!player.hasCommitted) {
+          game.commitChoice(playerId, ['rock', 'paper', 'scissors'][Math.floor(Math.random() * 3)] as RPSChoice);
+          changed = true;
+        }
+      }
+      if (changed) {
+        rpsNamespace.to(roomId).emit('gameState', game.getPublicState());
+        if ((game as any).state === 'reveal_phase') {
+          setTimeout(() => {
+            game.nextRound();
+            if ((game as any).state === 'commit_phase') game.beginCommitPhase();
+            rpsNamespace.to(roomId).emit('gameState', game.getPublicState());
+          }, 3000);
+        }
+      }
+    }
+  }
+
+  // Check GTF
+  for (const [roomId, game] of gtfGames.entries()) {
+    if (game.state === 'guessing_phase' && game.turnEndTime && now >= game.turnEndTime) {
       game.timeoutRound();
       gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
       
-      if ((game as any).state === 'round_result') {
-        setTimeout(() => {
-          game.nextRound();
-          if ((game as any).state === 'guessing_phase') {
-            startGTFRound(roomId, game);
-          } else if ((game as any).state === 'game_over') {
-            gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
-          }
-        }, 5000);
-      }
+      setTimeout(() => {
+        game.nextRound();
+        if ((game as any).state === 'guessing_phase') {
+          startGTFRound(roomId, game);
+        } else if ((game as any).state === 'game_over') {
+          gtfNamespace.to(roomId).emit('gameState', game.getPublicState());
+        }
+      }, 5000);
     }
-  }, 15000);
-}
+  }
+}, 1000);
 
 app.get("/", (req, res) => {
   res.send("GamesHub API is running");

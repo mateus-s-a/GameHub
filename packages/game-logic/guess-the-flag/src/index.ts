@@ -12,6 +12,13 @@ export type GTFRoundState = 'waiting_players' | 'guessing_phase' | 'round_result
 export interface GTFCountry {
   name: string;
   flagUrl: string;
+  region: string;
+}
+
+export interface GTFConfig {
+  maxRounds?: number;
+  timeLimit?: number; // 0 means default/unlimited, though GTF always has some timeout
+  region?: string; // 'All', 'Europe', 'Asia', 'Africa', 'Americas', 'Oceania'
 }
 
 export class GuessTheFlagLogic {
@@ -21,17 +28,25 @@ export class GuessTheFlagLogic {
   currentRound: number;
   rematchRequests: Set<string>;
   
+  timeLimit: number;
+  turnEndTime: number | null;
+  region: string;
+
   // The current correct country flag and name
   currentCountry: GTFCountry | null = null;
   // Options presented to players (including the correct one)
   currentOptions: string[] = [];
 
-  constructor(maxRounds = 5) {
+  constructor(maxRounds = 5, config?: GTFConfig) {
     this.state = 'waiting_players';
     this.players = new Map();
-    this.maxRounds = maxRounds;
+    this.maxRounds = config?.maxRounds || maxRounds;
     this.currentRound = 1;
     this.rematchRequests = new Set();
+    
+    this.timeLimit = config?.timeLimit || 15; // default 15s in GTF
+    this.turnEndTime = null;
+    this.region = config?.region || 'All';
   }
 
   addPlayer(id: string): boolean {
@@ -73,6 +88,7 @@ export class GuessTheFlagLogic {
     this.currentCountry = country;
     this.currentOptions = options;
     this.state = 'guessing_phase';
+    this.turnEndTime = this.timeLimit > 0 ? Date.now() + this.timeLimit * 1000 : null;
     for (const player of this.players.values()) {
       player.hasGuessed = false;
       player.currentGuess = null;
@@ -137,6 +153,9 @@ export class GuessTheFlagLogic {
         currentGuess: (this.state === 'round_result' || this.state === 'game_over') ? p.currentGuess : null
       })),
       rematchRequests: Array.from(this.rematchRequests),
+      timeLimit: this.timeLimit,
+      turnEndTime: this.turnEndTime,
+      region: this.region,
       flagUrl: this.currentCountry?.flagUrl || null,
       options: this.currentOptions,
       // Only reveal the correct country name in the result state

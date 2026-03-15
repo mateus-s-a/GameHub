@@ -7,6 +7,11 @@ export interface PlayerState {
   score: number;
 }
 
+export interface RPSConfig {
+  maxRounds?: number;
+  timeLimit?: number; // 0 means unlimited
+}
+
 export class RPSLogic {
   state: RoundState;
   players: Map<string, PlayerState>;
@@ -16,13 +21,18 @@ export class RPSLogic {
   private timer: NodeJS.Timeout | null = null;
   rematchRequests: Set<string>;
   
-  constructor(maxRounds = 3) {
+  timeLimit: number;
+  turnEndTime: number | null;
+
+  constructor(maxRounds = 3, config?: RPSConfig) {
     this.state = 'waiting_players';
     this.players = new Map();
     this.commitments = new Map();
-    this.maxRounds = maxRounds;
+    this.maxRounds = config?.maxRounds || maxRounds;
     this.currentRound = 1;
     this.rematchRequests = new Set();
+    this.timeLimit = config?.timeLimit || 0;
+    this.turnEndTime = null;
   }
 
   addPlayer(id: string): boolean {
@@ -73,6 +83,24 @@ export class RPSLogic {
       this.resolveRound();
     }
     return true;
+  }
+
+  startTurnTimer() {
+    if (this.timeLimit > 0) {
+      this.turnEndTime = Date.now() + this.timeLimit * 1000;
+    } else {
+      this.turnEndTime = null;
+    }
+  }
+
+  // Called to start a new round or clear timers
+  beginCommitPhase() {
+    this.state = 'commit_phase';
+    this.commitments.clear();
+    for (const player of this.players.values()) {
+      player.hasCommitted = false;
+    }
+    this.startTurnTimer();
   }
 
   private resolveRound() {
@@ -129,6 +157,8 @@ export class RPSLogic {
       // Do NOT send the commitments if in commit_phase to prevent cheating
       players: Array.from(this.players.values()),
       rematchRequests: Array.from(this.rematchRequests),
+      timeLimit: this.timeLimit,
+      turnEndTime: this.turnEndTime,
       ...(this.state === 'reveal_phase' || this.state === 'game_over' 
            ? { choices: Object.fromEntries(this.commitments) } 
            : {})
