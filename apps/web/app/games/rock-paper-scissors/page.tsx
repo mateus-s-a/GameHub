@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
-import { RPSChoice, RoundState, PlayerState } from "@gameshub/rock-paper-scissors";
+import {
+  RPSChoice,
+  RoundState,
+  PlayerState,
+} from "@gameshub/rock-paper-scissors";
 import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
@@ -52,7 +56,10 @@ export default function RPSGame() {
 
     s.on("gameState", (state: GameState) => {
       setGameState(state);
-      if (state.state === 'commit_phase' && !state.players.find(p => p.id === s.id)?.hasCommitted) {
+      if (
+        state.state === "commit_phase" &&
+        !state.players.find((p) => p.id === s.id)?.hasCommitted
+      ) {
         setLocalChoice(null);
       }
     });
@@ -77,11 +84,13 @@ export default function RPSGame() {
       });
     });
 
-    return () => { s.disconnect(); };
+    return () => {
+      s.disconnect();
+    };
   }, []);
 
   const commitChoice = (choice: RPSChoice) => {
-    if (socket && roomId && gameState?.state === 'commit_phase') {
+    if (socket && roomId && gameState?.state === "commit_phase") {
       setLocalChoice(choice);
       socket.emit("commitChoice", { roomId, choice });
     }
@@ -90,13 +99,13 @@ export default function RPSGame() {
   const requestRematch = () => {
     if (socket && roomId) {
       setRematchRequested(true);
-      socket.emit('requestRematch', roomId);
+      socket.emit("requestRematch", roomId);
     }
   };
 
   const playAgain = () => {
     if (socket && roomId) {
-      socket.emit('leaveRoom', roomId);
+      socket.emit("leaveRoom", roomId);
       setRoomId(null);
       setGameState(null);
       setRematchRequested(false);
@@ -114,7 +123,7 @@ export default function RPSGame() {
 
   const handleReturnToSetup = () => {
     if (socket && roomId) {
-      socket.emit('leaveRoom', roomId);
+      socket.emit("leaveRoom", roomId);
     }
     setRoomId(null);
     setGameState(null);
@@ -124,7 +133,7 @@ export default function RPSGame() {
 
   const handleLeaveRoom = () => {
     if (socket) {
-      if (roomId) socket.emit('leaveRoom', roomId);
+      if (roomId) socket.emit("leaveRoom", roomId);
       socket.disconnect();
     }
   };
@@ -139,7 +148,12 @@ export default function RPSGame() {
   if (setupNeeded && !roomId) {
     return (
       <div className="min-h-screen relative flex items-center justify-center bg-gray-900 border-8 border-gray-800">
-        <BackButton isHost={isHost} isInSetup={true} isGameOver={false} onLeaveRoom={handleLeaveRoom} />
+        <BackButton
+          isHost={isHost}
+          isInSetup={true}
+          isGameOver={false}
+          onLeaveRoom={handleLeaveRoom}
+        />
         <GameSetup onStart={handleStartGame} gameId="rps" />
       </div>
     );
@@ -148,22 +162,24 @@ export default function RPSGame() {
   if (!roomId || !gameState) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white font-iosevka-regular text-2xl">
-        {socketId ? "Searching for an opponent in Matchmaking..." : "Connecting to Socket Hub..."}
+        {socketId
+          ? "Searching for an opponent in Matchmaking..."
+          : "Connecting to Socket Hub..."}
       </div>
     );
   }
 
-  const me = gameState.players.find(p => p.id === socketId);
-  const opp = gameState.players.find(p => p.id !== socketId);
+  const me = gameState.players.find((p) => p.id === socketId);
+  const opp = gameState.players.find((p) => p.id !== socketId);
 
   return (
     <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-iosevka-regular">
-      <BackButton 
-        isHost={isHost} 
-        isInSetup={false} 
-        isGameOver={gameState.state === 'game_over'} 
-        onReturnToSetup={handleReturnToSetup} 
-        onLeaveRoom={handleLeaveRoom} 
+      <BackButton
+        isHost={isHost}
+        isInSetup={false}
+        isGameOver={gameState.state === "game_over"}
+        onReturnToSetup={handleReturnToSetup}
+        onLeaveRoom={handleLeaveRoom}
       />
       <h1 className="text-4xl font-iosevka-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
         Rock-Paper-Scissors
@@ -174,54 +190,82 @@ export default function RPSGame() {
         <div className="flex justify-between items-center bg-gray-900 rounded-xl p-4">
           <div className="text-center">
             <p className="text-sm text-gray-400">You</p>
-            <p className="text-3xl font-iosevka-bold text-emerald-400">{me?.score || 0}</p>
+            <p className="text-3xl font-iosevka-bold text-emerald-400">
+              {me?.score || 0}
+            </p>
           </div>
           <div className="text-center">
-            <p className="text-gray-500 uppercase tracking-widest text-xs">Round</p>
-            <p className="text-xl">{gameState.currentRound} / {gameState.maxRounds}</p>
+            <p className="text-gray-500 uppercase tracking-widest text-xs">
+              Round
+            </p>
+            <p className="text-xl">
+              {gameState.currentRound} / {gameState.maxRounds}
+            </p>
           </div>
           <div className="text-center">
             <p className="text-sm text-gray-400">Opponent</p>
-            <p className="text-3xl font-iosevka-bold text-red-400">{opp?.score || 0}</p>
+            <p className="text-3xl font-iosevka-bold text-red-400">
+              {opp?.score || 0}
+            </p>
           </div>
         </div>
 
         {/* State Information */}
         <div className="text-center text-xl h-12 flex items-center justify-center">
-          {gameState.state === 'commit_phase' && !me?.hasCommitted && <span className="text-blue-400 animate-pulse">Make your choice!</span>}
-          {gameState.state === 'commit_phase' && me?.hasCommitted && <span className="text-gray-400">Waiting for opponent...</span>}
-          {gameState.state === 'reveal_phase' && <span className="text-yellow-400 font-iosevka-bold">Revealing Choices...</span>}
-          {gameState.state === 'game_over' && <span className="text-emerald-400 font-iosevka-bold">Game Over!</span>}
+          {gameState.state === "commit_phase" && !me?.hasCommitted && (
+            <span className="text-blue-400 animate-pulse">
+              Make your choice!
+            </span>
+          )}
+          {gameState.state === "commit_phase" && me?.hasCommitted && (
+            <span className="text-gray-400">Waiting for opponent...</span>
+          )}
+          {gameState.state === "reveal_phase" && (
+            <span className="text-yellow-400 font-iosevka-bold">
+              Revealing Choices...
+            </span>
+          )}
+          {gameState.state === "game_over" && (
+            <span className="text-emerald-400 font-iosevka-bold">
+              Game Over!
+            </span>
+          )}
         </div>
 
-        {gameState.state === 'commit_phase' && !me?.hasCommitted && (
+        {gameState.state === "commit_phase" && !me?.hasCommitted && (
           <TimerDisplay turnEndTime={gameState.turnEndTime || null} />
         )}
 
         {/* Battle Arena */}
-        {gameState.state === 'reveal_phase' || gameState.state === 'game_over' ? (
+        {gameState.state === "reveal_phase" ||
+        gameState.state === "game_over" ? (
           <div className="flex justify-around items-center py-8">
             <div className="text-center">
-              <div className="text-6xl mb-4">{getEmoji(gameState.choices?.[me!.id] || 'rock')}</div>
+              <div className="text-6xl mb-4">
+                {getEmoji(gameState.choices?.[me!.id] || "rock")}
+              </div>
               <p className="text-emerald-400">Your Choice</p>
             </div>
             <div className="text-4xl font-iosevka-bold text-gray-600">VS</div>
             <div className="text-center">
-              <div className="text-6xl mb-4">{getEmoji(gameState.choices?.[opp!.id] || 'rock')}</div>
+              <div className="text-6xl mb-4">
+                {getEmoji(gameState.choices?.[opp!.id] || "rock")}
+              </div>
               <p className="text-red-400">Opponent</p>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-4">
-            {(['rock', 'paper', 'scissors'] as RPSChoice[]).map(choice => (
+            {(["rock", "paper", "scissors"] as RPSChoice[]).map((choice) => (
               <button
                 key={choice}
                 disabled={me?.hasCommitted}
                 onClick={() => commitChoice(choice)}
-                className={`py-8 text-5xl rounded-xl transition-all ${localChoice === choice
-                    ? 'bg-purple-600 border-2 border-purple-400 scale-105'
-                    : 'bg-gray-700 hover:bg-gray-600 border border-transparent'
-                  } ${me?.hasCommitted && localChoice !== choice ? 'opacity-20' : ''}`}
+                className={`py-8 text-5xl rounded-xl transition-all ${
+                  localChoice === choice
+                    ? "bg-purple-600 border-2 border-purple-400 scale-105"
+                    : "bg-gray-700 hover:bg-gray-600 border border-transparent"
+                } ${me?.hasCommitted && localChoice !== choice ? "opacity-20" : ""}`}
               >
                 {getEmoji(choice)}
               </button>
@@ -230,19 +274,23 @@ export default function RPSGame() {
         )}
 
         {/* End Game Options */}
-        {gameState.state === 'game_over' && (
+        {gameState.state === "game_over" && (
           <div className="w-full flex flex-col gap-3 mt-6">
             <button
               onClick={requestRematch}
               disabled={rematchRequested}
               className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg transition-all
-                ${rematchRequested 
-                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed border outline-none border-gray-600'
-                  : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 hover:shadow-xl active:scale-95 text-white'}`}
+                ${
+                  rematchRequested
+                    ? "bg-gray-700 text-gray-400 cursor-not-allowed border outline-none border-gray-600"
+                    : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 hover:shadow-xl active:scale-95 text-white"
+                }`}
             >
-              {rematchRequested 
-                ? "Waiting for Opponent..." 
-                : (gameState.rematchRequests?.find(id => id !== socketId) ? "Accept Rematch" : "Request Rematch")}
+              {rematchRequested
+                ? "Waiting for Opponent..."
+                : gameState.rematchRequests?.find((id) => id !== socketId)
+                  ? "Accept Rematch"
+                  : "Request Rematch"}
             </button>
             <button
               onClick={playAgain}
@@ -259,9 +307,13 @@ export default function RPSGame() {
 
 function getEmoji(choice: RPSChoice) {
   switch (choice) {
-    case 'rock': return '🪨';
-    case 'paper': return '📄';
-    case 'scissors': return '✂️';
-    default: return '❓';
+    case "rock":
+      return "🪨";
+    case "paper":
+      return "📄";
+    case "scissors":
+      return "✂️";
+    default:
+      return "❓";
   }
 }

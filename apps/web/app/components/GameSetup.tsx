@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 
 export interface GameSetupConfig {
   maxRounds: number;
@@ -8,29 +8,31 @@ export interface GameSetupConfig {
 
 interface GameSetupProps {
   onStart: (config: GameSetupConfig) => void;
-  gameId: 'ttt' | 'rps' | 'gtf';
+  gameId: "ttt" | "rps" | "gtf";
 }
 
 export default function GameSetup({ onStart, gameId }: GameSetupProps) {
-  const [rounds, setRounds] = useState<number>(gameId === 'gtf' ? 5 : 3);
+  const [rounds, setRounds] = useState<number>(gameId === "gtf" ? 5 : 3);
   const [timeLimit, setTimeLimit] = useState<number>(15);
-  const [region, setRegion] = useState<string>('All');
+  const [region, setRegion] = useState<string>("All");
 
   const handleStart = () => {
     onStart({
       maxRounds: rounds,
       timeLimit: timeLimit,
-      ...(gameId === 'gtf' ? { region } : {})
+      ...(gameId === "gtf" ? { region } : {}),
     });
   };
 
   return (
     <div className="flex flex-col gap-6 max-w-sm w-full bg-gray-800 p-8 rounded-2xl shadow-2xl font-iosevka-regular">
-      <h2 className="text-3xl font-bold text-center text-white mb-2 font-iosevka-bold">Host Options</h2>
-      
+      <h2 className="text-3xl font-bold text-center text-white mb-2 font-iosevka-bold">
+        Host Options
+      </h2>
+
       <div className="flex flex-col gap-2">
         <label className="text-gray-300 font-semibold">Number of Rounds</label>
-        <select 
+        <select
           className="bg-gray-700 text-white p-3 rounded-xl border border-gray-600 focus:outline-none focus:border-blue-500"
           value={rounds}
           onChange={(e) => setRounds(Number(e.target.value))}
@@ -44,7 +46,7 @@ export default function GameSetup({ onStart, gameId }: GameSetupProps) {
 
       <div className="flex flex-col gap-2">
         <label className="text-gray-300 font-semibold">Turn Time Limit</label>
-        <select 
+        <select
           className="bg-gray-700 text-white p-3 rounded-xl border border-gray-600 focus:outline-none focus:border-blue-500"
           value={timeLimit}
           onChange={(e) => setTimeLimit(Number(e.target.value))}
@@ -57,10 +59,12 @@ export default function GameSetup({ onStart, gameId }: GameSetupProps) {
         </select>
       </div>
 
-      {gameId === 'gtf' && (
+      {gameId === "gtf" && (
         <div className="flex flex-col gap-2">
-          <label className="text-gray-300 font-semibold">Continent Filter</label>
-          <select 
+          <label className="text-gray-300 font-semibold">
+            Continent Filter
+          </label>
+          <select
             className="bg-gray-700 text-white p-3 rounded-xl border border-gray-600 focus:outline-none focus:border-orange-500"
             value={region}
             onChange={(e) => setRegion(e.target.value)}

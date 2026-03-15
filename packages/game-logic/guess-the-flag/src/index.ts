@@ -7,7 +7,11 @@ export interface GTFPlayer {
   currentGuess: string | null;
 }
 
-export type GTFRoundState = 'waiting_players' | 'guessing_phase' | 'round_result' | 'game_over';
+export type GTFRoundState =
+  | "waiting_players"
+  | "guessing_phase"
+  | "round_result"
+  | "game_over";
 
 export interface GTFCountry {
   name: string;
@@ -27,7 +31,7 @@ export class GuessTheFlagLogic {
   maxRounds: number;
   currentRound: number;
   rematchRequests: Set<string>;
-  
+
   timeLimit: number;
   turnEndTime: number | null;
   region: string;
@@ -38,23 +42,28 @@ export class GuessTheFlagLogic {
   currentOptions: string[] = [];
 
   constructor(maxRounds = 5, config?: GTFConfig) {
-    this.state = 'waiting_players';
+    this.state = "waiting_players";
     this.players = new Map();
     this.maxRounds = config?.maxRounds || maxRounds;
     this.currentRound = 1;
     this.rematchRequests = new Set();
-    
+
     this.timeLimit = config?.timeLimit || 15; // default 15s in GTF
     this.turnEndTime = null;
-    this.region = config?.region || 'All';
+    this.region = config?.region || "All";
   }
 
   addPlayer(id: string): boolean {
     if (this.players.size >= 2 || this.players.has(id)) return false;
-    this.players.set(id, { id, score: 0, hasGuessed: false, currentGuess: null });
-    
+    this.players.set(id, {
+      id,
+      score: 0,
+      hasGuessed: false,
+      currentGuess: null,
+    });
+
     if (this.players.size === 2) {
-      this.state = 'guessing_phase';
+      this.state = "guessing_phase";
     }
     return true;
   }
@@ -62,7 +71,7 @@ export class GuessTheFlagLogic {
   removePlayer(id: string) {
     this.players.delete(id);
     this.rematchRequests.delete(id);
-    this.state = 'waiting_players';
+    this.state = "waiting_players";
   }
 
   requestRematch(id: string): boolean {
@@ -72,7 +81,7 @@ export class GuessTheFlagLogic {
   }
 
   reset() {
-    this.state = 'waiting_players';
+    this.state = "waiting_players";
     this.currentRound = 1;
     this.currentCountry = null;
     this.currentOptions = [];
@@ -87,8 +96,9 @@ export class GuessTheFlagLogic {
   startRound(country: GTFCountry, options: string[]) {
     this.currentCountry = country;
     this.currentOptions = options;
-    this.state = 'guessing_phase';
-    this.turnEndTime = this.timeLimit > 0 ? Date.now() + this.timeLimit * 1000 : null;
+    this.state = "guessing_phase";
+    this.turnEndTime =
+      this.timeLimit > 0 ? Date.now() + this.timeLimit * 1000 : null;
     for (const player of this.players.values()) {
       player.hasGuessed = false;
       player.currentGuess = null;
@@ -96,7 +106,7 @@ export class GuessTheFlagLogic {
   }
 
   submitGuess(playerId: string, guess: string): boolean {
-    if (this.state !== 'guessing_phase') return false;
+    if (this.state !== "guessing_phase") return false;
     const player = this.players.get(playerId);
     if (!player || player.hasGuessed) return false;
 
@@ -119,25 +129,25 @@ export class GuessTheFlagLogic {
     }
 
     if (allGuessed) {
-      this.state = 'round_result';
+      this.state = "round_result";
     }
 
     return true;
   }
 
   timeoutRound() {
-    if (this.state === 'guessing_phase') {
-      this.state = 'round_result';
+    if (this.state === "guessing_phase") {
+      this.state = "round_result";
     }
   }
 
   nextRound() {
     if (this.currentRound >= this.maxRounds) {
-      this.state = 'game_over';
+      this.state = "game_over";
       return;
     }
     this.currentRound += 1;
-    this.state = 'guessing_phase';
+    this.state = "guessing_phase";
   }
 
   getPublicState() {
@@ -145,12 +155,15 @@ export class GuessTheFlagLogic {
       state: this.state,
       currentRound: this.currentRound,
       maxRounds: this.maxRounds,
-      players: Array.from(this.players.values()).map(p => ({
+      players: Array.from(this.players.values()).map((p) => ({
         id: p.id,
         score: p.score,
         hasGuessed: p.hasGuessed,
         // Only reveal guesses in result or game over phase, to prevent cheating
-        currentGuess: (this.state === 'round_result' || this.state === 'game_over') ? p.currentGuess : null
+        currentGuess:
+          this.state === "round_result" || this.state === "game_over"
+            ? p.currentGuess
+            : null,
       })),
       rematchRequests: Array.from(this.rematchRequests),
       timeLimit: this.timeLimit,
@@ -159,7 +172,10 @@ export class GuessTheFlagLogic {
       flagUrl: this.currentCountry?.flagUrl || null,
       options: this.currentOptions,
       // Only reveal the correct country name in the result state
-      correctCountry: (this.state === 'round_result' || this.state === 'game_over') ? this.currentCountry?.name : null
+      correctCountry:
+        this.state === "round_result" || this.state === "game_over"
+          ? this.currentCountry?.name
+          : null,
     };
   }
 }
