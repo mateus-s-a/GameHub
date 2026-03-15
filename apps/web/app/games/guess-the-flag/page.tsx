@@ -5,6 +5,7 @@ import { io, Socket } from "socket.io-client";
 import { GTFRoundState, GTFPlayer } from "@gameshub/guess-the-flag";
 import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
+import BackButton from "../../components/BackButton";
 
 interface GameState {
   state: GTFRoundState;
@@ -28,6 +29,7 @@ export default function GuessTheFlagGame() {
   const [localChoice, setLocalChoice] = useState<string | null>(null);
   const [rematchRequested, setRematchRequested] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
+  const [isHost, setIsHost] = useState(false);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/gtf");
@@ -37,8 +39,10 @@ export default function GuessTheFlagGame() {
       setSocketId(s.id || null);
       s.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
+          setIsHost(false);
           s.emit("joinMatchmaking");
         } else {
+          setIsHost(true);
           setSetupNeeded(true);
         }
       });
@@ -67,8 +71,10 @@ export default function GuessTheFlagGame() {
       setRematchRequested(false);
       s.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
+          setIsHost(false);
           s.emit("joinMatchmaking");
         } else {
+          setIsHost(true);
           setSetupNeeded(true);
         }
       });
@@ -99,11 +105,30 @@ export default function GuessTheFlagGame() {
       setRematchRequested(false);
       socket.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
+          setIsHost(false);
           socket.emit("joinMatchmaking");
         } else {
+          setIsHost(true);
           setSetupNeeded(true);
         }
       });
+    }
+  };
+
+  const handleReturnToSetup = () => {
+    if (socket && roomId) {
+      socket.emit('leaveRoom', roomId);
+    }
+    setRoomId(null);
+    setGameState(null);
+    setRematchRequested(false);
+    setSetupNeeded(true);
+  };
+
+  const handleLeaveRoom = () => {
+    if (socket) {
+      if (roomId) socket.emit('leaveRoom', roomId);
+      socket.disconnect();
     }
   };
 
@@ -116,7 +141,8 @@ export default function GuessTheFlagGame() {
 
   if (setupNeeded && !roomId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 border-8 border-gray-800">
+      <div className="min-h-screen relative flex items-center justify-center bg-gray-900 border-8 border-gray-800">
+        <BackButton isHost={isHost} isInSetup={true} isGameOver={false} onLeaveRoom={handleLeaveRoom} />
         <GameSetup onStart={handleStartGame} gameId="gtf" />
       </div>
     );
@@ -134,7 +160,14 @@ export default function GuessTheFlagGame() {
   const opp = gameState.players.find(p => p.id !== socketId);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center py-12 px-8 font-iosevka-regular overflow-y-auto">
+    <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center py-12 px-8 font-iosevka-regular overflow-y-auto">
+      <BackButton 
+        isHost={isHost} 
+        isInSetup={false} 
+        isGameOver={gameState.state === 'game_over'} 
+        onReturnToSetup={handleReturnToSetup} 
+        onLeaveRoom={handleLeaveRoom} 
+      />
       <h1 className="text-4xl font-iosevka-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">
         Guess the Flag PvP
       </h1>

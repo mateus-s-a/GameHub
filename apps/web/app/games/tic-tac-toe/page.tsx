@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
+import BackButton from "../../components/BackButton";
 
 type PlayerMark = 'X' | 'O' | null;
 
@@ -27,6 +28,7 @@ export default function Home() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
+  const [isHost, setIsHost] = useState(false);
   const [rematchRequested, setRematchRequested] = useState(false);
   
   const [board, setBoard] = useState<PlayerMark[]>(Array(9).fill(null));
@@ -46,9 +48,11 @@ export default function Home() {
       setSocketId(s.id || null);
       s.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
+          setIsHost(false);
           s.emit("joinMatchmaking");
           setWaiting(true);
         } else {
+          setIsHost(true);
           setSetupNeeded(true);
         }
       });
@@ -90,9 +94,11 @@ export default function Home() {
       setRematchRequested(false);
       s.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
+          setIsHost(false);
           s.emit("joinMatchmaking");
           setWaiting(true);
         } else {
+          setIsHost(true);
           setSetupNeeded(true);
         }
       });
@@ -136,12 +142,34 @@ export default function Home() {
       setRematchRequested(false);
       socket.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
+          setIsHost(false);
           socket.emit("joinMatchmaking");
           setWaiting(true);
         } else {
+          setIsHost(true);
           setSetupNeeded(true);
         }
       });
+    }
+  };
+
+  const handleReturnToSetup = () => {
+    if (socket && roomId) {
+      socket.emit('leaveRoom', roomId);
+    }
+    setRoomId(null);
+    setWaiting(false);
+    setBoard(Array(9).fill(null));
+    setWinner(null);
+    setYourMark(null);
+    setRematchRequested(false);
+    setSetupNeeded(true);
+  };
+
+  const handleLeaveRoom = () => {
+    if (socket) {
+      if (roomId) socket.emit('leaveRoom', roomId);
+      socket.disconnect();
     }
   };
 
@@ -155,7 +183,8 @@ export default function Home() {
 
   if (setupNeeded && !roomId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 border-8 border-gray-800">
+      <div className="min-h-screen relative flex items-center justify-center bg-gray-900 border-8 border-gray-800">
+        <BackButton isHost={isHost} isInSetup={true} isGameOver={false} onLeaveRoom={handleLeaveRoom} />
         <GameSetup onStart={handleStartGame} gameId="ttt" />
       </div>
     );
@@ -170,7 +199,14 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-sans">
+    <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-sans">
+      <BackButton 
+        isHost={isHost} 
+        isInSetup={false} 
+        isGameOver={!!winner} 
+        onReturnToSetup={handleReturnToSetup} 
+        onLeaveRoom={handleLeaveRoom} 
+      />
       <h1 className="text-5xl border-b pb-4 mb-8 font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
         GamesHub Tic-Tac-Toe
       </h1>

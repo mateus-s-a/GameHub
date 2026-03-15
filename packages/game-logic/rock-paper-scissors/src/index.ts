@@ -40,7 +40,7 @@ export class RPSLogic {
     this.players.set(id, { id, hasCommitted: false, score: 0 });
     
     if (this.players.size === 2) {
-      this.state = 'commit_phase';
+      this.beginCommitPhase();
     }
     return true;
   }
@@ -60,14 +60,12 @@ export class RPSLogic {
   }
 
   reset() {
-    this.state = 'commit_phase';
     this.currentRound = 1;
-    this.commitments.clear();
     this.rematchRequests.clear();
     for (const player of this.players.values()) {
-      player.hasCommitted = false;
       player.score = 0;
     }
+    this.beginCommitPhase();
   }
 
   commitChoice(playerId: string, choice: RPSChoice): boolean {
@@ -125,11 +123,7 @@ export class RPSLogic {
     }
 
     this.currentRound += 1;
-    this.commitments.clear();
-    for (const player of this.players.values()) {
-      player.hasCommitted = false;
-    }
-    this.state = 'commit_phase';
+    this.beginCommitPhase();
   }
 
   private determineWinner(

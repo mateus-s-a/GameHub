@@ -5,6 +5,7 @@ import { io, Socket } from "socket.io-client";
 import { RPSChoice, RoundState, PlayerState } from "@gameshub/rock-paper-scissors";
 import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
+import BackButton from "../../components/BackButton";
 
 interface GameState {
   state: RoundState;
@@ -25,6 +26,7 @@ export default function RPSGame() {
   const [localChoice, setLocalChoice] = useState<RPSChoice | null>(null);
   const [rematchRequested, setRematchRequested] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
+  const [isHost, setIsHost] = useState(false);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/rps");
@@ -34,8 +36,10 @@ export default function RPSGame() {
       setSocketId(s.id || null);
       s.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
+          setIsHost(false);
           s.emit("joinMatchmaking");
         } else {
+          setIsHost(true);
           setSetupNeeded(true);
         }
       });
@@ -64,8 +68,10 @@ export default function RPSGame() {
       setRematchRequested(false);
       s.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
+          setIsHost(false);
           s.emit("joinMatchmaking");
         } else {
+          setIsHost(true);
           setSetupNeeded(true);
         }
       });
@@ -96,11 +102,30 @@ export default function RPSGame() {
       setRematchRequested(false);
       socket.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
+          setIsHost(false);
           socket.emit("joinMatchmaking");
         } else {
+          setIsHost(true);
           setSetupNeeded(true);
         }
       });
+    }
+  };
+
+  const handleReturnToSetup = () => {
+    if (socket && roomId) {
+      socket.emit('leaveRoom', roomId);
+    }
+    setRoomId(null);
+    setGameState(null);
+    setRematchRequested(false);
+    setSetupNeeded(true);
+  };
+
+  const handleLeaveRoom = () => {
+    if (socket) {
+      if (roomId) socket.emit('leaveRoom', roomId);
+      socket.disconnect();
     }
   };
 
@@ -113,7 +138,8 @@ export default function RPSGame() {
 
   if (setupNeeded && !roomId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 border-8 border-gray-800">
+      <div className="min-h-screen relative flex items-center justify-center bg-gray-900 border-8 border-gray-800">
+        <BackButton isHost={isHost} isInSetup={true} isGameOver={false} onLeaveRoom={handleLeaveRoom} />
         <GameSetup onStart={handleStartGame} gameId="rps" />
       </div>
     );
@@ -131,7 +157,14 @@ export default function RPSGame() {
   const opp = gameState.players.find(p => p.id !== socketId);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-iosevka-regular">
+    <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-iosevka-regular">
+      <BackButton 
+        isHost={isHost} 
+        isInSetup={false} 
+        isGameOver={gameState.state === 'game_over'} 
+        onReturnToSetup={handleReturnToSetup} 
+        onLeaveRoom={handleLeaveRoom} 
+      />
       <h1 className="text-4xl font-iosevka-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
         Rock-Paper-Scissors
       </h1>
