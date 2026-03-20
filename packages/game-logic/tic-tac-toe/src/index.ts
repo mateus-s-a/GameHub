@@ -36,6 +36,9 @@ export class TicTacToeLogic {
     if (this.players.size >= 2 || this.players.has(id)) return null;
     const mark: PlayerMark = this.players.size === 0 ? "X" : "O";
     this.players.set(id, mark);
+    if (this.players.size === 2) {
+      this.startTurnTimer();
+    }
     return mark;
   }
 
@@ -113,7 +116,7 @@ export class TicTacToeLogic {
     // Alternate starting player each round
     this.currentPlayer = this.currentRound % 2 === 0 ? "X" : "O";
     this.winner = null;
-    this.turnEndTime = null;
+    this.startTurnTimer();
   }
 
   reset() {
@@ -123,7 +126,7 @@ export class TicTacToeLogic {
     this.rematchRequests.clear();
     this.currentRound = 1;
     this.scores = { X: 0, O: 0 };
-    this.turnEndTime = null;
+    this.startTurnTimer();
   }
 
   getPublicState() {

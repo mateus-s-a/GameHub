@@ -5,6 +5,7 @@ import { io, Socket } from "socket.io-client";
 import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
+import AlertModal from "../../components/AlertModal";
 import { Wifi, WifiOff } from "lucide-react";
 
 type PlayerMark = "X" | "O" | null;
@@ -31,6 +32,7 @@ export default function Home() {
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [rematchRequested, setRematchRequested] = useState(false);
+  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(null);
 
   const [board, setBoard] = useState<PlayerMark[]>(Array(9).fill(null));
   const [currentPlayer, setCurrentPlayer] = useState<PlayerMark>("X");
@@ -91,23 +93,7 @@ export default function Home() {
     });
 
     s.on("opponentDisconnected", () => {
-      alert("Opponent left the room.");
-      setRoomId(null);
-      setWaiting(false);
-      setBoard(Array(9).fill(null));
-      setWinner(null);
-      setYourMark(null);
-      setRematchRequested(false);
-      s.emit("checkQueue", (hasPending: boolean) => {
-        if (hasPending) {
-          setIsHost(false);
-          s.emit("joinMatchmaking");
-          setWaiting(true);
-        } else {
-          setIsHost(true);
-          setSetupNeeded(true);
-        }
-      });
+      setDisconnectMessage("Opponent left the room.");
     });
 
     s.on("disconnect", () => {
@@ -193,6 +179,29 @@ export default function Home() {
     }
   };
 
+  const handleDisconnectAcknowledge = () => {
+    setDisconnectMessage(null);
+    setRoomId(null);
+    setWaiting(false);
+    setBoard(Array(9).fill(null));
+    setWinner(null);
+    setYourMark(null);
+    setRematchRequested(false);
+    
+    if (socket) {
+      socket.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          setIsHost(false);
+          socket.emit("joinMatchmaking");
+          setWaiting(true);
+        } else {
+          setIsHost(true);
+          setSetupNeeded(true);
+        }
+      });
+    }
+  };
+
   if (setupNeeded && !roomId) {
     return (
       <div className="min-h-screen relative flex items-center justify-center bg-gray-900 border-8 border-gray-800">
@@ -221,6 +230,12 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-sans">
+      <AlertModal 
+        isOpen={!!disconnectMessage} 
+        title="Connection Lost"
+        message={disconnectMessage || ""} 
+        onConfirm={handleDisconnectAcknowledge} 
+      />
       <BackButton
         isHost={isHost}
         isInSetup={false}

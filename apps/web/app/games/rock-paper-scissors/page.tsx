@@ -10,6 +10,7 @@ import {
 import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
+import AlertModal from "../../components/AlertModal";
 import { Wifi, WifiOff, Mountain, FileText, Scissors, HelpCircle } from "lucide-react";
 
 interface GameState {
@@ -32,6 +33,7 @@ export default function RPSGame() {
   const [rematchRequested, setRematchRequested] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [isHost, setIsHost] = useState(false);
+  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/rps");
@@ -70,19 +72,7 @@ export default function RPSGame() {
     });
 
     s.on("opponentDisconnected", () => {
-      alert("Opponent disconnected!");
-      setRoomId(null);
-      setGameState(null);
-      setRematchRequested(false);
-      s.emit("checkQueue", (hasPending: boolean) => {
-        if (hasPending) {
-          setIsHost(false);
-          s.emit("joinMatchmaking");
-        } else {
-          setIsHost(true);
-          setSetupNeeded(true);
-        }
-      });
+      setDisconnectMessage("Opponent disconnected!");
     });
 
     return () => {
@@ -146,6 +136,25 @@ export default function RPSGame() {
     }
   };
 
+  const handleDisconnectAcknowledge = () => {
+    setDisconnectMessage(null);
+    setRoomId(null);
+    setGameState(null);
+    setRematchRequested(false);
+
+    if (socket) {
+      socket.emit("checkQueue", (hasPending: boolean) => {
+        if (hasPending) {
+          setIsHost(false);
+          socket.emit("joinMatchmaking");
+        } else {
+          setIsHost(true);
+          setSetupNeeded(true);
+        }
+      });
+    }
+  };
+
   if (setupNeeded && !roomId) {
     return (
       <div className="min-h-screen relative flex items-center justify-center bg-gray-900 border-8 border-gray-800">
@@ -175,6 +184,12 @@ export default function RPSGame() {
 
   return (
     <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-iosevka-regular">
+      <AlertModal 
+        isOpen={!!disconnectMessage} 
+        title="Match Terminated"
+        message={disconnectMessage || ""} 
+        onConfirm={handleDisconnectAcknowledge} 
+      />
       <BackButton
         isHost={isHost}
         isInSetup={false}

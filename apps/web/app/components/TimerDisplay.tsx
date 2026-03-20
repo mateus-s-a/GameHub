@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Clock } from "lucide-react";
 
 export default function TimerDisplay({
   turnEndTime,
@@ -36,9 +37,9 @@ export default function TimerDisplay({
 
   return (
     <div
-      className={`mt-4 px-6 py-3 rounded-full font-bold text-2xl shadow-lg border-2 font-iosevka-bold w-fit mx-auto transition-colors duration-300 ${isWarning ? "bg-red-900 border-red-500 text-red-200 animate-pulse" : "bg-gray-800 border-gray-600 text-blue-300"}`}
+      className={`mt-4 px-6 py-3 rounded-full font-bold text-2xl shadow-lg border-2 font-iosevka-bold w-fit mx-auto transition-colors duration-300 flex items-center justify-center gap-2 ${isWarning ? "bg-red-900 border-red-500 text-red-200 animate-pulse" : "bg-gray-800 border-gray-600 text-blue-300"}`}
     >
-      ⏱️ {timeLeft}s
+      <Clock className="w-6 h-6" /> {timeLeft}s
     </div>
   );
 }
