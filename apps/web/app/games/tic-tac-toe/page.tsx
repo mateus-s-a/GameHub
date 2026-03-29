@@ -10,6 +10,7 @@ import EndMatchOptions from "../../components/EndMatchOptions";
 import { Wifi, WifiOff } from "lucide-react";
 import { useRoomList } from "../../hooks/useRoomList";
 import RoomBrowser from "../../components/RoomBrowser";
+import WaitingScreen from "../../components/WaitingScreen";
 
 type PlayerMark = "X" | "O" | null;
 
@@ -185,6 +186,16 @@ export default function Home() {
     }
   };
 
+  const handleCancelWaiting = () => {
+    if (socket && roomId) {
+      socket.emit("leaveRoom", roomId);
+    }
+    setRoomId(null);
+    setWaiting(false);
+    setIsHost(true);
+    setSetupNeeded(true);
+  };
+
   const handleDisconnectAcknowledge = () => {
     setDisconnectMessage(null);
     setRoomId(null);
@@ -228,19 +239,12 @@ export default function Home() {
 
   if (!roomId || waiting) {
     return (
-      <div className="min-h-screen relative flex flex-col items-center justify-center bg-gray-900 text-white font-sans text-xl">
-        <BackButton isHost={isHost} isInSetup={false} isGameOver={false} onLeaveRoom={handleLeaveRoom} />
-        <div className="animate-pulse flex flex-col items-center justify-center gap-4">
-          <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-300 font-iosevka-regular font-bold tracking-wide">
-            {!socketId
-              ? "Connecting to Socket Hub..."
-              : waiting
-                ? (isHost ? "Waiting for opposing player to join room..." : "Joining Room...")
-                : "Unexpected State"}
-          </p>
-        </div>
-      </div>
+      <WaitingScreen
+        isHost={isHost}
+        onCancel={handleCancelWaiting}
+        onLeaveRoom={handleLeaveRoom}
+        themeColor="cyan"
+      />
     );
   }
 

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useRoomList } from "../../hooks/useRoomList";
 import RoomBrowser from "../../components/RoomBrowser";
+import WaitingScreen from "../../components/WaitingScreen";
 
 interface GameState {
   state: RoundState;
@@ -151,6 +152,17 @@ export default function RPSGame() {
     }
   };
 
+  const handleCancelWaiting = () => {
+    if (socket && roomId) {
+      socket.emit("leaveRoom", roomId);
+    }
+    setRoomId(null);
+    setWaiting(false);
+    setIsHost(true);
+    setSetupNeeded(true);
+    setGameState(null);
+  };
+
   const handleDisconnectAcknowledge = () => {
     setDisconnectMessage(null);
     setRoomId(null);
@@ -189,21 +201,14 @@ export default function RPSGame() {
     );
   }
 
-  if (!roomId || !gameState) {
+  if (!roomId || !gameState || gameState.players.length < 2) {
     return (
-      <div className="min-h-screen relative flex flex-col items-center justify-center bg-gray-900 text-white font-iosevka-regular text-xl">
-        <BackButton isHost={isHost} isInSetup={false} isGameOver={false} onLeaveRoom={handleLeaveRoom} />
-        <div className="animate-pulse flex flex-col items-center justify-center gap-4">
-          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-300 font-iosevka-bold tracking-wide">
-            {!socketId
-              ? "Connecting to Socket Hub..."
-              : waiting
-                ? (isHost ? "Waiting for opposing player to join room..." : "Joining Room...")
-                : "Initializing..."}
-          </p>
-        </div>
-      </div>
+      <WaitingScreen
+        isHost={isHost}
+        onCancel={handleCancelWaiting}
+        onLeaveRoom={handleLeaveRoom}
+        themeColor="purple"
+      />
     );
   }
 
