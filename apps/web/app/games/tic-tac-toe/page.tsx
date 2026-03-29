@@ -6,6 +6,7 @@ import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
 import AlertModal from "../../components/AlertModal";
+import EndMatchOptions from "../../components/EndMatchOptions";
 import { Wifi, WifiOff } from "lucide-react";
 
 type PlayerMark = "X" | "O" | null;
@@ -22,6 +23,7 @@ interface GameState {
   turnEndTime?: number | null;
   scores?: Record<"X" | "O", number>;
   yourMark?: PlayerMark;
+  state?: string;
 }
 
 export default function Home() {
@@ -42,10 +44,11 @@ export default function Home() {
     [],
   );
   const [rematchRequests, setRematchRequests] = useState<string[]>([]);
-  const [scores, setScores] = useState<Record<"X" | "O", number>>({
-    X: 0,
-    O: 0,
-  });
+  const [currentRound, setCurrentRound] = useState(1);
+  const [maxRounds, setMaxRounds] = useState(1);
+  const [turnEndTime, setTurnEndTime] = useState<number | null>(null);
+  const [scores, setScores] = useState({ X: 0, O: 0 });
+  const [roundState, setRoundState] = useState<string>("waiting_players");
   const [gameStateData, setGameStateData] = useState<GameState | null>(null);
 
   useEffect(() => {
@@ -75,17 +78,21 @@ export default function Home() {
       setWaiting(true);
     });
 
-    s.on("gameState", (state: GameState) => {
+    s.on("gameState", (serverState: GameState) => {
       setWaiting(false);
       setSetupNeeded(false);
-      setGameStateData(state);
-      setBoard(state.board);
-      setCurrentPlayer(state.currentPlayer);
-      setWinner(state.winner);
-      setPlayers(state.players || []);
-      setRematchRequests(state.rematchRequests || []);
-      if (state.scores) setScores(state.scores);
-      if (state.yourMark) setYourMark(state.yourMark);
+      setGameStateData(serverState);
+      setBoard(serverState.board);
+      setCurrentPlayer(serverState.currentPlayer);
+      setWinner(serverState.winner);
+      setPlayers(serverState.players || []);
+      setRematchRequests(serverState.rematchRequests || []);
+      setCurrentRound(serverState.currentRound || 1);
+      setMaxRounds(serverState.maxRounds || 1);
+      setTurnEndTime(serverState.turnEndTime || null);
+      setScores(serverState.scores || { X: 0, O: 0 });
+      setRoundState(serverState.state || "waiting_players");
+      if (serverState.yourMark !== undefined) setYourMark(serverState.yourMark);
     });
 
     s.on("rematchStarted", () => {
@@ -113,7 +120,6 @@ export default function Home() {
       !winner &&
       currentPlayer === yourMark
     ) {
-      // Optimistic update
       const newBoard = [...board];
       newBoard[index] = yourMark;
       setBoard(newBoard);
@@ -138,6 +144,7 @@ export default function Home() {
       setWinner(null);
       setYourMark(null);
       setRematchRequested(false);
+      setDisconnectMessage(null);
       socket.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
           setIsHost(false);
@@ -231,7 +238,7 @@ export default function Home() {
   return (
     <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-sans">
       <AlertModal 
-        isOpen={!!disconnectMessage} 
+        isOpen={!!disconnectMessage && (roundState !== "game_over" || rematchRequested)} 
         title="Connection Lost"
         message={disconnectMessage || ""} 
         onConfirm={handleDisconnectAcknowledge} 
@@ -239,7 +246,7 @@ export default function Home() {
       <BackButton
         isHost={isHost}
         isInSetup={false}
-        isGameOver={!!winner}
+        isGameOver={roundState === "game_over"}
         onReturnToSetup={handleReturnToSetup}
         onLeaveRoom={handleLeaveRoom}
       />
@@ -248,7 +255,6 @@ export default function Home() {
       </h1>
 
       <div className="bg-gray-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-gray-700 w-full max-w-md">
-        {/* Status Indicators */}
         <div className="flex justify-between w-full mb-6 text-sm font-semibold tracking-wide">
           <span
             className={`px-3 py-1 flex items-center gap-2 rounded-full border ${socketId ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}
@@ -275,7 +281,6 @@ export default function Home() {
           <div
             className={`flex flex-col items-center bg-gray-800 px-6 py-4 rounded-xl border-b-4 ${currentPlayer === "X" ? "border-blue-500 shadow-[0_4px_15px_rgba(59,130,246,0.3)]" : "border-gray-600"} transition-all`}
           >
-            {/* Player X Label */}
             <span className="text-blue-500 text-3xl mb-1">X</span>
             {yourMark === "X" && (
               <span className="text-gray-400 text-xs uppercase tracking-widest">
@@ -287,20 +292,11 @@ export default function Home() {
 
           <div className="flex flex-col items-center flex-1 mx-4">
             <span className="text-4xl text-gray-500 italic mb-2">VS</span>
-            {gameStateData?.maxRounds && (
+            {maxRounds > 1 && (
               <div className="text-gray-400 text-sm">
-                Round {gameStateData.currentRound} / {gameStateData.maxRounds}
+                Round {currentRound} / {maxRounds}
               </div>
             )}
-            <div className="text-gray-400 text-sm mt-3 font-semibold text-center">
-              {winner
-                ? winner === "Draw"
-                  ? "Draw!"
-                  : `${winner} Wins!`
-                : currentPlayer === yourMark
-                  ? "Your Turn"
-                  : "Waiting..."}
-            </div>
           </div>
 
           <div
@@ -315,6 +311,33 @@ export default function Home() {
             )}
             <span className="text-white text-xl mt-1">Wins: {scores["O"]}</span>
           </div>
+        </div>
+
+        {/* State Information */}
+        <div className="text-center text-xl h-8 flex items-center justify-center mb-4">
+          {winner && winner !== "Draw" && roundState !== "round_result" && (
+            <span className="text-emerald-400 font-bold drop-shadow-md">
+              Player {winner} Wins the Match!
+            </span>
+          )}
+          {winner === "Draw" && roundState !== "round_result" && (
+            <span className="text-gray-400 font-bold drop-shadow-md">
+              It's a Draw!
+            </span>
+          )}
+          {roundState === "round_result" && (
+             <span className="text-yellow-400 font-iosevka-bold text-2xl drop-shadow-md animate-pulse">
+               Round Over! Get Ready...
+             </span>
+          )}
+          {!winner && currentPlayer === yourMark && (
+            <span className="text-blue-400 animate-pulse font-bold">
+              Your Turn
+            </span>
+          )}
+          {!winner && currentPlayer !== yourMark && (
+            <span className="text-gray-400 italic">Opponent's Turn...</span>
+          )}
         </div>
 
         {!winner && (
@@ -342,31 +365,16 @@ export default function Home() {
         </div>
 
         {/* End Game Options */}
-        {winner && (
-          <div className="w-full flex flex-col gap-3 mt-6">
-            <button
-              onClick={requestRematch}
-              disabled={rematchRequested}
-              className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg transition-all
-                ${
-                  rematchRequested
-                    ? "bg-gray-700 text-gray-400 cursor-not-allowed border outline-none border-gray-600"
-                    : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-xl active:scale-95 text-white"
-                }`}
-            >
-              {rematchRequested
-                ? "Waiting for Opponent..."
-                : rematchRequests.find((id) => id !== socketId)
-                  ? "Accept Rematch"
-                  : "Request Rematch"}
-            </button>
-            <button
-              onClick={playAgain}
-              className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all active:scale-95"
-            >
-              Play New Opponent
-            </button>
-          </div>
+        {roundState === "game_over" && (
+          <EndMatchOptions
+            rematchRequested={rematchRequested}
+            opponentLeft={!!disconnectMessage}
+            hasOpponentRequested={rematchRequests.find((id) => id !== socketId) !== undefined}
+            onRequestRematch={requestRematch}
+            onPlayAgain={playAgain}
+            primaryColorGradient="from-blue-600 to-indigo-600"
+            primaryColorHover="hover:from-blue-500 hover:to-indigo-500"
+          />
         )}
       </div>
     </div>

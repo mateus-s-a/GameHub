@@ -7,6 +7,7 @@ import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
 import AlertModal from "../../components/AlertModal";
+import EndMatchOptions from "../../components/EndMatchOptions";
 import { Wifi, WifiOff } from "lucide-react";
 
 interface GameState {
@@ -99,6 +100,7 @@ export default function GuessTheFlagGame() {
       setRoomId(null);
       setGameState(null);
       setRematchRequested(false);
+      setDisconnectMessage(null);
       socket.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
           setIsHost(false);
@@ -184,7 +186,7 @@ export default function GuessTheFlagGame() {
   return (
     <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center py-12 px-8 font-iosevka-regular overflow-y-auto">
       <AlertModal 
-        isOpen={!!disconnectMessage} 
+        isOpen={!!disconnectMessage && (gameState?.state !== "game_over" || rematchRequested)} 
         title="Match Terminated"
         message={disconnectMessage || ""} 
         onConfirm={handleDisconnectAcknowledge} 
@@ -340,30 +342,15 @@ export default function GuessTheFlagGame() {
 
         {/* End Game Options */}
         {gameState.state === "game_over" && (
-          <div className="w-full flex flex-col gap-3 mt-6">
-            <button
-              onClick={requestRematch}
-              disabled={rematchRequested}
-              className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg transition-all
-                ${
-                  rematchRequested
-                    ? "bg-gray-700 text-gray-400 cursor-not-allowed border outline-none border-gray-600"
-                    : "bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 hover:shadow-xl active:scale-95 text-white"
-                }`}
-            >
-              {rematchRequested
-                ? "Waiting for Opponent..."
-                : gameState.rematchRequests?.find((id) => id !== socketId)
-                  ? "Accept Rematch"
-                  : "Request Rematch"}
-            </button>
-            <button
-              onClick={playAgain}
-              className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all active:scale-95"
-            >
-              Play New Opponent
-            </button>
-          </div>
+          <EndMatchOptions
+            rematchRequested={rematchRequested}
+            opponentLeft={!!disconnectMessage}
+            hasOpponentRequested={gameState.rematchRequests?.find((id) => id !== socketId) !== undefined}
+            onRequestRematch={requestRematch}
+            onPlayAgain={playAgain}
+            primaryColorGradient="from-orange-500 to-red-600"
+            primaryColorHover="hover:from-orange-400 hover:to-red-500"
+          />
         )}
       </div>
     </div>

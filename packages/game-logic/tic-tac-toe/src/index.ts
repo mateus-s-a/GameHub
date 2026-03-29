@@ -1,4 +1,5 @@
 export type PlayerMark = "X" | "O" | null;
+export type TTTRoundState = "waiting_players" | "playing" | "round_result" | "game_over";
 
 export interface TTTConfig {
   maxRounds?: number;
@@ -30,6 +31,14 @@ export class TicTacToeLogic {
     this.currentRound = 1;
     this.turnEndTime = null;
     this.scores = { X: 0, O: 0 };
+  }
+
+  get state(): TTTRoundState {
+    if (this.players.size < 2) return "waiting_players";
+    if (this.winner) {
+      return this.currentRound < this.maxRounds ? "round_result" : "game_over";
+    }
+    return "playing";
   }
 
   addPlayer(id: string): PlayerMark | null {
@@ -113,6 +122,7 @@ export class TicTacToeLogic {
 
   nextRound() {
     this.board = Array(9).fill(null);
+    this.currentRound++;
     // Alternate starting player each round
     this.currentPlayer = this.currentRound % 2 === 0 ? "X" : "O";
     this.winner = null;
@@ -131,6 +141,7 @@ export class TicTacToeLogic {
 
   getPublicState() {
     return {
+      state: this.state,
       board: this.board,
       currentPlayer: this.currentPlayer,
       winner: this.winner,

@@ -95,6 +95,29 @@ function leaveQueue(socketId: string) {
   }
 }
 
+/**
+ * Universal utility to progress match rounds after a set delay.
+ */
+function scheduleNextRound(
+  gameMap: Map<string, any>,
+  roomId: string,
+  namespace: any,
+  delayMs: number,
+  onNextRound?: (game: any) => void
+) {
+  setTimeout(() => {
+    const game = gameMap.get(roomId);
+    if (game) {
+      game.nextRound();
+      if (onNextRound) {
+        onNextRound(game);
+      } else {
+        namespace.to(roomId).emit("gameState", game.getPublicState());
+      }
+    }
+  }, delayMs);
+}
+
 const tttNamespace = io.of("/ttt");
 const tttGames = new Map<string, TicTacToeLogic>();
 const tttSocketRooms = new Map<string, string>();
@@ -153,6 +176,9 @@ tttNamespace.on("connection", (socket: Socket) => {
 
       if (game.makeMove(socket.id, index)) {
         tttNamespace.to(roomId).emit("gameState", game.getPublicState());
+        if (game.state === "round_result") {
+          scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
+        }
       }
     },
   );
@@ -263,10 +289,7 @@ rpsNamespace.on("connection", (socket: Socket) => {
 
         // If the round just finished, wait 3 seconds and go to next round automatically
         if (game.state === "reveal_phase") {
-          setTimeout(() => {
-            game.nextRound();
-            rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
-          }, 3000);
+          scheduleNextRound(rpsGames, roomId, rpsNamespace, 3000);
         }
       }
     },
@@ -364,14 +387,13 @@ gtfNamespace.on("connection", (socket: Socket) => {
         gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
 
         if (game.state === "round_result") {
-          setTimeout(() => {
-            game.nextRound();
-            if (game.state === "guessing_phase") {
-              startGTFRound(roomId, game);
-            } else if (game.state === "game_over") {
-              gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
+          scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
+            if (g.state === "guessing_phase") {
+              startGTFRound(roomId, g as any);
+            } else if (g.state === "game_over") {
+              gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
             }
-          }, 5000); // 5 second break between rounds
+          });
         }
       }
     },
@@ -464,6 +486,9 @@ setInterval(() => {
         if (currentPlayerId) {
           game.makeMove(currentPlayerId, randomObj);
           tttNamespace.to(roomId).emit("gameState", game.getPublicState());
+          if (game.state === "round_result") {
+            scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
+          }
         }
       }
     }
@@ -491,11 +516,10 @@ setInterval(() => {
       if (changed) {
         rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
         if ((game as any).state === "reveal_phase") {
-          setTimeout(() => {
-            game.nextRound();
-            if ((game as any).state === "commit_phase") game.beginCommitPhase();
-            rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
-          }, 3000);
+          scheduleNextRound(rpsGames, roomId, rpsNamespace, 3000, (g) => {
+            if (g.state === "commit_phase") g.beginCommitPhase();
+            rpsNamespace.to(roomId).emit("gameState", g.getPublicState());
+          });
         }
       }
     }
@@ -512,13 +536,14 @@ setInterval(() => {
       gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
 
       setTimeout(() => {
-        game.nextRound();
-        if ((game as any).state === "guessing_phase") {
-          startGTFRound(roomId, game);
-        } else if ((game as any).state === "game_over") {
-          gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
-        }
-      }, 5000);
+          scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
+            if (g.state === "guessing_phase") {
+              startGTFRound(roomId, g as any);
+            } else if (g.state === "game_over") {
+              gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
+            }
+          });
+      }, 0);
     }
   }
 }, 1000);
