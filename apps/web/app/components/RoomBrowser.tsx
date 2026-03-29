@@ -90,16 +90,12 @@ export default function RoomBrowser({
                       {inProgress ? (
                         <>
                           <Swords className="w-3.5 h-3.5" />
-                          <span className="text-[10px] uppercase">
-                            In Game
-                          </span>
+                          <span className="text-[10px] uppercase">In Game</span>
                         </>
                       ) : (
                         <>
                           <Clock className="w-3.5 h-3.5" />
-                          <span className="text-[10px] uppercase">
-                            Waiting
-                          </span>
+                          <span className="text-[10px] uppercase">Waiting</span>
                         </>
                       )}
                     </div>

@@ -38,7 +38,6 @@ const io = new Server(server, {
   },
 });
 
-
 /**
  * Universal utility to progress match rounds after a set delay.
  */
@@ -75,7 +74,13 @@ tttNamespace.on("connection", (socket: Socket) => {
 
   socket.on("createRoom", (config?: any) => {
     const hostName = `player-${socket.id.substring(0, 5)}`;
-    const room = roomManager.createRoom("ttt", socket.id, hostName, 2, config || {});
+    const room = roomManager.createRoom(
+      "ttt",
+      socket.id,
+      hostName,
+      2,
+      config || {},
+    );
     tttGames.set(room.id, new TicTacToeLogic(config || {}));
 
     socket.emit("matchFound", { roomId: room.id, isHost: true });
@@ -88,7 +93,7 @@ tttNamespace.on("connection", (socket: Socket) => {
       socket.emit("roomError", "Room is full or doesn't exist.");
       return;
     }
-    
+
     socket.emit("matchFound", { roomId, isHost: false });
     tttNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("ttt"));
   });
@@ -206,11 +211,14 @@ rpsNamespace.on("connection", (socket: Socket) => {
 
   socket.on("createRoom", (config?: any) => {
     const hostName = `player-${socket.id.substring(0, 5)}`;
-    const room = roomManager.createRoom("rps", socket.id, hostName, 2, config || {});
-    rpsGames.set(
-      room.id,
-      new RPSLogic(config?.maxRounds || 3, config),
+    const room = roomManager.createRoom(
+      "rps",
+      socket.id,
+      hostName,
+      2,
+      config || {},
     );
+    rpsGames.set(room.id, new RPSLogic(config?.maxRounds || 3, config));
 
     socket.emit("matchFound", { roomId: room.id, isHost: true });
     rpsNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("rps"));
@@ -222,7 +230,7 @@ rpsNamespace.on("connection", (socket: Socket) => {
       socket.emit("roomError", "Room is full or doesn't exist.");
       return;
     }
-    
+
     socket.emit("matchFound", { roomId, isHost: false });
     rpsNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("rps"));
   });
@@ -286,7 +294,10 @@ rpsNamespace.on("connection", (socket: Socket) => {
         rpsNamespace.to(roomId).emit("opponentDisconnected");
         rpsGames.delete(roomId);
         roomManager.removeRoom(roomId);
-        rpsNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("rps"));
+        rpsNamespace.emit(
+          "roomListUpdate",
+          roomManager.getAvailableRooms("rps"),
+        );
       }
     }
   });
@@ -305,7 +316,13 @@ gtfNamespace.on("connection", (socket: Socket) => {
 
   socket.on("createRoom", (config?: any) => {
     const hostName = `player-${socket.id.substring(0, 5)}`;
-    const room = roomManager.createRoom("gtf", socket.id, hostName, 2, config || {});
+    const room = roomManager.createRoom(
+      "gtf",
+      socket.id,
+      hostName,
+      2,
+      config || {},
+    );
     gtfGames.set(
       room.id,
       new GuessTheFlagLogic(config?.maxRounds || 5, config),
@@ -321,7 +338,7 @@ gtfNamespace.on("connection", (socket: Socket) => {
       socket.emit("roomError", "Room is full or doesn't exist.");
       return;
     }
-    
+
     socket.emit("matchFound", { roomId, isHost: false });
     gtfNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("gtf"));
   });
@@ -398,7 +415,10 @@ gtfNamespace.on("connection", (socket: Socket) => {
         gtfNamespace.to(roomId).emit("opponentDisconnected");
         gtfGames.delete(roomId);
         roomManager.removeRoom(roomId);
-        gtfNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("gtf"));
+        gtfNamespace.emit(
+          "roomListUpdate",
+          roomManager.getAvailableRooms("gtf"),
+        );
       }
     }
   });

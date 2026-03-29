@@ -183,7 +183,13 @@ export default function GuessTheFlagGame() {
   if (!roomId && !waiting && !setupNeeded) {
     return (
       <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center pt-24 p-8 font-iosevka-regular">
-        <BackButton isHost={false} isInSetup={false} isGameOver={false} isInLobby={true} onLeaveRoom={() => window.location.href = "/"} />
+        <BackButton
+          isHost={false}
+          isInSetup={false}
+          isGameOver={false}
+          isInLobby={true}
+          onLeaveRoom={() => (window.location.href = "/")}
+        />
         <RoomBrowser
           rooms={rooms}
           onCreateRoom={handleCreateRoomClick}

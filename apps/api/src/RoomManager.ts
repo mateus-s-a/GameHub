@@ -11,7 +11,7 @@ export class RoomManager {
     hostId: string,
     hostName: string,
     maxPlayers: number,
-    config?: any
+    config?: any,
   ): RoomInfo {
     const roomId = randomUUID();
     const newRoom: RoomInfo = {
