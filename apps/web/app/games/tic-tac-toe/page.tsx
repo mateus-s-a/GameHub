@@ -34,7 +34,9 @@ export default function Home() {
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [rematchRequested, setRematchRequested] = useState(false);
-  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(null);
+  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(
+    null,
+  );
 
   const [board, setBoard] = useState<PlayerMark[]>(Array(9).fill(null));
   const [currentPlayer, setCurrentPlayer] = useState<PlayerMark>("X");
@@ -194,7 +196,7 @@ export default function Home() {
     setWinner(null);
     setYourMark(null);
     setRematchRequested(false);
-    
+
     if (socket) {
       socket.emit("checkQueue", (hasPending: boolean) => {
         if (hasPending) {
@@ -237,11 +239,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-sans">
-      <AlertModal 
-        isOpen={!!disconnectMessage && (roundState !== "game_over" || rematchRequested)} 
+      <AlertModal
+        isOpen={
+          !!disconnectMessage &&
+          (roundState !== "game_over" || rematchRequested)
+        }
         title="Connection Lost"
-        message={disconnectMessage || ""} 
-        onConfirm={handleDisconnectAcknowledge} 
+        message={disconnectMessage || ""}
+        onConfirm={handleDisconnectAcknowledge}
       />
       <BackButton
         isHost={isHost}
@@ -251,7 +256,7 @@ export default function Home() {
         onLeaveRoom={handleLeaveRoom}
       />
       <h1 className="text-5xl border-b pb-4 mb-8 font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
-        GamesHub Tic-Tac-Toe
+        GameHub Tic-Tac-Toe
       </h1>
 
       <div className="bg-gray-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-gray-700 w-full max-w-md">
@@ -326,9 +331,9 @@ export default function Home() {
             </span>
           )}
           {roundState === "round_result" && (
-             <span className="text-yellow-400 font-iosevka-bold text-2xl drop-shadow-md animate-pulse">
-               Round Over! Get Ready...
-             </span>
+            <span className="text-yellow-400 font-iosevka-bold text-2xl drop-shadow-md animate-pulse">
+              Round Over! Get Ready...
+            </span>
           )}
           {!winner && currentPlayer === yourMark && (
             <span className="text-blue-400 animate-pulse font-bold">
@@ -369,7 +374,9 @@ export default function Home() {
           <EndMatchOptions
             rematchRequested={rematchRequested}
             opponentLeft={!!disconnectMessage}
-            hasOpponentRequested={rematchRequests.find((id) => id !== socketId) !== undefined}
+            hasOpponentRequested={
+              rematchRequests.find((id) => id !== socketId) !== undefined
+            }
             onRequestRematch={requestRematch}
             onPlayAgain={playAgain}
             primaryColorGradient="from-blue-600 to-indigo-600"

@@ -2,9 +2,9 @@ import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
 import cors from "cors";
-import { TicTacToeLogic, PlayerMark } from "@gameshub/tic-tac-toe";
-import { RPSLogic, RPSChoice } from "@gameshub/rock-paper-scissors";
-import { GuessTheFlagLogic, GTFCountry } from "@gameshub/guess-the-flag";
+import { TicTacToeLogic, PlayerMark } from "@gamehub/tic-tac-toe";
+import { RPSLogic, RPSChoice } from "@gamehub/rock-paper-scissors";
+import { GuessTheFlagLogic, GTFCountry } from "@gamehub/guess-the-flag";
 import { randomUUID } from "crypto";
 
 // Load countries
@@ -103,7 +103,7 @@ function scheduleNextRound(
   roomId: string,
   namespace: any,
   delayMs: number,
-  onNextRound?: (game: any) => void
+  onNextRound?: (game: any) => void,
 ) {
   setTimeout(() => {
     const game = gameMap.get(roomId);
@@ -536,13 +536,13 @@ setInterval(() => {
       gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
 
       setTimeout(() => {
-          scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
-            if (g.state === "guessing_phase") {
-              startGTFRound(roomId, g as any);
-            } else if (g.state === "game_over") {
-              gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
-            }
-          });
+        scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
+          if (g.state === "guessing_phase") {
+            startGTFRound(roomId, g as any);
+          } else if (g.state === "game_over") {
+            gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
+          }
+        });
       }, 0);
     }
   }

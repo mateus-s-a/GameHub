@@ -39,7 +39,7 @@ export default function HubMenu() {
 
       <header className="mb-16 text-center space-y-4">
         <h1 className="text-7xl font-iosevka-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-blue-100 to-blue-400 drop-shadow-sm">
-          GamesHub
+          GameHub
         </h1>
         <p className="text-blue-200/60 font-iosevka-regular text-lg tracking-widest uppercase">
           Select Your Arena

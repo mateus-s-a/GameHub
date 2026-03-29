@@ -6,13 +6,20 @@ import {
   RPSChoice,
   RoundState,
   PlayerState,
-} from "@gameshub/rock-paper-scissors";
+} from "@gamehub/rock-paper-scissors";
 import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
 import AlertModal from "../../components/AlertModal";
 import EndMatchOptions from "../../components/EndMatchOptions";
-import { Wifi, WifiOff, Mountain, FileText, Scissors, HelpCircle } from "lucide-react";
+import {
+  Wifi,
+  WifiOff,
+  Mountain,
+  FileText,
+  Scissors,
+  HelpCircle,
+} from "lucide-react";
 
 interface GameState {
   state: RoundState;
@@ -34,7 +41,9 @@ export default function RPSGame() {
   const [rematchRequested, setRematchRequested] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [isHost, setIsHost] = useState(false);
-  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(null);
+  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/rps");
@@ -186,11 +195,14 @@ export default function RPSGame() {
 
   return (
     <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-iosevka-regular">
-      <AlertModal 
-        isOpen={!!disconnectMessage && (gameState?.state !== "game_over" || rematchRequested)} 
+      <AlertModal
+        isOpen={
+          !!disconnectMessage &&
+          (gameState?.state !== "game_over" || rematchRequested)
+        }
         title="Match Terminated"
-        message={disconnectMessage || ""} 
-        onConfirm={handleDisconnectAcknowledge} 
+        message={disconnectMessage || ""}
+        onConfirm={handleDisconnectAcknowledge}
       />
       <BackButton
         isHost={isHost}
@@ -200,7 +212,7 @@ export default function RPSGame() {
         onLeaveRoom={handleLeaveRoom}
       />
       <h1 className="text-4xl font-iosevka-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
-        Rock-Paper-Scissors
+        GameHub Rock-Paper-Scissors
       </h1>
 
       <div className="w-full max-w-2xl bg-gray-800 rounded-2xl p-8 border border-gray-700 shadow-2xl space-y-8">
@@ -208,7 +220,12 @@ export default function RPSGame() {
         <div className="flex justify-between items-center bg-gray-900 rounded-xl p-4">
           <div className="text-center">
             <p className="text-sm text-gray-400 mb-1 flex items-center justify-center gap-2">
-               You {socketId ? <Wifi className="w-3 h-3 text-emerald-400" /> : <WifiOff className="w-3 h-3 text-red-500" />}
+              You{" "}
+              {socketId ? (
+                <Wifi className="w-3 h-3 text-emerald-400" />
+              ) : (
+                <WifiOff className="w-3 h-3 text-red-500" />
+              )}
             </p>
             <p className="text-3xl font-iosevka-bold text-emerald-400">
               {me?.score || 0}
@@ -223,9 +240,14 @@ export default function RPSGame() {
             </p>
           </div>
           <div className="text-center">
-             <p className="text-sm text-gray-400 mb-1 flex items-center justify-center gap-2">
-               Opponent {roomId && !waitingOpponent(gameState) ? <Wifi className="w-3 h-3 text-emerald-400" /> : <WifiOff className="w-3 h-3 text-red-500" />}
-             </p>
+            <p className="text-sm text-gray-400 mb-1 flex items-center justify-center gap-2">
+              Opponent{" "}
+              {roomId && !waitingOpponent(gameState) ? (
+                <Wifi className="w-3 h-3 text-emerald-400" />
+              ) : (
+                <WifiOff className="w-3 h-3 text-red-500" />
+              )}
+            </p>
             <p className="text-3xl font-iosevka-bold text-red-400">
               {opp?.score || 0}
             </p>
@@ -300,7 +322,10 @@ export default function RPSGame() {
           <EndMatchOptions
             rematchRequested={rematchRequested}
             opponentLeft={!!disconnectMessage}
-            hasOpponentRequested={gameState.rematchRequests?.find((id) => id !== socketId) !== undefined}
+            hasOpponentRequested={
+              gameState.rematchRequests?.find((id) => id !== socketId) !==
+              undefined
+            }
             onRequestRematch={requestRematch}
             onPlayAgain={playAgain}
             primaryColorGradient="from-purple-600 to-pink-600"
@@ -327,5 +352,5 @@ function getIcon(choice: RPSChoice | undefined, size: number) {
 
 // Utility to check if second player is fully connected
 function waitingOpponent(gameState: GameState) {
-   return gameState.players.length < 2 || gameState.state === 'waiting_players';
+  return gameState.players.length < 2 || gameState.state === "waiting_players";
 }

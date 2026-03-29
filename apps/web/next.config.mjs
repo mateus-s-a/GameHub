@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@gameshub/tic-tac-toe", "@gameshub/core", "@gameshub/types"],
+  transpilePackages: ["@gamehub/tic-tac-toe", "@gamehub/core", "@gamehub/types"],
 };
 
 export default nextConfig;

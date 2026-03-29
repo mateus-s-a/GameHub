@@ -1,6 +1,6 @@
-# GamesHub
+# GameHub
 
-GamesHub is a scalable multi-game real-time platform built with a modular monolith monorepo architecture.
+GameHub is a scalable multi-game real-time platform built with a modular monolith monorepo architecture.
 
 ## Technology Stack
 

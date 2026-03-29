@@ -1,5 +1,9 @@
 export type PlayerMark = "X" | "O" | null;
-export type TTTRoundState = "waiting_players" | "playing" | "round_result" | "game_over";
+export type TTTRoundState =
+  | "waiting_players"
+  | "playing"
+  | "round_result"
+  | "game_over";
 
 export interface TTTConfig {
   maxRounds?: number;

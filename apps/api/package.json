@@ -10,11 +10,11 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@gameshub/core": "*",
-    "@gameshub/tic-tac-toe": "*",
-    "@gameshub/types": "*",
-    "@gameshub/rock-paper-scissors": "*",
-    "@gameshub/guess-the-flag": "*",
+    "@gamehub/core": "*",
+    "@gamehub/tic-tac-toe": "*",
+    "@gamehub/types": "*",
+    "@gamehub/rock-paper-scissors": "*",
+    "@gamehub/guess-the-flag": "*",
     "@prisma/client": "^7.4.2",
     "cors": "^2.8.5",
     "express": "^4.21.0",
