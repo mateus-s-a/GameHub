@@ -5,6 +5,7 @@ export interface BackButtonProps {
   isHost: boolean;
   isInSetup: boolean;
   isGameOver: boolean;
+  isInLobby?: boolean;
   onReturnToSetup?: () => void;
   onLeaveRoom: () => void;
 }
@@ -13,6 +14,7 @@ export default function BackButton({
   isHost,
   isInSetup,
   isGameOver,
+  isInLobby = false,
   onReturnToSetup,
   onLeaveRoom,
 }: BackButtonProps) {
@@ -29,8 +31,8 @@ export default function BackButton({
     }
   };
 
-  // Only render if we are in the host setup section, or the match is finished
-  if (!isInSetup && !isGameOver) {
+  // Only render if we are in the host setup section, the match is finished, or in the lobby
+  if (!isInSetup && !isGameOver && !isInLobby) {
     return null;
   }
 

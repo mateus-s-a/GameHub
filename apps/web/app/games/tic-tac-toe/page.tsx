@@ -8,6 +8,8 @@ import BackButton from "../../components/BackButton";
 import AlertModal from "../../components/AlertModal";
 import EndMatchOptions from "../../components/EndMatchOptions";
 import { Wifi, WifiOff } from "lucide-react";
+import { useRoomList } from "../../hooks/useRoomList";
+import RoomBrowser from "../../components/RoomBrowser";
 
 type PlayerMark = "X" | "O" | null;
 
@@ -51,22 +53,14 @@ export default function Home() {
   const [roundState, setRoundState] = useState<string>("waiting_players");
   const [gameStateData, setGameStateData] = useState<GameState | null>(null);
 
+  const rooms = useRoomList(socket);
+
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/ttt");
     setSocket(s);
 
     s.on("connect", () => {
       setSocketId(s.id || null);
-      s.emit("checkQueue", (hasPending: boolean) => {
-        if (hasPending) {
-          setIsHost(false);
-          s.emit("joinMatchmaking");
-          setWaiting(true);
-        } else {
-          setIsHost(true);
-          setSetupNeeded(true);
-        }
-      });
     });
 
     s.on("matchFound", ({ roomId }) => {
@@ -145,16 +139,8 @@ export default function Home() {
       setYourMark(null);
       setRematchRequested(false);
       setDisconnectMessage(null);
-      socket.emit("checkQueue", (hasPending: boolean) => {
-        if (hasPending) {
-          setIsHost(false);
-          socket.emit("joinMatchmaking");
-          setWaiting(true);
-        } else {
-          setIsHost(true);
-          setSetupNeeded(true);
-        }
-      });
+      setIsHost(false);
+      setSetupNeeded(false);
     }
   };
 
@@ -178,9 +164,22 @@ export default function Home() {
     }
   };
 
+  const handleCreateRoomClick = () => {
+    setIsHost(true);
+    setSetupNeeded(true);
+  };
+
+  const handleJoinRoomClick = (joinRoomId: string) => {
+    if (socket) {
+      setIsHost(false);
+      socket.emit("joinSpecificRoom", joinRoomId);
+      setWaiting(true);
+    }
+  };
+
   const handleStartGame = (config: GameSetupConfig) => {
     if (socket) {
-      socket.emit("joinMatchmaking", config);
+      socket.emit("createRoom", config);
       setSetupNeeded(false);
       setWaiting(true);
     }
@@ -195,18 +194,8 @@ export default function Home() {
     setYourMark(null);
     setRematchRequested(false);
 
-    if (socket) {
-      socket.emit("checkQueue", (hasPending: boolean) => {
-        if (hasPending) {
-          setIsHost(false);
-          socket.emit("joinMatchmaking");
-          setWaiting(true);
-        } else {
-          setIsHost(true);
-          setSetupNeeded(true);
-        }
-      });
-    }
+    setIsHost(false);
+    setSetupNeeded(false);
   };
 
   if (setupNeeded && !roomId) {
@@ -223,14 +212,34 @@ export default function Home() {
     );
   }
 
+  if (!roomId && !waiting && !setupNeeded) {
+    return (
+      <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center pt-24 p-8 font-sans">
+        <BackButton isHost={false} isInSetup={false} isGameOver={false} isInLobby={true} onLeaveRoom={() => window.location.href = "/"} />
+        <RoomBrowser
+          rooms={rooms}
+          onCreateRoom={handleCreateRoomClick}
+          onJoinRoom={handleJoinRoomClick}
+          gameLabel="Tic-Tac-Toe"
+        />
+      </div>
+    );
+  }
+
   if (!roomId || waiting) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white font-sans text-2xl">
-        {!socketId
-          ? "Connecting to Socket Hub..."
-          : waiting
-            ? "Waiting for opposing player to join room..."
-            : "Searching for an opponent in Matchmaking..."}
+      <div className="min-h-screen relative flex flex-col items-center justify-center bg-gray-900 text-white font-sans text-xl">
+        <BackButton isHost={isHost} isInSetup={false} isGameOver={false} onLeaveRoom={handleLeaveRoom} />
+        <div className="animate-pulse flex flex-col items-center justify-center gap-4">
+          <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-300 font-iosevka-regular font-bold tracking-wide">
+            {!socketId
+              ? "Connecting to Socket Hub..."
+              : waiting
+                ? (isHost ? "Waiting for opposing player to join room..." : "Joining Room...")
+                : "Unexpected State"}
+          </p>
+        </div>
       </div>
     );
   }
@@ -339,7 +348,9 @@ export default function Home() {
             </span>
           )}
           {!winner && currentPlayer !== yourMark && (
-            <span className="text-gray-400 italic">Opponent&apos;s Turn...</span>
+            <span className="text-gray-400 italic">
+              Opponent&apos;s Turn...
+            </span>
           )}
         </div>
 

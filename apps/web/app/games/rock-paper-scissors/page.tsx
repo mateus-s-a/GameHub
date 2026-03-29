@@ -20,6 +20,8 @@ import {
   Scissors,
   HelpCircle,
 } from "lucide-react";
+import { useRoomList } from "../../hooks/useRoomList";
+import RoomBrowser from "../../components/RoomBrowser";
 
 interface GameState {
   state: RoundState;
@@ -41,9 +43,12 @@ export default function RPSGame() {
   const [rematchRequested, setRematchRequested] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [isHost, setIsHost] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const [disconnectMessage, setDisconnectMessage] = useState<string | null>(
     null,
   );
+  
+  const rooms = useRoomList(socket);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/rps");
@@ -51,15 +56,6 @@ export default function RPSGame() {
 
     s.on("connect", () => {
       setSocketId(s.id || null);
-      s.emit("checkQueue", (hasPending: boolean) => {
-        if (hasPending) {
-          setIsHost(false);
-          s.emit("joinMatchmaking");
-        } else {
-          setIsHost(true);
-          setSetupNeeded(true);
-        }
-      });
     });
 
     s.on("matchFound", ({ roomId }) => {
@@ -111,15 +107,9 @@ export default function RPSGame() {
       setGameState(null);
       setRematchRequested(false);
       setDisconnectMessage(null);
-      socket.emit("checkQueue", (hasPending: boolean) => {
-        if (hasPending) {
-          setIsHost(false);
-          socket.emit("joinMatchmaking");
-        } else {
-          setIsHost(true);
-          setSetupNeeded(true);
-        }
-      });
+      setIsHost(false);
+      setSetupNeeded(false);
+      setWaiting(false);
     }
   };
 
@@ -142,8 +132,22 @@ export default function RPSGame() {
 
   const handleStartGame = (config: GameSetupConfig) => {
     if (socket) {
-      socket.emit("joinMatchmaking", config);
+      socket.emit("createRoom", config);
       setSetupNeeded(false);
+      setWaiting(true);
+    }
+  };
+
+  const handleCreateRoomClick = () => {
+    setIsHost(true);
+    setSetupNeeded(true);
+  };
+
+  const handleJoinRoomClick = (joinRoomId: string) => {
+    if (socket) {
+      setIsHost(false);
+      socket.emit("joinSpecificRoom", joinRoomId);
+      setWaiting(true);
     }
   };
 
@@ -152,18 +156,9 @@ export default function RPSGame() {
     setRoomId(null);
     setGameState(null);
     setRematchRequested(false);
-
-    if (socket) {
-      socket.emit("checkQueue", (hasPending: boolean) => {
-        if (hasPending) {
-          setIsHost(false);
-          socket.emit("joinMatchmaking");
-        } else {
-          setIsHost(true);
-          setSetupNeeded(true);
-        }
-      });
-    }
+    setIsHost(false);
+    setSetupNeeded(false);
+    setWaiting(false);
   };
 
   if (setupNeeded && !roomId) {
@@ -180,12 +175,34 @@ export default function RPSGame() {
     );
   }
 
+  if (!roomId && !waiting && !setupNeeded) {
+    return (
+      <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center pt-24 p-8 font-iosevka-regular">
+        <BackButton isHost={false} isInSetup={false} isGameOver={false} isInLobby={true} onLeaveRoom={() => window.location.href = "/"} />
+        <RoomBrowser
+          rooms={rooms}
+          onCreateRoom={handleCreateRoomClick}
+          onJoinRoom={handleJoinRoomClick}
+          gameLabel="Rock-Paper-Scissors"
+        />
+      </div>
+    );
+  }
+
   if (!roomId || !gameState) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white font-iosevka-regular text-2xl">
-        {socketId
-          ? "Searching for an opponent in Matchmaking..."
-          : "Connecting to Socket Hub..."}
+      <div className="min-h-screen relative flex flex-col items-center justify-center bg-gray-900 text-white font-iosevka-regular text-xl">
+        <BackButton isHost={isHost} isInSetup={false} isGameOver={false} onLeaveRoom={handleLeaveRoom} />
+        <div className="animate-pulse flex flex-col items-center justify-center gap-4">
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-300 font-iosevka-bold tracking-wide">
+            {!socketId
+              ? "Connecting to Socket Hub..."
+              : waiting
+                ? (isHost ? "Waiting for opposing player to join room..." : "Joining Room...")
+                : "Initializing..."}
+          </p>
+        </div>
       </div>
     );
   }

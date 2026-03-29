@@ -3,7 +3,15 @@ export interface Player {
   name?: string;
 }
 
-export interface Room {
+export type RoomStatus = "waiting" | "in_progress";
+
+export interface RoomInfo {
   id: string;
-  players: Player[];
+  gameType: string;
+  hostId: string;
+  hostName: string;
+  status: RoomStatus;
+  playerCount: number;
+  maxPlayers: number;
+  config?: any;
 }
