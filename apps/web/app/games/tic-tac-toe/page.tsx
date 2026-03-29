@@ -42,13 +42,11 @@ export default function Home() {
   const [currentPlayer, setCurrentPlayer] = useState<PlayerMark>("X");
   const [winner, setWinner] = useState<PlayerMark | "Draw">(null);
   const [yourMark, setYourMark] = useState<PlayerMark>(null);
-  const [players, setPlayers] = useState<{ id: string; mark: PlayerMark }[]>(
-    [],
-  );
+
   const [rematchRequests, setRematchRequests] = useState<string[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
   const [maxRounds, setMaxRounds] = useState(1);
-  const [turnEndTime, setTurnEndTime] = useState<number | null>(null);
+
   const [scores, setScores] = useState({ X: 0, O: 0 });
   const [roundState, setRoundState] = useState<string>("waiting_players");
   const [gameStateData, setGameStateData] = useState<GameState | null>(null);
@@ -87,11 +85,11 @@ export default function Home() {
       setBoard(serverState.board);
       setCurrentPlayer(serverState.currentPlayer);
       setWinner(serverState.winner);
-      setPlayers(serverState.players || []);
+
       setRematchRequests(serverState.rematchRequests || []);
       setCurrentRound(serverState.currentRound || 1);
       setMaxRounds(serverState.maxRounds || 1);
-      setTurnEndTime(serverState.turnEndTime || null);
+
       setScores(serverState.scores || { X: 0, O: 0 });
       setRoundState(serverState.state || "waiting_players");
       if (serverState.yourMark !== undefined) setYourMark(serverState.yourMark);
@@ -327,7 +325,7 @@ export default function Home() {
           )}
           {winner === "Draw" && roundState !== "round_result" && (
             <span className="text-gray-400 font-bold drop-shadow-md">
-              It's a Draw!
+              It&apos;s a Draw!
             </span>
           )}
           {roundState === "round_result" && (
@@ -341,7 +339,7 @@ export default function Home() {
             </span>
           )}
           {!winner && currentPlayer !== yourMark && (
-            <span className="text-gray-400 italic">Opponent's Turn...</span>
+            <span className="text-gray-400 italic">Opponent&apos;s Turn...</span>
           )}
         </div>
 
