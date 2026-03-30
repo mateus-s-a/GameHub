@@ -1,4 +1,4 @@
-import { RoomInfo, RoomStatus } from "@gamehub/types";
+import { RoomInfo, RoomLobbyPlayer } from "@gamehub/types";
 import { randomUUID } from "crypto";
 
 export class RoomManager {
@@ -11,9 +11,17 @@ export class RoomManager {
     hostId: string,
     hostName: string,
     maxPlayers: number,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config?: any,
   ): RoomInfo {
     const roomId = randomUUID();
+    const hostPlayer: RoomLobbyPlayer = {
+      id: hostId,
+      name: hostName,
+      isHost: true,
+      isReady: false,
+    };
+
     const newRoom: RoomInfo = {
       id: roomId,
       gameType,
@@ -22,10 +30,24 @@ export class RoomManager {
       status: "waiting",
       playerCount: 1, // Host starts in the room
       maxPlayers,
+      players: [hostPlayer],
+      countdown: null,
       config,
     };
     this.rooms.set(roomId, newRoom);
     return newRoom;
+  }
+
+  public toggleReady(roomId: string, playerId: string): RoomInfo | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (player) {
+      player.isReady = !player.isReady;
+    }
+    this.rooms.set(roomId, room);
+    return room;
   }
 
   public getRoom(roomId: string): RoomInfo | undefined {
@@ -46,33 +68,57 @@ export class RoomManager {
     return available;
   }
 
-  public joinRoom(roomId: string): RoomInfo | null {
+  public joinRoom(
+    roomId: string,
+    playerId: string,
+    playerName: string,
+  ): RoomInfo | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
 
-    if (room.playerCount < room.maxPlayers) {
+    if (room.playerCount < room.maxPlayers && room.status === "waiting") {
       room.playerCount += 1;
-      if (room.playerCount === room.maxPlayers) {
-        room.status = "in_progress";
-      }
+      room.players.push({
+        id: playerId,
+        name: playerName,
+        isHost: false,
+        isReady: false,
+      });
+
       this.rooms.set(roomId, room);
       return room;
     }
     return null;
   }
 
-  public leaveRoom(roomId: string): RoomInfo | null {
+  public leaveRoom(roomId: string, playerId: string): RoomInfo | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
 
-    room.playerCount -= 1;
-    // If empty or host leaves, it's simpler to just delete the room in index.ts logic
+    room.players = room.players.filter((p) => p.id !== playerId);
+    room.playerCount = room.players.length;
+
+    // Se a sala ficar vazia, destruímos ela
     if (room.playerCount <= 0) {
       this.removeRoom(roomId);
       return null;
     }
 
-    room.status = "waiting"; // if a player leaves, it reverts to waiting
+    // Se o HOST saiu, migramos o cargo para o próximo jogador
+    if (room.hostId === playerId) {
+      const newHost = room.players[0];
+      if (newHost) {
+        room.hostId = newHost.id;
+        room.hostName = newHost.name;
+        newHost.isHost = true;
+      }
+    }
+
+    // Se a saída ocorrer durante o lobby, resetamos o countdown
+    if (room.status === "waiting") {
+      room.countdown = null;
+    }
+
     this.rooms.set(roomId, room);
     return room;
   }

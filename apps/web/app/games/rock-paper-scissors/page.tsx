@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 import { useRoomList } from "../../hooks/useRoomList";
 import RoomBrowser from "../../components/RoomBrowser";
-import WaitingScreen from "../../components/WaitingScreen";
+import RoomLobby from "../../components/RoomLobby";
+import useRoomLobby from "../../hooks/useRoomLobby";
 
 interface GameState {
   state: RoundState;
@@ -44,12 +45,19 @@ export default function RPSGame() {
   const [rematchRequested, setRematchRequested] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [isHost, setIsHost] = useState(false);
-  const [waiting, setWaiting] = useState(false);
+  const [isGameStarted, setIsGameStarted] = useState(false);
   const [disconnectMessage, setDisconnectMessage] = useState<string | null>(
     null,
   );
 
   const rooms = useRoomList(socket);
+  const roomLobby = useRoomLobby(socket, roomId);
+
+  useEffect(() => {
+    if (isGameStarted && socket && roomId) {
+      socket.emit("joinRoom", roomId);
+    }
+  }, [isGameStarted, socket, roomId]);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/rps");
@@ -59,9 +67,19 @@ export default function RPSGame() {
       setSocketId(s.id || null);
     });
 
-    s.on("matchFound", ({ roomId }) => {
+    s.on("matchFound", ({ roomId, isHost }) => {
       setRoomId(roomId);
-      s.emit("joinRoom", roomId);
+      setIsHost(isHost || false);
+      setSetupNeeded(false);
+    });
+
+    s.on("roomDestroyed", () => {
+      alert("The Host has destroyed the room.");
+      window.location.href = "/games/rock-paper-scissors";
+    });
+
+    s.on("gameStarted", () => {
+      setIsGameStarted(true);
     });
 
     s.on("gameState", (state: GameState) => {
@@ -106,11 +124,11 @@ export default function RPSGame() {
       socket.emit("leaveRoom", roomId);
       setRoomId(null);
       setGameState(null);
+      setIsGameStarted(false);
       setRematchRequested(false);
       setDisconnectMessage(null);
       setIsHost(false);
       setSetupNeeded(false);
-      setWaiting(false);
     }
   };
 
@@ -120,6 +138,7 @@ export default function RPSGame() {
     }
     setRoomId(null);
     setGameState(null);
+    setIsGameStarted(false);
     setRematchRequested(false);
     setSetupNeeded(true);
   };
@@ -135,7 +154,6 @@ export default function RPSGame() {
     if (socket) {
       socket.emit("createRoom", config);
       setSetupNeeded(false);
-      setWaiting(true);
     }
   };
 
@@ -148,19 +166,7 @@ export default function RPSGame() {
     if (socket) {
       setIsHost(false);
       socket.emit("joinSpecificRoom", joinRoomId);
-      setWaiting(true);
     }
-  };
-
-  const handleCancelWaiting = () => {
-    if (socket && roomId) {
-      socket.emit("leaveRoom", roomId);
-    }
-    setRoomId(null);
-    setWaiting(false);
-    setIsHost(true);
-    setSetupNeeded(true);
-    setGameState(null);
   };
 
   const handleDisconnectAcknowledge = () => {
@@ -170,7 +176,7 @@ export default function RPSGame() {
     setRematchRequested(false);
     setIsHost(false);
     setSetupNeeded(false);
-    setWaiting(false);
+    setIsGameStarted(false);
   };
 
   if (setupNeeded && !roomId) {
@@ -187,7 +193,7 @@ export default function RPSGame() {
     );
   }
 
-  if (!roomId && !waiting && !setupNeeded) {
+  if (!roomId && !setupNeeded) {
     return (
       <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center pt-24 p-8 font-iosevka-regular">
         <BackButton
@@ -207,14 +213,24 @@ export default function RPSGame() {
     );
   }
 
-  if (!roomId || !gameState || gameState.players.length < 2) {
+  if (roomId && !isGameStarted) {
     return (
-      <WaitingScreen
-        isHost={isHost}
-        onCancel={handleCancelWaiting}
+      <RoomLobby
+        roomLobby={roomLobby}
+        localPlayerId={socketId || ""}
+        onToggleReady={() => socket?.emit("toggleReady", roomId)}
+        onStartMatch={() => socket?.emit("startMatch", roomId)}
         onLeaveRoom={handleLeaveRoom}
         themeColor="purple"
       />
+    );
+  }
+
+  if (!gameState) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center font-iosevka-bold text-xl text-purple-400 animate-pulse">
+        Entering Arena...
+      </div>
     );
   }
 

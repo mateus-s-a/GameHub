@@ -23,6 +23,7 @@ export interface GTFConfig {
   maxRounds?: number;
   timeLimit?: number; // 0 means default/unlimited, though GTF always has some timeout
   region?: string; // 'All', 'Europe', 'Asia', 'Africa', 'Americas', 'Oceania'
+  maxPlayers?: number;
 }
 
 export class GuessTheFlagLogic {
@@ -35,6 +36,7 @@ export class GuessTheFlagLogic {
   timeLimit: number;
   turnEndTime: number | null;
   region: string;
+  maxPlayers: number;
 
   // The current correct country flag and name
   currentCountry: GTFCountry | null = null;
@@ -51,33 +53,49 @@ export class GuessTheFlagLogic {
     this.timeLimit = config?.timeLimit || 15; // default 15s in GTF
     this.turnEndTime = null;
     this.region = config?.region || "All";
+    this.maxPlayers = config?.maxPlayers || 2;
   }
 
   addPlayer(id: string): boolean {
-    if (this.players.size >= 2 || this.players.has(id)) return false;
+    if (this.players.size >= this.maxPlayers || this.players.has(id))
+      return false;
     this.players.set(id, {
       id,
       score: 0,
       hasGuessed: false,
       currentGuess: null,
     });
-
-    if (this.players.size === 2) {
-      this.state = "guessing_phase";
-    }
     return true;
   }
 
   removePlayer(id: string) {
     this.players.delete(id);
     this.rematchRequests.delete(id);
-    this.state = "waiting_players";
+
+    // Only reset state if we were in lobby/waiting
+    if (this.state === "waiting_players") {
+      this.state = "waiting_players";
+    }
+
+    // If in guessing_phase, we might need to trigger round end if everyone else already guessed
+    if (this.state === "guessing_phase") {
+      let allGuessed = true;
+      for (const p of this.players.values()) {
+        if (!p.hasGuessed) {
+          allGuessed = false;
+          break;
+        }
+      }
+      if (allGuessed && this.players.size > 0) {
+        this.state = "round_result";
+      }
+    }
   }
 
   requestRematch(id: string): boolean {
     if (!this.players.has(id)) return false;
     this.rematchRequests.add(id);
-    return this.rematchRequests.size === 2;
+    return this.rematchRequests.size === this.maxPlayers;
   }
 
   reset() {
@@ -155,6 +173,7 @@ export class GuessTheFlagLogic {
       state: this.state,
       currentRound: this.currentRound,
       maxRounds: this.maxRounds,
+      maxPlayers: this.maxPlayers,
       players: Array.from(this.players.values()).map((p) => ({
         id: p.id,
         score: p.score,

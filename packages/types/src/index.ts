@@ -5,6 +5,13 @@ export interface Player {
 
 export type RoomStatus = "waiting" | "in_progress";
 
+export interface RoomLobbyPlayer {
+  id: string;
+  name: string;
+  isHost: boolean;
+  isReady: boolean;
+}
+
 export interface RoomInfo {
   id: string;
   gameType: string;
@@ -13,5 +20,7 @@ export interface RoomInfo {
   status: RoomStatus;
   playerCount: number;
   maxPlayers: number;
+  players: RoomLobbyPlayer[];
+  countdown: number | null;
   config?: any;
 }

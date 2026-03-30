@@ -1,4 +1,3 @@
-import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 export interface BackButtonProps {
@@ -18,16 +17,13 @@ export default function BackButton({
   onReturnToSetup,
   onLeaveRoom,
 }: BackButtonProps) {
-  const router = useRouter();
-
   const handleBack = () => {
-    if (isGameOver && isHost && onReturnToSetup) {
-      // Host at game over -> Return to host customization section
+    if (isHost && onReturnToSetup) {
+      // Host returns to customization
       onReturnToSetup();
     } else {
-      // Setup phase, or Guest at game over -> Return to root route
+      // Guest or Host (fallback) leaves the room/setup
       onLeaveRoom();
-      router.push("/");
     }
   };
 

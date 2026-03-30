@@ -1,0 +1,151 @@
+import React from "react";
+import { RoomInfo } from "@gamehub/types";
+import { Users, CheckCircle, XCircle, Play, X } from "lucide-react";
+
+export interface RoomLobbyProps {
+  roomLobby: RoomInfo | null;
+  localPlayerId: string;
+  onToggleReady: () => void;
+  onStartMatch: () => void;
+  onLeaveRoom: () => void;
+  themeColor?: string;
+}
+
+export default function RoomLobby({
+  roomLobby,
+  localPlayerId,
+  onToggleReady,
+  onStartMatch,
+  onLeaveRoom,
+  themeColor = "emerald",
+}: RoomLobbyProps) {
+  if (!roomLobby) return null;
+
+  const isHost = roomLobby.hostId === localPlayerId;
+
+  const themeStyles: Record<string, { bgAccent: string; textAccent: string }> =
+    {
+      emerald: { bgAccent: "bg-emerald-500", textAccent: "text-emerald-400" },
+      cyan: { bgAccent: "bg-cyan-500", textAccent: "text-cyan-400" },
+      purple: { bgAccent: "bg-purple-500", textAccent: "text-purple-400" },
+      orange: { bgAccent: "bg-orange-500", textAccent: "text-orange-400" },
+    };
+
+  const style = (themeStyles[themeColor] || themeStyles["emerald"]) as {
+    bgAccent: string;
+    textAccent: string;
+  };
+
+  // Populate empty slots visually based on maxPlayers configured in Backend!
+  const slots = Array.from({ length: roomLobby.maxPlayers }).map((_, i) => {
+    return roomLobby.players[i] || null;
+  });
+
+  const allReady = roomLobby.players.every((p) => p.isReady);
+  const canStart = roomLobby.players.length >= 2 && allReady;
+
+  return (
+    <div className="flex flex-col items-center justify-center p-8 bg-gray-800/80 backdrop-blur-xl rounded-3xl border border-gray-700/50 shadow-[0_0_50px_rgba(0,0,0,0.5)] max-w-2xl w-full text-center relative overflow-hidden font-iosevka-regular mt-8 mx-auto z-10">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-gray-700/20 rounded-full blur-3xl -z-10 translate-x-1/2 -translate-y-1/2"></div>
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-gray-700/20 rounded-full blur-3xl -z-10 -translate-x-1/2 translate-y-1/2"></div>
+
+      <div className="flex justify-between items-center w-full mb-8">
+        <div>
+          <h2 className="text-3xl font-iosevka-bold text-white text-left">
+            Match Lobby
+          </h2>
+          <p className="text-sm text-gray-400 text-left">
+            {roomLobby.hostName}&apos;s Room - {roomLobby.playerCount}/
+            {roomLobby.maxPlayers}
+          </p>
+        </div>
+        <button
+          onClick={onLeaveRoom}
+          className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-colors border border-red-500/20"
+        >
+          <X className="w-5 h-5" />
+          {isHost ? "Destroy Room" : "Leave Room"}
+        </button>
+      </div>
+
+      <div className="w-full space-y-3 mb-8">
+        {slots.map((p, index) => (
+          <div
+            key={p ? p.id : `empty-${index}`}
+            className={`flex items-center justify-between p-4 rounded-xl border ${p ? "bg-gray-700/50 border-gray-500/30" : "bg-gray-800 border-gray-700/50 border-dashed"}`}
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center ${p ? style.bgAccent : "bg-gray-700"} text-white`}
+              >
+                <Users className="w-5 h-5" />
+              </div>
+              <span
+                className={`text-lg ${p ? (p.id === localPlayerId ? style.textAccent : "text-gray-200") : "text-gray-500"}`}
+              >
+                {p
+                  ? `${p.name} ${p.isHost ? "(Host)" : ""}`
+                  : "Waiting for player..."}
+              </span>
+            </div>
+
+            {p && (
+              <div className="flex items-center gap-3">
+                {p.isReady ? (
+                  <span className="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
+                    <CheckCircle className="w-5 h-5" /> Ready
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2 text-gray-400 text-sm">
+                    <XCircle className="w-5 h-5" /> Not Ready
+                  </span>
+                )}
+
+                {/* O Jogador local pode alterar seu próprio status */}
+                {p.id === localPlayerId && roomLobby.countdown === null && (
+                  <button
+                    onClick={onToggleReady}
+                    className={`ml-4 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${p.isReady ? "bg-gray-600 hover:bg-gray-500 text-white" : `${style.bgAccent} hover:opacity-80 text-white`}`}
+                  >
+                    {p.isReady ? "Cancel Ready" : "Ready Up"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Countdown gigante cobrindo tudo via Portal ou Modal Interno */}
+      {roomLobby.countdown !== null && (
+        <div className="absolute inset-0 bg-gray-900/90 backdrop-blur-md flex flex-col items-center justify-center z-50">
+          <h1
+            className={`text-9xl font-iosevka-bold ${style.textAccent} animate-pulse drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]`}
+          >
+            {roomLobby.countdown}
+          </h1>
+          <p className="text-xl text-gray-300 mt-6 tracking-widest font-iosevka-bold uppercase">
+            Game Starting...
+          </p>
+        </div>
+      )}
+
+      {/* Area do Host */}
+      {isHost ? (
+        <button
+          onClick={onStartMatch}
+          disabled={!canStart || roomLobby.countdown !== null}
+          className={`w-full py-4 rounded-xl font-iosevka-bold text-xl flex items-center justify-center gap-3 transition-transform active:scale-95 shadow-lg ${canStart ? `${style.bgAccent} hover:brightness-110 text-white cursor-pointer` : "bg-gray-700 text-gray-500 cursor-not-allowed"}`}
+        >
+          <Play className="w-6 h-6" /> Start Match
+        </button>
+      ) : (
+        <div className="text-gray-400 text-sm mt-2">
+          {roomLobby.countdown === null
+            ? "Waiting for Host to start the match..."
+            : ""}
+        </div>
+      )}
+    </div>
+  );
+}

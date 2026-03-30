@@ -10,7 +10,8 @@ import EndMatchOptions from "../../components/EndMatchOptions";
 import { Wifi, WifiOff } from "lucide-react";
 import { useRoomList } from "../../hooks/useRoomList";
 import RoomBrowser from "../../components/RoomBrowser";
-import WaitingScreen from "../../components/WaitingScreen";
+import RoomLobby from "../../components/RoomLobby";
+import useRoomLobby from "../../hooks/useRoomLobby";
 
 type PlayerMark = "X" | "O" | null;
 
@@ -33,7 +34,7 @@ export default function Home() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [socketId, setSocketId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
-  const [waiting, setWaiting] = useState(false);
+  const [isGameStarted, setIsGameStarted] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [rematchRequested, setRematchRequested] = useState(false);
@@ -55,6 +56,13 @@ export default function Home() {
   const [gameStateData, setGameStateData] = useState<GameState | null>(null);
 
   const rooms = useRoomList(socket);
+  const roomLobby = useRoomLobby(socket, roomId);
+
+  useEffect(() => {
+    if (isGameStarted && socket && roomId) {
+      socket.emit("joinRoom", roomId);
+    }
+  }, [isGameStarted, socket, roomId]);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/ttt");
@@ -64,17 +72,22 @@ export default function Home() {
       setSocketId(s.id || null);
     });
 
-    s.on("matchFound", ({ roomId }) => {
+    s.on("matchFound", ({ roomId, isHost }) => {
       setRoomId(roomId);
-      s.emit("joinRoom", roomId);
+      setIsHost(isHost || false);
+      setSetupNeeded(false);
     });
 
-    s.on("waitingForOpponent", () => {
-      setWaiting(true);
+    s.on("roomDestroyed", () => {
+      alert("The Host has destroyed the room.");
+      window.location.href = "/games/tic-tac-toe";
+    });
+
+    s.on("gameStarted", () => {
+      setIsGameStarted(true);
     });
 
     s.on("gameState", (serverState: GameState) => {
-      setWaiting(false);
       setSetupNeeded(false);
       setGameStateData(serverState);
       setBoard(serverState.board);
@@ -134,7 +147,7 @@ export default function Home() {
     if (socket && roomId) {
       socket.emit("leaveRoom", roomId);
       setRoomId(null);
-      setWaiting(false);
+      setIsGameStarted(false);
       setBoard(Array(9).fill(null));
       setWinner(null);
       setYourMark(null);
@@ -150,7 +163,7 @@ export default function Home() {
       socket.emit("leaveRoom", roomId);
     }
     setRoomId(null);
-    setWaiting(false);
+    setIsGameStarted(false);
     setBoard(Array(9).fill(null));
     setWinner(null);
     setYourMark(null);
@@ -174,7 +187,6 @@ export default function Home() {
     if (socket) {
       setIsHost(false);
       socket.emit("joinSpecificRoom", joinRoomId);
-      setWaiting(true);
     }
   };
 
@@ -182,24 +194,13 @@ export default function Home() {
     if (socket) {
       socket.emit("createRoom", config);
       setSetupNeeded(false);
-      setWaiting(true);
     }
-  };
-
-  const handleCancelWaiting = () => {
-    if (socket && roomId) {
-      socket.emit("leaveRoom", roomId);
-    }
-    setRoomId(null);
-    setWaiting(false);
-    setIsHost(true);
-    setSetupNeeded(true);
   };
 
   const handleDisconnectAcknowledge = () => {
     setDisconnectMessage(null);
     setRoomId(null);
-    setWaiting(false);
+    setIsGameStarted(false);
     setBoard(Array(9).fill(null));
     setWinner(null);
     setYourMark(null);
@@ -223,7 +224,7 @@ export default function Home() {
     );
   }
 
-  if (!roomId && !waiting && !setupNeeded) {
+  if (!roomId && !setupNeeded) {
     return (
       <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center pt-24 p-8 font-sans">
         <BackButton
@@ -243,11 +244,13 @@ export default function Home() {
     );
   }
 
-  if (!roomId || waiting) {
+  if (roomId && !isGameStarted) {
     return (
-      <WaitingScreen
-        isHost={isHost}
-        onCancel={handleCancelWaiting}
+      <RoomLobby
+        roomLobby={roomLobby}
+        localPlayerId={socketId || ""}
+        onToggleReady={() => socket?.emit("toggleReady", roomId)}
+        onStartMatch={() => socket?.emit("startMatch", roomId)}
         onLeaveRoom={handleLeaveRoom}
         themeColor="cyan"
       />

@@ -4,6 +4,7 @@ export interface GameSetupConfig {
   maxRounds: number;
   timeLimit: number;
   region?: string; // Only for GTF
+  maxPlayers?: number; // Only for GTF currently mapped
 }
 
 interface GameSetupProps {
@@ -15,12 +16,13 @@ export default function GameSetup({ onStart, gameId }: GameSetupProps) {
   const [rounds, setRounds] = useState<number>(gameId === "gtf" ? 5 : 3);
   const [timeLimit, setTimeLimit] = useState<number>(15);
   const [region, setRegion] = useState<string>("All");
+  const [maxPlayers, setMaxPlayers] = useState<number>(2);
 
   const handleStart = () => {
     onStart({
       maxRounds: rounds,
       timeLimit: timeLimit,
-      ...(gameId === "gtf" ? { region } : {}),
+      ...(gameId === "gtf" ? { region, maxPlayers } : {}),
     });
   };
 
@@ -60,23 +62,40 @@ export default function GameSetup({ onStart, gameId }: GameSetupProps) {
       </div>
 
       {gameId === "gtf" && (
-        <div className="flex flex-col gap-2">
-          <label className="text-gray-300 font-semibold">
-            Continent Filter
-          </label>
-          <select
-            className="bg-gray-700 text-white p-3 rounded-xl border border-gray-600 focus:outline-none focus:border-orange-500"
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-          >
-            <option value="All">Global (All Regions)</option>
-            <option value="Americas">Americas</option>
-            <option value="Europe">Europe</option>
-            <option value="Africa">Africa</option>
-            <option value="Asia">Asia</option>
-            <option value="Oceania">Oceania</option>
-          </select>
-        </div>
+        <>
+          <div className="flex flex-col gap-2">
+            <label className="text-gray-300 font-semibold">
+              Continent Filter
+            </label>
+            <select
+              className="bg-gray-700 text-white p-3 rounded-xl border border-gray-600 focus:outline-none focus:border-orange-500"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+            >
+              <option value="All">Global (All Regions)</option>
+              <option value="Americas">Americas</option>
+              <option value="Europe">Europe</option>
+              <option value="Africa">Africa</option>
+              <option value="Asia">Asia</option>
+              <option value="Oceania">Oceania</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-gray-300 font-semibold">
+              Number of Players
+            </label>
+            <select
+              className="bg-gray-700 text-white p-3 rounded-xl border border-gray-600 focus:outline-none focus:border-orange-500"
+              value={maxPlayers}
+              onChange={(e) => setMaxPlayers(Number(e.target.value))}
+            >
+              <option value={2}>2 Players (Classic)</option>
+              <option value={3}>3 Players</option>
+              <option value={4}>4 Players</option>
+            </select>
+          </div>
+        </>
       )}
 
       <button

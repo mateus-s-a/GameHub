@@ -9,10 +9,11 @@ import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
 import AlertModal from "../../components/AlertModal";
 import EndMatchOptions from "../../components/EndMatchOptions";
-import { Wifi, WifiOff } from "lucide-react";
+import { Wifi, WifiOff, X } from "lucide-react";
 import { useRoomList } from "../../hooks/useRoomList";
 import RoomBrowser from "../../components/RoomBrowser";
-import WaitingScreen from "../../components/WaitingScreen";
+import RoomLobby from "../../components/RoomLobby";
+import useRoomLobby from "../../hooks/useRoomLobby";
 
 interface GameState {
   state: GTFRoundState;
@@ -26,6 +27,7 @@ interface GameState {
   timeLimit?: number;
   turnEndTime?: number | null;
   region?: string;
+  maxPlayers?: number;
 }
 
 export default function GuessTheFlagGame() {
@@ -37,12 +39,20 @@ export default function GuessTheFlagGame() {
   const [rematchRequested, setRematchRequested] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [isHost, setIsHost] = useState(false);
-  const [waiting, setWaiting] = useState(false);
+  const [isGameStarted, setIsGameStarted] = useState(false);
   const [disconnectMessage, setDisconnectMessage] = useState<string | null>(
     null,
   );
+  const [tempNotification, setTempNotification] = useState<string | null>(null);
 
   const rooms = useRoomList(socket);
+  const roomLobby = useRoomLobby(socket, roomId);
+
+  useEffect(() => {
+    if (isGameStarted && socket && roomId) {
+      socket.emit("joinRoom", roomId);
+    }
+  }, [isGameStarted, socket, roomId]);
 
   useEffect(() => {
     const s: Socket = io("http://localhost:3001/gtf");
@@ -52,9 +62,19 @@ export default function GuessTheFlagGame() {
       setSocketId(s.id || null);
     });
 
-    s.on("matchFound", ({ roomId }) => {
+    s.on("matchFound", ({ roomId, isHost }) => {
       setRoomId(roomId);
-      s.emit("joinRoom", roomId);
+      setIsHost(isHost || false);
+      setSetupNeeded(false);
+    });
+
+    s.on("roomDestroyed", () => {
+      alert("The Host has destroyed the room.");
+      window.location.href = "/games/guess-the-flag";
+    });
+
+    s.on("gameStarted", () => {
+      setIsGameStarted(true);
     });
 
     s.on("gameState", (state: GameState) => {
@@ -73,6 +93,12 @@ export default function GuessTheFlagGame() {
 
     s.on("opponentDisconnected", () => {
       setDisconnectMessage("Opponent disconnected!");
+    });
+
+    s.on("playerLeft", (message: string) => {
+      setTempNotification(message);
+      // Automatically clear after 5 seconds
+      setTimeout(() => setTempNotification(null), 5000);
     });
 
     return () => {
@@ -99,11 +125,11 @@ export default function GuessTheFlagGame() {
       socket.emit("leaveRoom", roomId);
       setRoomId(null);
       setGameState(null);
+      setIsGameStarted(false);
       setRematchRequested(false);
       setDisconnectMessage(null);
       setIsHost(false);
       setSetupNeeded(false);
-      setWaiting(false);
     }
   };
 
@@ -118,17 +144,20 @@ export default function GuessTheFlagGame() {
   };
 
   const handleLeaveRoom = () => {
-    if (socket) {
-      if (roomId) socket.emit("leaveRoom", roomId);
-      socket.disconnect();
+    if (socket && roomId) {
+      socket.emit("leaveRoom", roomId);
     }
+    setRoomId(null);
+    setGameState(null);
+    setRematchRequested(false);
+    setSetupNeeded(false);
+    setIsGameStarted(false);
   };
 
   const handleStartGame = (config: GameSetupConfig) => {
     if (socket) {
       socket.emit("createRoom", config);
       setSetupNeeded(false);
-      setWaiting(true);
     }
   };
 
@@ -141,19 +170,7 @@ export default function GuessTheFlagGame() {
     if (socket) {
       setIsHost(false);
       socket.emit("joinSpecificRoom", joinRoomId);
-      setWaiting(true);
     }
-  };
-
-  const handleCancelWaiting = () => {
-    if (socket && roomId) {
-      socket.emit("leaveRoom", roomId);
-    }
-    setRoomId(null);
-    setWaiting(false);
-    setIsHost(true);
-    setSetupNeeded(true);
-    setGameState(null);
   };
 
   const handleDisconnectAcknowledge = () => {
@@ -163,7 +180,7 @@ export default function GuessTheFlagGame() {
     setRematchRequested(false);
     setIsHost(false);
     setSetupNeeded(false);
-    setWaiting(false);
+    setIsGameStarted(false);
   };
 
   if (setupNeeded && !roomId) {
@@ -180,7 +197,7 @@ export default function GuessTheFlagGame() {
     );
   }
 
-  if (!roomId && !waiting && !setupNeeded) {
+  if (!roomId && !setupNeeded) {
     return (
       <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center pt-24 p-8 font-iosevka-regular">
         <BackButton
@@ -200,14 +217,24 @@ export default function GuessTheFlagGame() {
     );
   }
 
-  if (!roomId || !gameState || gameState.players.length < 2) {
+  if (roomId && !isGameStarted) {
     return (
-      <WaitingScreen
-        isHost={isHost}
-        onCancel={handleCancelWaiting}
+      <RoomLobby
+        roomLobby={roomLobby}
+        localPlayerId={socketId || ""}
+        onToggleReady={() => socket?.emit("toggleReady", roomId)}
+        onStartMatch={() => socket?.emit("startMatch", roomId)}
         onLeaveRoom={handleLeaveRoom}
         themeColor="orange"
       />
+    );
+  }
+
+  if (!gameState) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center font-iosevka-bold text-xl text-orange-400 animate-pulse">
+        Entering Arena...
+      </div>
     );
   }
 
@@ -225,6 +252,23 @@ export default function GuessTheFlagGame() {
         message={disconnectMessage || ""}
         onConfirm={handleDisconnectAcknowledge}
       />
+
+      {/* Temporary Toast Notification */}
+      {tempNotification && (
+        <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-right duration-500">
+          <div className="bg-gray-800 border-l-4 border-orange-500 text-white px-6 py-4 rounded-r-xl shadow-2xl flex items-center gap-3">
+            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+            <span className="font-iosevka-medium">{tempNotification}</span>
+            <button
+              onClick={() => setTempNotification(null)}
+              className="ml-4 text-gray-500 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <BackButton
         isHost={isHost}
         isInSetup={false}

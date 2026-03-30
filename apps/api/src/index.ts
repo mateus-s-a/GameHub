@@ -2,11 +2,9 @@ import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
 import cors from "cors";
-import { TicTacToeLogic, PlayerMark } from "@gamehub/tic-tac-toe";
+import { TicTacToeLogic } from "@gamehub/tic-tac-toe";
 import { RPSLogic, RPSChoice } from "@gamehub/rock-paper-scissors";
 import { GuessTheFlagLogic, GTFCountry } from "@gamehub/guess-the-flag";
-import { randomUUID } from "crypto";
-import { roomManager } from "./RoomManager";
 // Load countries
 let allCountries: GTFCountry[] = [];
 async function loadCountries() {
@@ -15,6 +13,7 @@ async function loadCountries() {
       "https://restcountries.com/v3.1/all?fields=name,flags,region",
     );
     const data = await res.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     allCountries = data.map((c: any) => ({
       name: c.name.common,
       flagUrl: c.flags.svg || c.flags.png,
@@ -42,10 +41,13 @@ const io = new Server(server, {
  * Universal utility to progress match rounds after a set delay.
  */
 function scheduleNextRound(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   gameMap: Map<string, any>,
   roomId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   namespace: any,
   delayMs: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onNextRound?: (game: any) => void,
 ) {
   setTimeout(() => {
@@ -61,6 +63,8 @@ function scheduleNextRound(
   }, delayMs);
 }
 
+import { registerGenericLobbyEvents } from "./LobbyEvents";
+
 const tttNamespace = io.of("/ttt");
 const tttGames = new Map<string, TicTacToeLogic>();
 const tttSocketRooms = new Map<string, string>();
@@ -68,35 +72,14 @@ const tttSocketRooms = new Map<string, string>();
 tttNamespace.on("connection", (socket: Socket) => {
   console.log("A user connected to Tic-Tac-Toe:", socket.id);
 
-  socket.on("getRooms", () => {
-    socket.emit("roomListUpdate", roomManager.getAvailableRooms("ttt"));
-  });
-
-  socket.on("createRoom", (config?: any) => {
-    const hostName = `player-${socket.id.substring(0, 5)}`;
-    const room = roomManager.createRoom(
-      "ttt",
-      socket.id,
-      hostName,
-      2,
-      config || {},
-    );
-    tttGames.set(room.id, new TicTacToeLogic(config || {}));
-
-    socket.emit("matchFound", { roomId: room.id, isHost: true });
-    tttNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("ttt"));
-  });
-
-  socket.on("joinSpecificRoom", (roomId: string) => {
-    const room = roomManager.joinRoom(roomId);
-    if (!room) {
-      socket.emit("roomError", "Room is full or doesn't exist.");
-      return;
-    }
-
-    socket.emit("matchFound", { roomId, isHost: false });
-    tttNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("ttt"));
-  });
+  registerGenericLobbyEvents(
+    socket,
+    tttNamespace,
+    "ttt",
+    tttGames,
+    (config) => new TicTacToeLogic(config || {}),
+    (socketId) => tttSocketRooms.delete(socketId),
+  );
 
   socket.on("joinRoom", (roomId: string) => {
     socket.join(roomId);
@@ -169,33 +152,7 @@ tttNamespace.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on("leaveRoom", (roomId: string) => {
-    const game = tttGames.get(roomId);
-    if (game) {
-      game.removePlayer(socket.id);
-      socket.leave(roomId);
-      tttSocketRooms.delete(socket.id);
-      tttNamespace.to(roomId).emit("opponentDisconnected");
-      tttGames.delete(roomId);
-      roomManager.removeRoom(roomId);
-      tttNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("ttt"));
-    }
-  });
-
-  socket.on("disconnect", () => {
-    const roomId = tttSocketRooms.get(socket.id);
-    if (roomId) {
-      const game = tttGames.get(roomId);
-      if (game) {
-        game.removePlayer(socket.id);
-      }
-      tttSocketRooms.delete(socket.id);
-      tttNamespace.to(roomId).emit("opponentDisconnected");
-      tttGames.delete(roomId);
-      roomManager.removeRoom(roomId);
-      tttNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("ttt"));
-    }
-  });
+  // Rematch and Move events stay the same.
 });
 
 // --- Rock-Paper-Scissors Namespace ---
@@ -205,35 +162,13 @@ const rpsGames = new Map<string, RPSLogic>();
 rpsNamespace.on("connection", (socket: Socket) => {
   console.log("A user connected to Rock-Paper-Scissors:", socket.id);
 
-  socket.on("getRooms", () => {
-    socket.emit("roomListUpdate", roomManager.getAvailableRooms("rps"));
-  });
-
-  socket.on("createRoom", (config?: any) => {
-    const hostName = `player-${socket.id.substring(0, 5)}`;
-    const room = roomManager.createRoom(
-      "rps",
-      socket.id,
-      hostName,
-      2,
-      config || {},
-    );
-    rpsGames.set(room.id, new RPSLogic(config?.maxRounds || 3, config));
-
-    socket.emit("matchFound", { roomId: room.id, isHost: true });
-    rpsNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("rps"));
-  });
-
-  socket.on("joinSpecificRoom", (roomId: string) => {
-    const room = roomManager.joinRoom(roomId);
-    if (!room) {
-      socket.emit("roomError", "Room is full or doesn't exist.");
-      return;
-    }
-
-    socket.emit("matchFound", { roomId, isHost: false });
-    rpsNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("rps"));
-  });
+  registerGenericLobbyEvents(
+    socket,
+    rpsNamespace,
+    "rps",
+    rpsGames,
+    (config) => new RPSLogic(config?.maxRounds || 3, config),
+  );
 
   socket.on("joinRoom", (roomId: string) => {
     socket.join(roomId);
@@ -275,32 +210,7 @@ rpsNamespace.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on("leaveRoom", (roomId: string) => {
-    const game = rpsGames.get(roomId);
-    if (game) {
-      game.removePlayer(socket.id);
-      socket.leave(roomId);
-      rpsNamespace.to(roomId).emit("opponentDisconnected");
-      rpsGames.delete(roomId);
-      roomManager.removeRoom(roomId);
-      rpsNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("rps"));
-    }
-  });
-
-  socket.on("disconnect", () => {
-    for (const [roomId, game] of rpsGames.entries()) {
-      if (game.players.has(socket.id)) {
-        game.removePlayer(socket.id);
-        rpsNamespace.to(roomId).emit("opponentDisconnected");
-        rpsGames.delete(roomId);
-        roomManager.removeRoom(roomId);
-        rpsNamespace.emit(
-          "roomListUpdate",
-          roomManager.getAvailableRooms("rps"),
-        );
-      }
-    }
-  });
+  // Rematch and Move events stay the same
 });
 
 // --- Guess the Flag Namespace ---
@@ -310,38 +220,17 @@ const gtfGames = new Map<string, GuessTheFlagLogic>();
 gtfNamespace.on("connection", (socket: Socket) => {
   console.log("A user connected to Guess the Flag:", socket.id);
 
-  socket.on("getRooms", () => {
-    socket.emit("roomListUpdate", roomManager.getAvailableRooms("gtf"));
-  });
-
-  socket.on("createRoom", (config?: any) => {
-    const hostName = `player-${socket.id.substring(0, 5)}`;
-    const room = roomManager.createRoom(
-      "gtf",
-      socket.id,
-      hostName,
-      2,
-      config || {},
-    );
-    gtfGames.set(
-      room.id,
-      new GuessTheFlagLogic(config?.maxRounds || 5, config),
-    );
-
-    socket.emit("matchFound", { roomId: room.id, isHost: true });
-    gtfNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("gtf"));
-  });
-
-  socket.on("joinSpecificRoom", (roomId: string) => {
-    const room = roomManager.joinRoom(roomId);
-    if (!room) {
-      socket.emit("roomError", "Room is full or doesn't exist.");
-      return;
-    }
-
-    socket.emit("matchFound", { roomId, isHost: false });
-    gtfNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("gtf"));
-  });
+  registerGenericLobbyEvents(
+    socket,
+    gtfNamespace,
+    "gtf",
+    gtfGames,
+    (config) => new GuessTheFlagLogic(config?.maxRounds || 5, config),
+    undefined,
+    (roomId, game) => {
+      startGTFRound(roomId, game);
+    },
+  );
 
   socket.on("joinRoom", (roomId: string) => {
     socket.join(roomId);
@@ -350,15 +239,6 @@ gtfNamespace.on("connection", (socket: Socket) => {
 
     game.addPlayer(socket.id);
     gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
-
-    // When 2 players join, state becomes guessing_phase. Start a round.
-    if (
-      game.state === "guessing_phase" &&
-      game.players.size === 2 &&
-      !game.currentCountry
-    ) {
-      startGTFRound(roomId, game);
-    }
   });
 
   socket.on(
@@ -373,6 +253,7 @@ gtfNamespace.on("connection", (socket: Socket) => {
         if (game.state === "round_result") {
           scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
             if (g.state === "guessing_phase") {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               startGTFRound(roomId, g as any);
             } else if (g.state === "game_over") {
               gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
@@ -396,32 +277,7 @@ gtfNamespace.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on("leaveRoom", (roomId: string) => {
-    const game = gtfGames.get(roomId);
-    if (game) {
-      game.removePlayer(socket.id);
-      socket.leave(roomId);
-      gtfNamespace.to(roomId).emit("opponentDisconnected");
-      gtfGames.delete(roomId);
-      roomManager.removeRoom(roomId);
-      gtfNamespace.emit("roomListUpdate", roomManager.getAvailableRooms("gtf"));
-    }
-  });
-
-  socket.on("disconnect", () => {
-    for (const [roomId, game] of gtfGames.entries()) {
-      if (game.players.has(socket.id)) {
-        game.removePlayer(socket.id);
-        gtfNamespace.to(roomId).emit("opponentDisconnected");
-        gtfGames.delete(roomId);
-        roomManager.removeRoom(roomId);
-        gtfNamespace.emit(
-          "roomListUpdate",
-          roomManager.getAvailableRooms("gtf"),
-        );
-      }
-    }
-  });
+  // Rematch and Submit events stay the same
 });
 
 function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
@@ -471,7 +327,7 @@ setInterval(() => {
           Math.floor(Math.random() * emptyIndices.length)
         ] as number;
         const currentPlayerId = Array.from(game.players.entries()).find(
-          ([id, mark]) => mark === game.currentPlayer,
+          ([, mark]) => mark === game.currentPlayer,
         )?.[0];
         if (currentPlayerId) {
           game.makeMove(currentPlayerId, randomObj);
@@ -505,6 +361,7 @@ setInterval(() => {
       }
       if (changed) {
         rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((game as any).state === "reveal_phase") {
           scheduleNextRound(rpsGames, roomId, rpsNamespace, 3000, (g) => {
             if (g.state === "commit_phase") g.beginCommitPhase();
@@ -528,6 +385,7 @@ setInterval(() => {
       setTimeout(() => {
         scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
           if (g.state === "guessing_phase") {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             startGTFRound(roomId, g as any);
           } else if (g.state === "game_over") {
             gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
