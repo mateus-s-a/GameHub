@@ -161,4 +161,9 @@ export class TicTacToeLogic {
       scores: this.scores,
     };
   }
+
+  updateConfig(config: TTTConfig) {
+    if (config.maxRounds) this.maxRounds = config.maxRounds;
+    if (config.timeLimit !== undefined) this.timeLimit = config.timeLimit;
+  }
 }

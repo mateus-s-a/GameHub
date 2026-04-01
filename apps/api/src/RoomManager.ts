@@ -122,6 +122,20 @@ export class RoomManager {
     this.rooms.set(roomId, room);
     return room;
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public updateRoomConfig(roomId: string, config: any): RoomInfo | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    // Update config but ignore maxPlayers to prevent changing total slots after creation
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { maxPlayers, ...rest } = config;
+    room.config = { ...room.config, ...rest };
+
+    this.rooms.set(roomId, room);
+    return room;
+  }
 }
 
 // Export a singleton instance

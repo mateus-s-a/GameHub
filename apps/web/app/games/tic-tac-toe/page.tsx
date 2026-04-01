@@ -12,6 +12,7 @@ import { useRoomList } from "../../hooks/useRoomList";
 import RoomBrowser from "../../components/RoomBrowser";
 import RoomLobby from "../../components/RoomLobby";
 import useRoomLobby from "../../hooks/useRoomLobby";
+import { X } from "lucide-react";
 
 type PlayerMark = "X" | "O" | null;
 
@@ -41,6 +42,8 @@ export default function Home() {
   const [disconnectMessage, setDisconnectMessage] = useState<string | null>(
     null,
   );
+  const [tempNotification, setTempNotification] = useState<string | null>(null);
+  const [leavingTimer, setLeavingTimer] = useState<number | null>(null);
 
   const [board, setBoard] = useState<PlayerMark[]>(Array(9).fill(null));
   const [currentPlayer, setCurrentPlayer] = useState<PlayerMark>("X");
@@ -108,7 +111,26 @@ export default function Home() {
     });
 
     s.on("opponentDisconnected", () => {
-      setDisconnectMessage("Opponent left the room.");
+      setDisconnectMessage("Connection Lost Opponent left the room.");
+
+      // Start 5 second countdown to redirect
+      let count = 5;
+      setLeavingTimer(count);
+
+      const timer = setInterval(() => {
+        count -= 1;
+        setLeavingTimer(count);
+        if (count <= 0) {
+          clearInterval(timer);
+          handleLeaveRoom();
+        }
+      }, 1000);
+    });
+
+    s.on("playerLeft", (message: string) => {
+      setTempNotification(message);
+      // Automatically clear after 5 seconds
+      setTimeout(() => setTempNotification(null), 5000);
     });
 
     s.on("disconnect", () => {
@@ -172,10 +194,17 @@ export default function Home() {
   };
 
   const handleLeaveRoom = () => {
-    if (socket) {
-      if (roomId) socket.emit("leaveRoom", roomId);
-      socket.disconnect();
+    if (socket && roomId) {
+      socket.emit("leaveRoom", roomId);
     }
+    setRoomId(null);
+    setIsGameStarted(false);
+    setBoard(Array(9).fill(null));
+    setWinner(null);
+    setYourMark(null);
+    setRematchRequested(false);
+    setSetupNeeded(false);
+    setIsHost(false);
   };
 
   const handleCreateRoomClick = () => {
@@ -244,6 +273,12 @@ export default function Home() {
     );
   }
 
+  const handleUpdateConfig = (config: GameSetupConfig) => {
+    if (socket && roomId) {
+      socket.emit("updateRoomConfig", { roomId, config });
+    }
+  };
+
   if (roomId && !isGameStarted) {
     return (
       <RoomLobby
@@ -252,6 +287,7 @@ export default function Home() {
         onToggleReady={() => socket?.emit("toggleReady", roomId)}
         onStartMatch={() => socket?.emit("startMatch", roomId)}
         onLeaveRoom={handleLeaveRoom}
+        onUpdateConfig={handleUpdateConfig}
         themeColor="cyan"
       />
     );
@@ -266,8 +302,27 @@ export default function Home() {
         }
         title="Connection Lost"
         message={disconnectMessage || ""}
-        onConfirm={handleDisconnectAcknowledge}
+        countdown={leavingTimer}
       />
+
+      {/* Temporary Toast Notification */}
+      {tempNotification && (
+        <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-right duration-500">
+          <div className="bg-gray-800 border-l-4 border-cyan-500 text-white px-6 py-4 rounded-r-xl shadow-2xl flex items-center gap-3">
+            <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
+            <span className="font-iosevka-medium whitespace-pre-line">
+              {tempNotification}
+            </span>
+            <button
+              onClick={() => setTempNotification(null)}
+              className="ml-4 text-gray-500 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <BackButton
         isHost={isHost}
         isInSetup={false}

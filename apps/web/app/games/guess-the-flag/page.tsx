@@ -44,6 +44,7 @@ export default function GuessTheFlagGame() {
     null,
   );
   const [tempNotification, setTempNotification] = useState<string | null>(null);
+  const [leavingTimer, setLeavingTimer] = useState<number | null>(null);
 
   const rooms = useRoomList(socket);
   const roomLobby = useRoomLobby(socket, roomId);
@@ -92,7 +93,20 @@ export default function GuessTheFlagGame() {
     });
 
     s.on("opponentDisconnected", () => {
-      setDisconnectMessage("Opponent disconnected!");
+      setDisconnectMessage("Connection Lost Opponent left the room.");
+
+      // Start 5 second countdown to redirect
+      let count = 5;
+      setLeavingTimer(count);
+
+      const timer = setInterval(() => {
+        count -= 1;
+        setLeavingTimer(count);
+        if (count <= 0) {
+          clearInterval(timer);
+          handleLeaveRoom();
+        }
+      }, 1000);
     });
 
     s.on("playerLeft", (message: string) => {
@@ -141,6 +155,7 @@ export default function GuessTheFlagGame() {
     setGameState(null);
     setRematchRequested(false);
     setSetupNeeded(true);
+    setIsGameStarted(false);
   };
 
   const handleLeaveRoom = () => {
@@ -152,6 +167,7 @@ export default function GuessTheFlagGame() {
     setRematchRequested(false);
     setSetupNeeded(false);
     setIsGameStarted(false);
+    setIsHost(false);
   };
 
   const handleStartGame = (config: GameSetupConfig) => {
@@ -175,12 +191,7 @@ export default function GuessTheFlagGame() {
 
   const handleDisconnectAcknowledge = () => {
     setDisconnectMessage(null);
-    setRoomId(null);
-    setGameState(null);
-    setRematchRequested(false);
-    setIsHost(false);
-    setSetupNeeded(false);
-    setIsGameStarted(false);
+    handleLeaveRoom();
   };
 
   if (setupNeeded && !roomId) {
@@ -217,6 +228,12 @@ export default function GuessTheFlagGame() {
     );
   }
 
+  const handleUpdateConfig = (config: GameSetupConfig) => {
+    if (socket && roomId) {
+      socket.emit("updateRoomConfig", { roomId, config });
+    }
+  };
+
   if (roomId && !isGameStarted) {
     return (
       <RoomLobby
@@ -225,6 +242,7 @@ export default function GuessTheFlagGame() {
         onToggleReady={() => socket?.emit("toggleReady", roomId)}
         onStartMatch={() => socket?.emit("startMatch", roomId)}
         onLeaveRoom={handleLeaveRoom}
+        onUpdateConfig={handleUpdateConfig}
         themeColor="orange"
       />
     );
@@ -248,9 +266,9 @@ export default function GuessTheFlagGame() {
           !!disconnectMessage &&
           (gameState?.state !== "game_over" || rematchRequested)
         }
-        title="Match Terminated"
+        title="Connection Lost"
         message={disconnectMessage || ""}
-        onConfirm={handleDisconnectAcknowledge}
+        countdown={leavingTimer}
       />
 
       {/* Temporary Toast Notification */}
@@ -258,7 +276,9 @@ export default function GuessTheFlagGame() {
         <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-right duration-500">
           <div className="bg-gray-800 border-l-4 border-orange-500 text-white px-6 py-4 rounded-r-xl shadow-2xl flex items-center gap-3">
             <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-            <span className="font-iosevka-medium">{tempNotification}</span>
+            <span className="font-iosevka-medium whitespace-pre-line">
+              {tempNotification}
+            </span>
             <button
               onClick={() => setTempNotification(null)}
               className="ml-4 text-gray-500 hover:text-white transition-colors"

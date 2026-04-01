@@ -21,9 +21,6 @@ export function registerGenericLobbyEvents(
   socket.on("createRoom", (config?: any) => {
     const hostName = `player-${socket.id.substring(0, 5)}`;
     let maxPlayers = config?.maxPlayers || 2;
-    if (gameType === "gtf" && config?.maxPlayers) {
-      maxPlayers = config.maxPlayers;
-    }
     const room = roomManager.createRoom(
       gameType,
       socket.id,
@@ -104,38 +101,58 @@ export function registerGenericLobbyEvents(
     if (!room) return;
 
     const wasInProgress = room.status === "in_progress";
+    const oldHostId = room.hostId;
 
     const updatedRoom = roomManager.leaveRoom(roomId, socket.id);
 
     if (!updatedRoom) {
-      // Sala deletada (ficou vazia)
+      // Room empty (already deleted by RoomManager)
       namespace.to(roomId).emit("roomDestroyed");
       gameMap.delete(roomId);
     } else {
-      // Jogador saiu (Lobby ou durante Partida)
       const game = gameMap.get(roomId);
       if (game && typeof game.removePlayer === "function") {
         game.removePlayer(socket.id);
       }
 
+      // Preparation of notification message
+      let message = `player-${socket.id.substring(0, 5)} left the match`;
+      if (oldHostId === socket.id) {
+        message = `player-${socket.id.substring(0, 5)} left (Host)\nplayer-${updatedRoom.hostId.substring(0, 5)} is the new Host`;
+      }
+
       if (wasInProgress) {
         if (updatedRoom.playerCount < 2) {
-          // Partida não pode continuar com menos de 2 jogadores
+          // Cannot continue match with < 2 players - Match Terminated
+          updatedRoom.status = "waiting";
+          updatedRoom.countdown = null;
           namespace.to(roomId).emit("opponentDisconnected");
-          gameMap.delete(roomId);
-          roomManager.removeRoom(roomId);
+          namespace.to(roomId).emit("playerLeft", message);
+          namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
+
+          // Give frontend 5 seconds to reroute before destroying
+          setTimeout(() => {
+            const currentRoom = roomManager.getRoom(roomId);
+            if (currentRoom) {
+              // If room still exists, destroy it
+              roomManager.removeRoom(roomId);
+              gameMap.delete(roomId);
+              namespace.to(roomId).emit("roomDestroyed");
+              namespace.emit(
+                "roomListUpdate",
+                roomManager.getAvailableRooms(gameType),
+              );
+            }
+          }, 6000); // 6 seconds to be safe (frontend takes 5)
         } else {
-          // Partida prossegue normally
-          namespace
-            .to(roomId)
-            .emit(
-              "playerLeft",
-              `player-${socket.id.substring(0, 5)} left the match`,
-            );
+          // In-progress match continues with remaining players
+          namespace.to(roomId).emit("playerLeft", message);
           namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
         }
       } else {
+        // Lobby leave
         namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
+        namespace.to(roomId).emit("playerLeft", message);
       }
     }
     namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
@@ -161,6 +178,23 @@ export function registerGenericLobbyEvents(
     const room = roomManager.getRoom(roomId);
     if (room) {
       socket.emit("roomLobbyUpdate", room);
+    }
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  socket.on("updateRoomConfig", (data: { roomId: string; config: any }) => {
+    const { roomId, config } = data;
+    const room = roomManager.getRoom(roomId);
+    if (!room || room.hostId !== socket.id) return;
+
+    const updatedRoom = roomManager.updateRoomConfig(roomId, config);
+    if (updatedRoom) {
+      // Update the game logic instance if it supports live updates
+      const game = gameMap.get(roomId);
+      if (game && typeof game.updateConfig === "function") {
+        game.updateConfig(config);
+      }
+      namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
     }
   });
 }

@@ -5,8 +5,9 @@ interface AlertModalProps {
   isOpen: boolean;
   title?: string;
   message: string;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   confirmText?: string;
+  countdown?: number | null;
 }
 
 export default function AlertModal({
@@ -15,6 +16,7 @@ export default function AlertModal({
   message,
   onConfirm,
   confirmText = "Okay",
+  countdown,
 }: AlertModalProps) {
   if (!isOpen) return null;
 
@@ -33,16 +35,26 @@ export default function AlertModal({
           {title}
         </h2>
 
-        <p className="text-gray-400 font-iosevka-regular text-sm px-2 leading-relaxed pb-4">
+        <p className="text-gray-400 font-iosevka-regular text-sm px-2 leading-relaxed pb-2">
           {message}
         </p>
 
-        <button
-          onClick={onConfirm}
-          className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-iosevka-bold rounded-xl shadow-lg transition-all active:scale-95 border border-red-500/50"
-        >
-          {confirmText}
-        </button>
+        {countdown !== undefined && countdown !== null && (
+          <div className="bg-gray-900/50 px-4 py-2 rounded-lg border border-gray-700/50 animate-pulse">
+            <p className="text-orange-400 font-iosevka-medium text-sm">
+              Leaving match in {countdown}s...
+            </p>
+          </div>
+        )}
+
+        {onConfirm && (
+          <button
+            onClick={onConfirm}
+            className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-iosevka-bold rounded-xl shadow-lg transition-all active:scale-95 border border-red-500/50"
+          >
+            {confirmText}
+          </button>
+        )}
       </div>
     </div>
   );

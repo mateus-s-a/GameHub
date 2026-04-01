@@ -190,11 +190,16 @@ export class GuessTheFlagLogic {
       region: this.region,
       flagUrl: this.currentCountry?.flagUrl || null,
       options: this.currentOptions,
-      // Only reveal the correct country name in the result state
       correctCountry:
         this.state === "round_result" || this.state === "game_over"
           ? this.currentCountry?.name
           : null,
     };
+  }
+
+  updateConfig(config: GTFConfig) {
+    if (config.maxRounds) this.maxRounds = config.maxRounds;
+    if (config.timeLimit !== undefined) this.timeLimit = config.timeLimit;
+    if (config.region) this.region = config.region;
   }
 }

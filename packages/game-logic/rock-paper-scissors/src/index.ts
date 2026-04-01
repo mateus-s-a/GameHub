@@ -162,4 +162,9 @@ export class RPSLogic {
         : {}),
     };
   }
+
+  updateConfig(config: RPSConfig) {
+    if (config.maxRounds) this.maxRounds = config.maxRounds;
+    if (config.timeLimit !== undefined) this.timeLimit = config.timeLimit;
+  }
 }
