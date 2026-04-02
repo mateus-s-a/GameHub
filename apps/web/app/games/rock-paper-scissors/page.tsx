@@ -11,6 +11,7 @@ import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
 import AlertModal from "../../components/AlertModal";
+import MatchTerminationBanner from "../../components/MatchTerminationBanner";
 import EndMatchOptions from "../../components/EndMatchOptions";
 import {
   Wifi,
@@ -51,7 +52,7 @@ export default function RPSGame() {
     null,
   );
   const [tempNotification, setTempNotification] = useState<string | null>(null);
-  const [leavingTimer, setLeavingTimer] = useState<number | null>(null);
+  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<number | null>(null);
 
   const rooms = useRoomList(socket);
   const roomLobby = useRoomLobby(socket, roomId);
@@ -101,19 +102,14 @@ export default function RPSGame() {
 
     s.on("opponentDisconnected", () => {
       setDisconnectMessage("Connection Lost Opponent left the room.");
+    });
 
-      // Start 5 second countdown to redirect
-      let count = 5;
-      setLeavingTimer(count);
+    s.on("matchTerminationUpdate", ({ countdown }: { countdown: number }) => {
+      setMatchTerminationCountdown(countdown);
+    });
 
-      const timer = setInterval(() => {
-        count -= 1;
-        setLeavingTimer(count);
-        if (count <= 0) {
-          clearInterval(timer);
-          handleLeaveRoom();
-        }
-      }, 1000);
+    s.on("matchTerminated", () => {
+      handleLeaveRoom();
     });
 
     s.on("playerLeft", (message: string) => {
@@ -268,14 +264,18 @@ export default function RPSGame() {
 
   return (
     <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-iosevka-regular">
+      {matchTerminationCountdown !== null && (
+        <MatchTerminationBanner countdown={matchTerminationCountdown} />
+      )}
+
       <AlertModal
         isOpen={
           !!disconnectMessage &&
-          (gameState?.state !== "game_over" || rematchRequested)
+          (gameState?.state !== "game_over" || rematchRequested) &&
+          matchTerminationCountdown === null
         }
         title="Connection Lost"
         message={disconnectMessage || ""}
-        countdown={leavingTimer}
       />
 
       {/* Temporary Toast Notification */}

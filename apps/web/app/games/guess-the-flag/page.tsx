@@ -14,6 +14,7 @@ import { useRoomList } from "../../hooks/useRoomList";
 import RoomBrowser from "../../components/RoomBrowser";
 import RoomLobby from "../../components/RoomLobby";
 import useRoomLobby from "../../hooks/useRoomLobby";
+import MatchTerminationBanner from "../../components/MatchTerminationBanner";
 
 interface GameState {
   state: GTFRoundState;
@@ -44,7 +45,7 @@ export default function GuessTheFlagGame() {
     null,
   );
   const [tempNotification, setTempNotification] = useState<string | null>(null);
-  const [leavingTimer, setLeavingTimer] = useState<number | null>(null);
+  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<number | null>(null);
 
   const rooms = useRoomList(socket);
   const roomLobby = useRoomLobby(socket, roomId);
@@ -94,19 +95,14 @@ export default function GuessTheFlagGame() {
 
     s.on("opponentDisconnected", () => {
       setDisconnectMessage("Connection Lost Opponent left the room.");
+    });
 
-      // Start 5 second countdown to redirect
-      let count = 5;
-      setLeavingTimer(count);
+    s.on("matchTerminationUpdate", ({ countdown }: { countdown: number }) => {
+      setMatchTerminationCountdown(countdown);
+    });
 
-      const timer = setInterval(() => {
-        count -= 1;
-        setLeavingTimer(count);
-        if (count <= 0) {
-          clearInterval(timer);
-          handleLeaveRoom();
-        }
-      }, 1000);
+    s.on("matchTerminated", () => {
+      handleLeaveRoom();
     });
 
     s.on("playerLeft", (message: string) => {
@@ -261,14 +257,18 @@ export default function GuessTheFlagGame() {
 
   return (
     <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center py-12 px-8 font-iosevka-regular overflow-y-auto">
+      {matchTerminationCountdown !== null && (
+        <MatchTerminationBanner countdown={matchTerminationCountdown} />
+      )}
+
       <AlertModal
         isOpen={
           !!disconnectMessage &&
-          (gameState?.state !== "game_over" || rematchRequested)
+          (gameState?.state !== "game_over" || rematchRequested) &&
+          matchTerminationCountdown === null
         }
         title="Connection Lost"
         message={disconnectMessage || ""}
-        countdown={leavingTimer}
       />
 
       {/* Temporary Toast Notification */}

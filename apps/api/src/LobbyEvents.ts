@@ -125,25 +125,36 @@ export function registerGenericLobbyEvents(
         if (updatedRoom.playerCount < 2) {
           // Cannot continue match with < 2 players - Match Terminated
           updatedRoom.status = "waiting";
-          updatedRoom.countdown = null;
+          updatedRoom.countdown = 5; // Start backend countdown
           namespace.to(roomId).emit("opponentDisconnected");
           namespace.to(roomId).emit("playerLeft", message);
           namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
 
-          // Give frontend 5 seconds to reroute before destroying
-          setTimeout(() => {
+          // Backend-managed 5-second countdown to destruction
+          const terminationInterval = setInterval(() => {
             const currentRoom = roomManager.getRoom(roomId);
-            if (currentRoom) {
-              // If room still exists, destroy it
+            if (!currentRoom || currentRoom.playerCount === 0) {
+              clearInterval(terminationInterval);
+              return;
+            }
+
+            currentRoom.countdown = (currentRoom.countdown || 1) - 1;
+            namespace.to(roomId).emit("matchTerminationUpdate", {
+              countdown: currentRoom.countdown,
+            });
+
+            if (currentRoom.countdown <= 0) {
+              clearInterval(terminationInterval);
               roomManager.removeRoom(roomId);
               gameMap.delete(roomId);
               namespace.to(roomId).emit("roomDestroyed");
+              namespace.to(roomId).emit("matchTerminated");
               namespace.emit(
                 "roomListUpdate",
                 roomManager.getAvailableRooms(gameType),
               );
             }
-          }, 6000); // 6 seconds to be safe (frontend takes 5)
+          }, 1000);
         } else {
           // In-progress match continues with remaining players
           namespace.to(roomId).emit("playerLeft", message);
