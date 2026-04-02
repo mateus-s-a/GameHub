@@ -15,6 +15,7 @@ import RoomBrowser from "../../components/RoomBrowser";
 import RoomLobby from "../../components/RoomLobby";
 import useRoomLobby from "../../hooks/useRoomLobby";
 import MatchTerminationBanner from "../../components/MatchTerminationBanner";
+import Scoreboard from "../../components/Scoreboard";
 
 interface GameState {
   state: GTFRoundState;
@@ -301,43 +302,13 @@ export default function GuessTheFlagGame() {
       </h1>
 
       <div className="w-full max-w-4xl bg-gray-800 rounded-2xl p-8 border border-gray-700 shadow-2xl space-y-8 flex flex-col items-center">
-        {/* Scoreboard */}
-        <div className="w-full flex justify-between items-center bg-gray-900 rounded-xl p-4">
-          <div className="text-center w-1/3">
-            <p className="text-sm text-gray-400 border-b border-gray-700 pb-1 mb-2 flex items-center justify-center gap-2">
-              You{" "}
-              {socketId ? (
-                <Wifi className="w-3 h-3 text-emerald-400" />
-              ) : (
-                <WifiOff className="w-3 h-3 text-red-500" />
-              )}
-            </p>
-            <p className="text-4xl font-iosevka-bold text-emerald-400">
-              {me?.score || 0}
-            </p>
-          </div>
-          <div className="text-center w-1/3">
-            <p className="text-gray-500 uppercase tracking-widest text-xs border-b border-gray-700 pb-1 mb-2">
-              Round
-            </p>
-            <p className="text-2xl">
-              {gameState.currentRound} / {gameState.maxRounds}
-            </p>
-          </div>
-          <div className="text-center w-1/3">
-            <p className="text-sm text-gray-400 border-b border-gray-700 pb-1 mb-2 flex items-center justify-center gap-2">
-              Opponent{" "}
-              {roomId && !waitingOpponent(gameState) ? (
-                <Wifi className="w-3 h-3 text-emerald-400" />
-              ) : (
-                <WifiOff className="w-3 h-3 text-red-500" />
-              )}
-            </p>
-            <p className="text-4xl font-iosevka-bold text-red-400">
-              {opp?.score || 0}
-            </p>
-          </div>
-        </div>
+        <Scoreboard
+          players={gameState.players}
+          localPlayerId={socketId || ""}
+          currentRound={gameState.currentRound}
+          maxRounds={gameState.maxRounds}
+          themeColor="orange"
+        />
 
         {/* State Information */}
         <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-gray-900/50 rounded-lg">

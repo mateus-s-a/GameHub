@@ -13,6 +13,7 @@ import RoomBrowser from "../../components/RoomBrowser";
 import RoomLobby from "../../components/RoomLobby";
 import useRoomLobby from "../../hooks/useRoomLobby";
 import MatchTerminationBanner from "../../components/MatchTerminationBanner";
+import Scoreboard from "../../components/Scoreboard";
 import { X } from "lucide-react";
 
 type PlayerMark = "X" | "O" | null;
@@ -356,42 +357,20 @@ export default function Home() {
           )}
         </div>
 
-        {/* Score & Turn System */}
-        <div className="flex justify-between items-center w-full mb-8 font-iosevka-bold">
-          <div
-            className={`flex flex-col items-center bg-gray-800 px-6 py-4 rounded-xl border-b-4 ${currentPlayer === "X" ? "border-blue-500 shadow-[0_4px_15px_rgba(59,130,246,0.3)]" : "border-gray-600"} transition-all`}
-          >
-            <span className="text-blue-500 text-3xl mb-1">X</span>
-            {yourMark === "X" && (
-              <span className="text-gray-400 text-xs uppercase tracking-widest">
-                (You)
-              </span>
-            )}
-            <span className="text-white text-xl mt-1">Wins: {scores["X"]}</span>
-          </div>
-
-          <div className="flex flex-col items-center flex-1 mx-4">
-            <span className="text-4xl text-gray-500 italic mb-2">VS</span>
-            {maxRounds > 1 && (
-              <div className="text-gray-400 text-sm">
-                Round {currentRound} / {maxRounds}
-              </div>
-            )}
-          </div>
-
-          <div
-            className={`flex flex-col items-center bg-gray-800 px-6 py-4 rounded-xl border-b-4 ${currentPlayer === "O" ? "border-red-500 shadow-[0_4px_15px_rgba(239,68,68,0.3)]" : "border-gray-600"} transition-all`}
-          >
-            {/* Player O Label */}
-            <span className="text-red-500 text-3xl mb-1">O</span>
-            {yourMark === "O" && (
-              <span className="text-gray-400 text-xs uppercase tracking-widest">
-                (You)
-              </span>
-            )}
-            <span className="text-white text-xl mt-1">Wins: {scores["O"]}</span>
-          </div>
-        </div>
+        <Scoreboard
+          players={
+            gameStateData?.players.map((p) => ({
+              id: p.id,
+              name: p.mark === "X" ? "Player X" : "Player O",
+              score: scores[p.mark as "X" | "O"] || 0,
+              isConnected: true, // Simplified for TTT as it already handles disconnections via Alerts
+            })) || []
+          }
+          localPlayerId={socketId || ""}
+          currentRound={currentRound}
+          maxRounds={maxRounds}
+          themeColor="cyan"
+        />
 
         {/* State Information */}
         <div className="text-center text-xl h-8 flex items-center justify-center mb-4">

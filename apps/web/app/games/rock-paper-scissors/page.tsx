@@ -12,6 +12,7 @@ import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
 import AlertModal from "../../components/AlertModal";
 import MatchTerminationBanner from "../../components/MatchTerminationBanner";
+import Scoreboard from "../../components/Scoreboard";
 import EndMatchOptions from "../../components/EndMatchOptions";
 import {
   Wifi,
@@ -308,43 +309,13 @@ export default function RPSGame() {
       </h1>
 
       <div className="w-full max-w-2xl bg-gray-800 rounded-2xl p-8 border border-gray-700 shadow-2xl space-y-8">
-        {/* Scoreboard */}
-        <div className="flex justify-between items-center bg-gray-900 rounded-xl p-4">
-          <div className="text-center">
-            <p className="text-sm text-gray-400 mb-1 flex items-center justify-center gap-2">
-              You{" "}
-              {socketId ? (
-                <Wifi className="w-3 h-3 text-emerald-400" />
-              ) : (
-                <WifiOff className="w-3 h-3 text-red-500" />
-              )}
-            </p>
-            <p className="text-3xl font-iosevka-bold text-emerald-400">
-              {me?.score || 0}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-gray-500 uppercase tracking-widest text-xs">
-              Round
-            </p>
-            <p className="text-xl">
-              {gameState.currentRound} / {gameState.maxRounds}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-400 mb-1 flex items-center justify-center gap-2">
-              Opponent{" "}
-              {roomId && !waitingOpponent(gameState) ? (
-                <Wifi className="w-3 h-3 text-emerald-400" />
-              ) : (
-                <WifiOff className="w-3 h-3 text-red-500" />
-              )}
-            </p>
-            <p className="text-3xl font-iosevka-bold text-red-400">
-              {opp?.score || 0}
-            </p>
-          </div>
-        </div>
+        <Scoreboard
+          players={gameState.players}
+          localPlayerId={socketId || ""}
+          currentRound={gameState.currentRound}
+          maxRounds={gameState.maxRounds}
+          themeColor="purple"
+        />
 
         {/* State Information */}
         <div className="text-center text-xl h-12 flex items-center justify-center">
