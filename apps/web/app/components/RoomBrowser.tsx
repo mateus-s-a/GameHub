@@ -55,8 +55,9 @@ export default function RoomBrowser({
           ) : (
             rooms.map((room) => {
               const inProgress = room.status === "in_progress";
+              const isStarting = room.status === "starting";
               const isFull = room.playerCount >= room.maxPlayers;
-              const isDisabled = inProgress || isFull;
+              const isDisabled = inProgress || isFull || isStarting;
 
               return (
                 <button
@@ -84,13 +85,22 @@ export default function RoomBrowser({
                       className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-iosevka-bold border ${
                         inProgress
                           ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
-                          : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                          : isStarting
+                            ? "bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse"
+                            : "bg-blue-500/10 text-blue-400 border-blue-500/20"
                       }`}
                     >
                       {inProgress ? (
                         <>
                           <Swords className="w-3.5 h-3.5" />
                           <span className="text-[10px] uppercase">In Game</span>
+                        </>
+                      ) : isStarting ? (
+                        <>
+                          <Clock className="w-3.5 h-3.5 animate-spin" />
+                          <span className="text-[10px] uppercase font-bold">
+                            Starting...
+                          </span>
                         </>
                       ) : (
                         <>

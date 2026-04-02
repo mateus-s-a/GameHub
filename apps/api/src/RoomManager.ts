@@ -114,8 +114,9 @@ export class RoomManager {
       }
     }
 
-    // Se a saída ocorrer durante o lobby, resetamos o countdown
-    if (room.status === "waiting") {
+    // Se a saída ocorrer durante o lobby ou início, resetamos o estado
+    if (room.status === "waiting" || room.status === "starting") {
+      room.status = "waiting";
       room.countdown = null;
     }
 

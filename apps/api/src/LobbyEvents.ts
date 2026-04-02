@@ -66,7 +66,9 @@ export function registerGenericLobbyEvents(
 
     let countdown = 5;
     room.countdown = countdown;
+    room.status = "starting";
     namespace.to(roomId).emit("roomLobbyUpdate", room);
+    namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
 
     const interval = setInterval(() => {
       countdown -= 1;

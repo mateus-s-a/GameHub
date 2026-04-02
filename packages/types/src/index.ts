@@ -3,7 +3,7 @@ export interface Player {
   name?: string;
 }
 
-export type RoomStatus = "waiting" | "in_progress";
+export type RoomStatus = "waiting" | "starting" | "in_progress";
 
 export interface RoomLobbyPlayer {
   id: string;
