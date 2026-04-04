@@ -3,16 +3,16 @@
 
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { useRouter } from "next/navigation";
 import { GTFRoundState, GTFPlayer } from "@gamehub/guess-the-flag";
 import GameSetup, {
   GameSetupConfig,
 } from "@/features/setup/components/GameSetup";
 import TimerDisplay from "@/features/match/components/TimerDisplay";
-import BackButton from "@/\(shared\)/components/ui/BackButton";
 import AlertModal from "@/\(shared\)/components/ui/AlertModal";
 import ConfirmModal from "@/\(shared\)/components/ui/ConfirmModal";
 import EndMatchOptions from "@/features/match/components/EndMatchOptions";
-import { Wifi, WifiOff, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import RoundResults from "@/features/match/components/RoundResults";
 import RoomBrowser from "@/features/lobby/components/RoomBrowser";
@@ -20,6 +20,10 @@ import RoomLobby from "@/features/lobby/components/RoomLobby";
 import useRoomLobby from "@/features/lobby/hooks/useRoomLobby";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
 import Scoreboard from "@/features/match/components/Scoreboard";
+import { GameShell } from "@repo/ui/game-shell";
+import { Card } from "@repo/ui/card";
+import { Button } from "@repo/ui/button";
+import { useSocket } from "@/(shared)/providers/SocketProvider";
 
 interface GameState {
   state: GTFRoundState;
@@ -37,8 +41,11 @@ interface GameState {
 }
 
 export default function GuessTheFlagGame() {
+  const router = useRouter();
+  const { socketId: globalSocketId, playerName } = useSocket();
+  
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [socketId, setSocketId] = useState<string | null>(null);
+  const [localSocketId, setLocalSocketId] = useState<string | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [localChoice, setLocalChoice] = useState<string | null>(null);
@@ -65,11 +72,13 @@ export default function GuessTheFlagGame() {
   }, [isGameStarted, socket, roomId]);
 
   useEffect(() => {
-    const s: Socket = io("http://localhost:3001/gtf");
+    const s: Socket = io("http://localhost:3001/gtf", {
+      auth: { playerName },
+    });
     setSocket(s);
 
     s.on("connect", () => {
-      setSocketId(s.id || null);
+      setLocalSocketId(s.id || null);
     });
 
     s.on("matchFound", ({ roomId, isHost }) => {
@@ -88,11 +97,11 @@ export default function GuessTheFlagGame() {
       setIsGameStarted(true);
     });
 
-    s.on("gameState", (state: GameState) => {
-      setGameState(state);
+    s.on("gameState", (serverState: GameState) => {
+      setGameState(serverState);
       if (
-        state.state === "guessing_phase" &&
-        !state.players.find((p) => p.id === s.id)?.hasGuessed
+        serverState.state === "guessing_phase" &&
+        !serverState.players.find((p) => p.id === s.id)?.hasGuessed
       ) {
         setLocalChoice(null);
       }
@@ -102,8 +111,8 @@ export default function GuessTheFlagGame() {
       setRematchRequested(false);
     });
 
-    s.on("opponentDisconnected", () => {
-      setDisconnectMessage("Connection Lost Opponent left the room.");
+    s.on("opponentDisconnected", ({ playerName: leaverName }: { playerName: string }) => {
+      setDisconnectMessage(`Connection Lost: ${leaverName} has left the match.`);
     });
 
     s.on("matchTerminationUpdate", ({ countdown }: { countdown: number }) => {
@@ -116,7 +125,6 @@ export default function GuessTheFlagGame() {
 
     s.on("playerLeft", (message: string) => {
       setTempNotification(message);
-      // Automatically clear after 5 seconds
       setTimeout(() => setTempNotification(null), 5000);
     });
 
@@ -158,9 +166,9 @@ export default function GuessTheFlagGame() {
     }
     setRoomId(null);
     setGameState(null);
+    setIsGameStarted(false);
     setRematchRequested(false);
     setSetupNeeded(true);
-    setIsGameStarted(false);
   };
 
   const handleLeaveRoom = () => {
@@ -169,10 +177,11 @@ export default function GuessTheFlagGame() {
     }
     setRoomId(null);
     setGameState(null);
+    setIsGameStarted(false);
     setRematchRequested(false);
     setSetupNeeded(false);
-    setIsGameStarted(false);
     setIsHost(false);
+    router.push("/");
   };
 
   const handleStartGame = (config: GameSetupConfig) => {
@@ -194,42 +203,26 @@ export default function GuessTheFlagGame() {
     }
   };
 
-  const handleDisconnectAcknowledge = () => {
-    setDisconnectMessage(null);
-    handleLeaveRoom();
-  };
-
   if (setupNeeded && !roomId) {
     return (
-      <div className="min-h-screen relative flex items-center justify-center bg-gray-900 border-8 border-gray-800">
-        <BackButton
-          isHost={isHost}
-          isInSetup={true}
-          isGameOver={false}
-          onLeaveRoom={handleLeaveRoom}
-        />
-        <GameSetup onStart={handleStartGame} gameId="gtf" />
-      </div>
+      <GameShell playerName={playerName}>
+        <div className="w-full flex justify-center">
+          <GameSetup onStart={handleStartGame} gameId="gtf" />
+        </div>
+      </GameShell>
     );
   }
 
   if (!roomId && !setupNeeded) {
     return (
-      <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center pt-24 p-8 font-iosevka-regular">
-        <BackButton
-          isHost={false}
-          isInSetup={false}
-          isGameOver={false}
-          isInLobby={true}
-          onLeaveRoom={() => (window.location.href = "/")}
-        />
+      <GameShell playerName={playerName}>
         <RoomBrowser
           rooms={rooms}
           onCreateRoom={handleCreateRoomClick}
           onJoinRoom={handleJoinRoomClick}
           gameLabel="Guess the Flag"
         />
-      </div>
+      </GameShell>
     );
   }
 
@@ -243,7 +236,7 @@ export default function GuessTheFlagGame() {
     return (
       <RoomLobby
         roomLobby={roomLobby}
-        localPlayerId={socketId || ""}
+        localPlayerId={localSocketId || ""}
         onToggleReady={() => socket?.emit("toggleReady", roomId)}
         onStartMatch={() => socket?.emit("startMatch", roomId)}
         onLeaveRoom={handleLeaveRoom}
@@ -255,17 +248,16 @@ export default function GuessTheFlagGame() {
 
   if (!gameState) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center font-iosevka-bold text-xl text-orange-400 animate-pulse">
+      <div className="min-h-screen bg-[#111111] flex items-center justify-center font-iosevka-bold text-xl text-orange-400 animate-pulse">
         Entering Arena...
       </div>
     );
   }
 
-  const me = gameState.players.find((p) => p.id === socketId);
-  const opp = gameState.players.find((p) => p.id !== socketId);
+  const me = gameState.players.find((p) => p.id === localSocketId);
 
   return (
-    <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center py-12 px-8 font-iosevka-regular overflow-y-auto">
+    <GameShell playerName={playerName}>
       {matchTerminationCountdown !== null && (
         <MatchTerminationBanner countdown={matchTerminationCountdown} />
       )}
@@ -283,7 +275,7 @@ export default function GuessTheFlagGame() {
       {/* Temporary Toast Notification */}
       {tempNotification && (
         <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-right duration-500">
-          <div className="bg-gray-800 border-l-4 border-orange-500 text-white px-6 py-4 rounded-r-xl shadow-2xl flex items-center gap-3">
+          <div className="bg-[#1a1a1a] border-l-4 border-orange-500 text-white px-6 py-4 rounded-r-xl shadow-2xl flex items-center gap-3">
             <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
             <span className="font-iosevka-medium whitespace-pre-line">
               {tempNotification}
@@ -298,168 +290,147 @@ export default function GuessTheFlagGame() {
         </div>
       )}
 
-      <BackButton
-        isHost={isHost}
-        isInSetup={false}
-        isGameOver={gameState.state === "game_over"}
-        onReturnToSetup={handleReturnToSetup}
-        onLeaveRoom={handleLeaveRoom}
-      />
-      <h1 className="text-4xl font-iosevka-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">
-        GameHub Guess the Flag
-      </h1>
+      <div className="w-full max-w-4xl flex flex-col items-center">
+        <h1 className="text-4xl font-iosevka-bold mb-8 text-white tracking-widest uppercase text-center">
+          Guess the Flag
+        </h1>
 
-      {isGameStarted && gameState.state !== "game_over" && (
-        <button
-          onClick={() => setIsExitModalOpen(true)}
-          className="mb-6 px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-iosevka-bold rounded-lg border border-red-500/20 transition-all active:scale-95"
-        >
-          Leave Match
-        </button>
-      )}
-
-      <ConfirmModal
-        isOpen={isExitModalOpen}
-        title="Leave Match?"
-        message="Are you sure you want to leave the current match? Your progress will be lost."
-        onConfirm={() => {
-          handleLeaveRoom();
-          setIsExitModalOpen(false);
-          window.location.href = "/";
-        }}
-        onCancel={() => setIsExitModalOpen(false)}
-        confirmText="Leave"
-        cancelText="Stay"
-        themeColor="red"
-      />
-
-      <div className="w-full max-w-4xl bg-gray-800 rounded-2xl p-8 border border-gray-700 shadow-2xl space-y-8 flex flex-col items-center">
-        <Scoreboard
-          players={gameState.players}
-          localPlayerId={socketId || ""}
-          currentRound={gameState.currentRound}
-          maxRounds={gameState.maxRounds}
-          themeColor="orange"
-        />
-
-        {/* State Information */}
-        <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-gray-900/50 rounded-lg">
-          {gameState.state === "guessing_phase" && !me?.hasGuessed && (
-            <span className="text-blue-400 animate-pulse font-iosevka-medium">
-              Who does this flag belong to?
-            </span>
-          )}
-          {gameState.state === "guessing_phase" && me?.hasGuessed && (
-            <span className="text-gray-400 italic">
-              Waiting for opponent to guess...
-            </span>
-          )}
-          {gameState.state === "round_result" && (
-            <span className="text-yellow-400 font-iosevka-bold text-2xl drop-shadow-md">
-              Round Over!
-            </span>
-          )}
-          {gameState.state === "game_over" && (
-            <span className="text-emerald-400 font-iosevka-bold text-2xl drop-shadow-md">
-              Game Over!
-            </span>
-          )}
-        </div>
-
-        {gameState.state === "guessing_phase" && !me?.hasGuessed && (
-          <TimerDisplay turnEndTime={gameState.turnEndTime || null} />
+        {isGameStarted && gameState.state !== "game_over" && (
+          <Button
+            variant="ghost"
+            onClick={() => setIsExitModalOpen(true)}
+            className="mb-8 border-red-500/20 text-red-500 hover:bg-red-500/10"
+          >
+            <X size={16} /> LEAVE MATCH
+          </Button>
         )}
 
-        {/* Battle Arena */}
-        <div className="flex flex-col items-center justify-center w-full max-w-2xl gap-8">
-          {/* Default state flag (waiting or guessing) */}
-          {(gameState.state === "guessing_phase" ||
-            gameState.state === "waiting_players") &&
-            gameState.flagUrl && (
-              <div className="w-full max-w-sm aspect-video bg-gray-950 rounded-xl overflow-hidden shadow-xl ring-2 ring-gray-700 relative flex items-center justify-center p-4">
+        <ConfirmModal
+          isOpen={isExitModalOpen}
+          title="Leave Match?"
+          message="Are you sure you want to leave the current match? Your progress will be lost."
+          onConfirm={() => {
+            handleLeaveRoom();
+            setIsExitModalOpen(false);
+          }}
+          onCancel={() => setIsExitModalOpen(false)}
+          confirmText="Leave"
+          cancelText="Stay"
+          themeColor="red"
+        />
+
+        <Card className="w-full max-w-3xl p-10 flex flex-col items-center gap-8 bg-[#161616]">
+          <Scoreboard
+            players={gameState.players}
+            localPlayerId={localSocketId || ""}
+            currentRound={gameState.currentRound}
+            maxRounds={gameState.maxRounds}
+            themeColor="orange"
+          />
+
+          {/* State Information */}
+          <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-[#111111] rounded-xl border border-white/5">
+            {gameState.state === "guessing_phase" && !me?.hasGuessed && (
+              <span className="text-white animate-pulse font-iosevka-bold">
+                WHICH COUNTRY?
+              </span>
+            )}
+            {gameState.state === "guessing_phase" && me?.hasGuessed && (
+              <span className="text-[var(--muted)] italic">
+                WAITING FOR OPPONENT...
+              </span>
+            )}
+            {gameState.state === "round_result" && (
+              <span className="text-white font-iosevka-bold">ROUND OVER!</span>
+            )}
+            {gameState.state === "game_over" && (
+              <span className="text-white font-iosevka-bold">GAME OVER!</span>
+            )}
+          </div>
+
+          {!me?.hasGuessed && gameState.state === "guessing_phase" && (
+            <div className="scale-150 py-4">
+              <TimerDisplay turnEndTime={gameState.turnEndTime || null} />
+            </div>
+          )}
+
+          {/* Battle Arena */}
+          <div className="flex flex-col items-center justify-center w-full gap-8">
+            {/* Flag Display */}
+            {gameState.flagUrl && (
+              <div className="w-full max-w-md aspect-video bg-[#000000] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 relative flex items-center justify-center p-4">
                 <img
                   src={gameState.flagUrl}
                   alt="Guess the Flag"
-                  className="object-contain w-full h-full drop-shadow-lg"
+                  className="object-contain w-full h-full drop-shadow-xl"
                 />
               </div>
             )}
 
-          {/* Results phase flag and choices */}
-          {gameState.state === "round_result" ||
-          gameState.state === "game_over" ? (
-            <div className="w-full flex flex-col items-center gap-6">
-              <div className="w-full max-w-sm aspect-video bg-gray-950 rounded-xl overflow-hidden shadow-xl ring-4 ring-emerald-500/50 relative flex items-center justify-center p-4 mb-4">
-                <img
-                  src={gameState.flagUrl || ""}
-                  alt="Correct Flag"
-                  className="object-contain w-full h-full drop-shadow-lg"
+            {/* Results or Choices */}
+            {gameState.state === "round_result" ||
+            gameState.state === "game_over" ? (
+              <div className="w-full flex flex-col items-center gap-8">
+                <div className="w-full bg-[#111111] rounded-2xl p-8 text-center border border-white/5 shadow-inner">
+                  <p className="text-[var(--muted)] text-xs mb-3 uppercase tracking-[0.2em]">
+                    The Answer Was
+                  </p>
+                  <p className="text-4xl font-iosevka-bold text-white tracking-widest uppercase">
+                    {gameState.correctCountry}
+                  </p>
+                </div>
+
+                <RoundResults
+                  players={gameState.players.map((p) => ({
+                    id: p.id,
+                    choice: p.currentGuess,
+                  }))}
+                  localPlayerId={localSocketId || ""}
+                  correctAnswer={gameState.correctCountry}
+                  themeColor="orange"
+                  verb="Guessed"
                 />
               </div>
-
-              <div className="w-full bg-gray-900 rounded-xl p-6 text-center border border-gray-700 shadow-inner">
-                <p className="text-gray-400 text-sm mb-2 uppercase tracking-wide">
-                  The correct answer was
-                </p>
-                <p className="text-4xl font-iosevka-bold text-emerald-400 drop-shadow-md">
-                  {gameState.correctCountry}
-                </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 w-full mt-4">
+                {gameState.options.map((option) => (
+                  <button
+                    key={option}
+                    disabled={me?.hasGuessed}
+                    onClick={() => submitGuess(option)}
+                    className={`py-8 px-6 text-lg rounded-2xl transition-all font-iosevka-bold tracking-wider uppercase border ${
+                      localChoice === option
+                        ? "bg-[#2a2a2a] border-white/40 shadow-2xl scale-[1.02]"
+                        : "bg-[#1a1a1a] hover:bg-[#222222] border-white/5 text-[var(--muted)] hover:text-white"
+                    } ${me?.hasGuessed && localChoice !== option ? "opacity-20 grayscale" : ""}`}
+                  >
+                    {option}
+                  </button>
+                ))}
               </div>
+            )}
+          </div>
 
-              <RoundResults
-                players={gameState.players.map((p) => ({
-                  id: p.id,
-                  choice: p.currentGuess,
-                }))}
-                localPlayerId={socketId || ""}
-                correctAnswer={gameState.correctCountry}
-                themeColor="orange"
-                verb="Guessed"
+          {/* End Game Options */}
+          {gameState.state === "game_over" && (
+            <div className="w-full pt-8 border-t border-white/5">
+              <EndMatchOptions
+                rematchRequested={rematchRequested}
+                opponentLeft={!!disconnectMessage}
+                hasOpponentRequested={
+                  gameState.rematchRequests?.find(
+                    (id) => id !== localSocketId,
+                  ) !== undefined
+                }
+                onRequestRematch={requestRematch}
+                onPlayAgain={playAgain}
+                primaryColorGradient="from-[#333333] to-[#1a1a1a]"
+                primaryColorHover="hover:from-[#444444] hover:to-[#222222]"
               />
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 w-full mt-4">
-              {gameState.options.map((option) => (
-                <button
-                  key={option}
-                  disabled={me?.hasGuessed}
-                  onClick={() => submitGuess(option)}
-                  className={`py-6 px-4 text-xl rounded-xl transition-all font-iosevka-medium ${
-                    localChoice === option
-                      ? "bg-orange-600 border-2 border-orange-400 scale-[1.02] shadow-[0_0_15px_rgba(249,115,22,0.4)]"
-                      : "bg-gray-700 hover:bg-gray-600 border border-transparent hover:border-gray-500"
-                  } ${me?.hasGuessed && localChoice !== option ? "opacity-30" : ""}`}
-                >
-                  <span className="truncate block w-full text-center">
-                    {option}
-                  </span>
-                </button>
-              ))}
-            </div>
           )}
-        </div>
-
-        {/* End Game Options */}
-        {gameState.state === "game_over" && (
-          <EndMatchOptions
-            rematchRequested={rematchRequested}
-            opponentLeft={!!disconnectMessage}
-            hasOpponentRequested={
-              gameState.rematchRequests?.find((id) => id !== socketId) !==
-              undefined
-            }
-            onRequestRematch={requestRematch}
-            onPlayAgain={playAgain}
-            primaryColorGradient="from-orange-500 to-red-600"
-            primaryColorHover="hover:from-orange-400 hover:to-red-500"
-          />
-        )}
+        </Card>
       </div>
-    </div>
+    </GameShell>
   );
-}
-
-// Utility to check if second player is fully connected
-function waitingOpponent(gameState: GameState) {
-  return gameState.players.length < 2 || gameState.state === "waiting_players";
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { useRouter } from "next/navigation";
 import {
   RPSChoice,
   RoundState,
@@ -24,6 +25,7 @@ import useRoomLobby from "@/features/lobby/hooks/useRoomLobby";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
+import { useSocket } from "@/(shared)/providers/SocketProvider";
 
 interface GameState {
   state: RoundState;
@@ -37,8 +39,11 @@ interface GameState {
 }
 
 export default function RPSGame() {
+  const router = useRouter();
+  const { socketId: globalSocketId, playerName } = useSocket();
+  
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [socketId, setSocketId] = useState<string | null>(null);
+  const [localSocketId, setLocalSocketId] = useState<string | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [localChoice, setLocalChoice] = useState<RPSChoice | null>(null);
@@ -65,11 +70,13 @@ export default function RPSGame() {
   }, [isGameStarted, socket, roomId]);
 
   useEffect(() => {
-    const s: Socket = io("http://localhost:3001/rps");
+    const s: Socket = io("http://localhost:3001/rps", {
+      auth: { playerName },
+    });
     setSocket(s);
 
     s.on("connect", () => {
-      setSocketId(s.id || null);
+      setLocalSocketId(s.id || null);
     });
 
     s.on("matchFound", ({ roomId, isHost }) => {
@@ -88,11 +95,11 @@ export default function RPSGame() {
       setIsGameStarted(true);
     });
 
-    s.on("gameState", (state: GameState) => {
-      setGameState(state);
+    s.on("gameState", (serverState: GameState) => {
+      setGameState(serverState);
       if (
-        state.state === "commit_phase" &&
-        !state.players.find((p) => p.id === s.id)?.hasCommitted
+        serverState.state === "commit_phase" &&
+        !serverState.players.find((p) => p.id === s.id)?.hasCommitted
       ) {
         setLocalChoice(null);
       }
@@ -102,8 +109,8 @@ export default function RPSGame() {
       setRematchRequested(false);
     });
 
-    s.on("opponentDisconnected", () => {
-      setDisconnectMessage("Connection Lost Opponent left the room.");
+    s.on("opponentDisconnected", ({ playerName: leaverName }: { playerName: string }) => {
+      setDisconnectMessage(`Connection Lost: ${leaverName} has left the match.`);
     });
 
     s.on("matchTerminationUpdate", ({ countdown }: { countdown: number }) => {
@@ -116,7 +123,6 @@ export default function RPSGame() {
 
     s.on("playerLeft", (message: string) => {
       setTempNotification(message);
-      // Automatically clear after 5 seconds
       setTimeout(() => setTempNotification(null), 5000);
     });
 
@@ -173,13 +179,7 @@ export default function RPSGame() {
     setRematchRequested(false);
     setSetupNeeded(false);
     setIsHost(false);
-  };
-
-  const handleStartGame = (config: GameSetupConfig) => {
-    if (socket) {
-      socket.emit("createRoom", config);
-      setSetupNeeded(false);
-    }
+    router.push("/");
   };
 
   const handleCreateRoomClick = () => {
@@ -194,9 +194,16 @@ export default function RPSGame() {
     }
   };
 
+  const handleStartGame = (config: GameSetupConfig) => {
+    if (socket) {
+      socket.emit("createRoom", config);
+      setSetupNeeded(false);
+    }
+  };
+
   if (setupNeeded && !roomId) {
     return (
-      <GameShell socketId={socketId}>
+      <GameShell playerName={playerName}>
         <div className="w-full h-full flex flex-col items-center justify-center">
           <GameSetup onStart={handleStartGame} gameId="rps" />
         </div>
@@ -206,7 +213,7 @@ export default function RPSGame() {
 
   if (!roomId && !setupNeeded) {
     return (
-      <GameShell socketId={socketId}>
+      <GameShell playerName={playerName}>
         <RoomBrowser
           rooms={rooms}
           onCreateRoom={handleCreateRoomClick}
@@ -227,7 +234,7 @@ export default function RPSGame() {
     return (
       <RoomLobby
         roomLobby={roomLobby}
-        localPlayerId={socketId || ""}
+        localPlayerId={localSocketId || ""}
         onToggleReady={() => socket?.emit("toggleReady", roomId)}
         onStartMatch={() => socket?.emit("startMatch", roomId)}
         onLeaveRoom={handleLeaveRoom}
@@ -245,11 +252,11 @@ export default function RPSGame() {
     );
   }
 
-  const me = gameState.players.find((p) => p.id === socketId);
-  const opp = gameState.players.find((p) => p.id !== socketId);
+  const me = gameState.players.find((p) => p.id === localSocketId);
+  const opp = gameState.players.find((p) => p.id !== localSocketId);
 
   return (
-    <GameShell socketId={socketId}>
+    <GameShell playerName={playerName}>
       {matchTerminationCountdown !== null && (
         <MatchTerminationBanner countdown={matchTerminationCountdown} />
       )}
@@ -304,7 +311,6 @@ export default function RPSGame() {
           onConfirm={() => {
             handleLeaveRoom();
             setIsExitModalOpen(false);
-            window.location.href = "/";
           }}
           onCancel={() => setIsExitModalOpen(false)}
           confirmText="Leave"
@@ -315,7 +321,7 @@ export default function RPSGame() {
         <Card className="w-full max-w-3xl p-10 flex flex-col gap-8 bg-[#161616]">
           <Scoreboard
             players={gameState.players}
-            localPlayerId={socketId || ""}
+            localPlayerId={localSocketId || ""}
             currentRound={gameState.currentRound}
             maxRounds={gameState.maxRounds}
             themeColor="white"
@@ -405,8 +411,9 @@ export default function RPSGame() {
                 rematchRequested={rematchRequested}
                 opponentLeft={!!disconnectMessage}
                 hasOpponentRequested={
-                  gameState.rematchRequests?.find((id) => id !== socketId) !==
-                  undefined
+                  gameState.rematchRequests?.find(
+                    (id) => id !== localSocketId,
+                  ) !== undefined
                 }
                 onRequestRematch={requestRematch}
                 onPlayAgain={playAgain}

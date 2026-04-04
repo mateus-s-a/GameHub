@@ -42,8 +42,8 @@ export default function RoundResults({
       {players.map((player) => {
         const isLocal = player.id === localPlayerId;
         const isCorrect = player.choice === correctAnswer;
-        const shortId = player.id.substring(0, 5);
-        const displayName = `player-${shortId}${isLocal ? " (You)" : ""}`;
+        const shortId = player.id.substring(0, 5).toUpperCase();
+        const displayName = `PLAYER-${shortId}${isLocal ? " (You)" : ""}`;
 
         return (
           <div

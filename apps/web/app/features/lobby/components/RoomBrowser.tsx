@@ -1,9 +1,11 @@
+"use client";
+
 import React from "react";
 import { RoomInfo } from "@gamehub/types";
-import { User, Clock, Swords, ArrowLeft } from "lucide-react";
+import { User, Clock, ArrowLeft } from "lucide-react";
 import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
-import { Separator } from "@repo/ui/separator";
+import { useRouter } from "next/navigation";
 
 interface RoomBrowserProps {
   rooms: RoomInfo[];
@@ -18,14 +20,24 @@ export default function RoomBrowser({
   onJoinRoom,
   gameLabel,
 }: RoomBrowserProps) {
+  const router = useRouter();
+
+  const handleBackToHub = () => {
+    router.push("/");
+  };
+
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col items-start pt-12">
       {/* Back Button */}
       <button
-        onClick={() => (window.location.href = "/")}
-        className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#333333] rounded-lg text-xs font-iosevka-bold text-white mb-12 hover:bg-[#222222] transition-colors"
+        onClick={handleBackToHub}
+        className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#333333] rounded-lg text-xs font-iosevka-bold text-white mb-12 hover:bg-[#222222] transition-colors group"
       >
-        <ArrowLeft size={14} /> BACK
+        <ArrowLeft
+          size={14}
+          className="group-hover:-translate-x-1 transition-transform"
+        />{" "}
+        BACK TO HUB
       </button>
 
       {/* Lobby Title */}
@@ -44,7 +56,7 @@ export default function RoomBrowser({
       </div>
 
       {/* Active Rooms Section */}
-      <div className="w-full">
+      <div className="w-full pb-20">
         <h2 className="text-2xl font-iosevka-bold text-white mb-4 tracking-tight">
           Active Rooms
         </h2>

@@ -1,11 +1,12 @@
 import React from "react";
 import { RoomInfo } from "@gamehub/types";
-import { User, Copy, Users } from "lucide-react";
+import { User } from "lucide-react";
 import GameConfigPanel from "@/features/setup/components/GameConfigPanel";
 import { GameSetupConfig } from "@/features/setup/components/GameSetup";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
+import { useSocket } from "@/(shared)/providers/SocketProvider";
 
 export interface RoomLobbyProps {
   roomLobby: RoomInfo | null;
@@ -26,6 +27,8 @@ export default function RoomLobby({
   onUpdateConfig,
   themeColor = "emerald",
 }: RoomLobbyProps) {
+  const { playerName } = useSocket();
+
   if (!roomLobby) return null;
 
   const isHost = roomLobby.hostId === localPlayerId;
@@ -42,7 +45,7 @@ export default function RoomLobby({
   };
 
   return (
-    <GameShell socketId={localPlayerId}>
+    <GameShell playerName={playerName}>
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-24">
         {/* PLAYER SLOTS Card */}
         <Card
@@ -104,7 +107,16 @@ export default function RoomLobby({
             />
           </Card>
 
-          <Card title="ROOM CUSTOMIZATION" className="p-10 bg-[#161616]">
+          {/* ROOM CUSTOMIZATION - Disabled state as placeholder */}
+          <Card
+            title="ROOM CUSTOMIZATION"
+            className="p-10 bg-[#161616] opacity-40 grayscale pointer-events-none relative overflow-hidden"
+          >
+            <div className="absolute inset-0 z-10 bg-black/20 flex items-center justify-center">
+              <span className="bg-white/10 border border-white/20 px-4 py-2 rounded-full text-[10px] font-iosevka-bold text-white/60 tracking-widest">
+                COMING SOON
+              </span>
+            </div>
             <div className="flex flex-col gap-4">
               <label className="text-sm font-iosevka-bold text-[var(--muted)] uppercase tracking-widest">
                 Room Code

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { SocketProvider } from "./(shared)/providers/SocketProvider";
 
 export const metadata: Metadata = {
   title: "GameHub",
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased min-h-screen selection:bg-cyan-500/30">
-        {children}
+        <SocketProvider>{children}</SocketProvider>
       </body>
     </html>
   );

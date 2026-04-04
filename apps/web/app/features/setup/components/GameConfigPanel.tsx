@@ -119,6 +119,48 @@ export default function GameConfigPanel({
         </div>
       </div>
 
+      {/* Max Players - Only for GTF */}
+      {gameId === "gtf" && (
+        <div className="flex flex-col gap-4">
+          <label className="text-sm text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
+            Max Players
+          </label>
+          <div className="space-y-4">
+            <select
+              disabled={readOnly}
+              className="w-full bg-[#222222] text-white p-4 rounded-xl border border-[#333333] focus:outline-none focus:border-white/40 disabled:opacity-60 transition-all appearance-none cursor-pointer"
+              value={localConfig.maxPlayers || 2}
+              onChange={(e) =>
+                handleChange("maxPlayers", Number(e.target.value))
+              }
+            >
+              <option value={2}>2 Players (PvP)</option>
+              <option value={4}>4 Players (Small Group)</option>
+              <option value={8}>8 Players (Large Lobby)</option>
+            </select>
+
+            <div className="px-2">
+              <input
+                type="range"
+                min="2"
+                max="8"
+                step="2"
+                value={localConfig.maxPlayers || 2}
+                disabled={readOnly}
+                onChange={(e) =>
+                  handleChange("maxPlayers", Number(e.target.value))
+                }
+                className="w-full accent-white bg-[#333333] h-1 rounded-lg outline-none appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-[var(--muted)] mt-2 font-iosevka-bold">
+                <span>2</span>
+                <span>8</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isHost && isLobby && localConfig !== config && (
         <Button
           variant="highlight"

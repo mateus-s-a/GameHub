@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { useRouter } from "next/navigation";
 import GameSetup, {
   GameSetupConfig,
 } from "@/features/setup/components/GameSetup";
 import TimerDisplay from "@/features/match/components/TimerDisplay";
 import AlertModal from "@/\(shared\)/components/ui/AlertModal";
 import EndMatchOptions from "@/features/match/components/EndMatchOptions";
-import { Wifi, WifiOff, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import RoomBrowser from "@/features/lobby/components/RoomBrowser";
 import RoomLobby from "@/features/lobby/components/RoomLobby";
@@ -19,6 +20,7 @@ import ConfirmModal from "@/\(shared\)/components/ui/ConfirmModal";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
+import { useSocket } from "@/(shared)/providers/SocketProvider";
 
 type PlayerMark = "X" | "O" | null;
 
@@ -38,8 +40,11 @@ interface GameState {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const { socketId: globalSocketId, playerName } = useSocket();
+  
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [socketId, setSocketId] = useState<string | null>(null);
+  const [localSocketId, setLocalSocketId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [isGameStarted, setIsGameStarted] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
@@ -77,11 +82,13 @@ export default function Home() {
   }, [isGameStarted, socket, roomId]);
 
   useEffect(() => {
-    const s: Socket = io("http://localhost:3001/ttt");
+    const s: Socket = io("http://localhost:3001/ttt", {
+      auth: { playerName },
+    });
     setSocket(s);
 
     s.on("connect", () => {
-      setSocketId(s.id || null);
+      setLocalSocketId(s.id || null);
     });
 
     s.on("matchFound", ({ roomId, isHost }) => {
@@ -120,8 +127,8 @@ export default function Home() {
       setRematchRequested(false);
     });
 
-    s.on("opponentDisconnected", () => {
-      setDisconnectMessage("Connection Lost Opponent left the room.");
+    s.on("opponentDisconnected", ({ playerName: leaverName }: { playerName: string }) => {
+      setDisconnectMessage(`Connection Lost: ${leaverName} has left the match.`);
     });
 
     s.on("matchTerminationUpdate", ({ countdown }: { countdown: number }) => {
@@ -205,6 +212,7 @@ export default function Home() {
     setRematchRequested(false);
     setSetupNeeded(false);
     setIsHost(false);
+    router.push("/");
   };
 
   const handleCreateRoomClick = () => {
@@ -228,7 +236,7 @@ export default function Home() {
 
   if (setupNeeded && !roomId) {
     return (
-      <GameShell socketId={socketId}>
+      <GameShell playerName={playerName}>
         <div className="w-full flex justify-center">
           <GameSetup onStart={handleStartGame} gameId="ttt" />
         </div>
@@ -238,7 +246,7 @@ export default function Home() {
 
   if (!roomId && !setupNeeded) {
     return (
-      <GameShell socketId={socketId}>
+      <GameShell playerName={playerName}>
         <RoomBrowser
           rooms={rooms}
           onCreateRoom={handleCreateRoomClick}
@@ -259,7 +267,7 @@ export default function Home() {
     return (
       <RoomLobby
         roomLobby={roomLobby}
-        localPlayerId={socketId || ""}
+        localPlayerId={localSocketId || ""}
         onToggleReady={() => socket?.emit("toggleReady", roomId)}
         onStartMatch={() => socket?.emit("startMatch", roomId)}
         onLeaveRoom={handleLeaveRoom}
@@ -270,7 +278,7 @@ export default function Home() {
   }
 
   return (
-    <GameShell socketId={socketId}>
+    <GameShell playerName={playerName}>
       {matchTerminationCountdown !== null && (
         <MatchTerminationBanner countdown={matchTerminationCountdown} />
       )}
@@ -326,7 +334,6 @@ export default function Home() {
           onConfirm={() => {
             handleLeaveRoom();
             setIsExitModalOpen(false);
-            window.location.href = "/";
           }}
           onCancel={() => setIsExitModalOpen(false)}
           confirmText="Leave"
@@ -337,9 +344,9 @@ export default function Home() {
         <Card className="w-full max-w-md p-10 flex flex-col items-center gap-8 bg-[#161616]">
           <div className="flex justify-between w-full mb-2 text-xs font-iosevka-bold tracking-widest uppercase text-[var(--muted)]">
             <span
-              className={`px-4 py-2 rounded-lg border ${socketId ? "bg-white/5 border-white/10" : "bg-red-500/10 border-red-500/20"}`}
+              className={`px-4 py-2 rounded-lg border ${localSocketId ? "bg-white/5 border-white/10" : "bg-red-500/10 border-red-500/20"}`}
             >
-              {socketId ? "CONNECTED" : "OFFLINE"}
+              {localSocketId ? "CONNECTED" : "OFFLINE"}
             </span>
             {yourMark && (
               <span className="px-4 py-2 rounded-lg bg-white/5 border border-white/10">
@@ -357,7 +364,7 @@ export default function Home() {
                 isConnected: true,
               })) || []
             }
-            localPlayerId={socketId || ""}
+            localPlayerId={localSocketId || ""}
             currentRound={currentRound}
             maxRounds={maxRounds}
             themeColor="white"
@@ -421,7 +428,8 @@ export default function Home() {
                 rematchRequested={rematchRequested}
                 opponentLeft={!!disconnectMessage}
                 hasOpponentRequested={
-                  rematchRequests.find((id) => id !== socketId) !== undefined
+                  rematchRequests.find((id) => id !== localSocketId) !==
+                  undefined
                 }
                 onRequestRematch={requestRematch}
                 onPlayAgain={playAgain}

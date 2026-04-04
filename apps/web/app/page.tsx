@@ -5,8 +5,11 @@ import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
 import { Separator } from "@repo/ui/separator";
 import Link from "next/link";
+import { useSocket } from "@/(shared)/providers/SocketProvider";
 
 export default function HubMenu() {
+  const { playerName } = useSocket();
+
   const games = [
     {
       id: "tic-tac-toe",
@@ -22,20 +25,20 @@ export default function HubMenu() {
       description: "A mental battle of hidden choices and commitments.",
       status: "active",
       href: "/games/rock-paper-scissors",
-      buttonText: "ENTER MATCHMAKING",
+      buttonText: "PLAY NOW",
     },
     {
       id: "guess-the-flag",
       title: "GUESS THE FLAG PVP",
       description: "High-speed geographical trivia against live opponents.",
-      status: "coming_soon",
+      status: "active",
       href: "/games/guess-the-flag",
-      buttonText: "ENTER MATCHMAKING",
+      buttonText: "PLAY NOW",
     },
   ];
 
   return (
-    <GameShell>
+    <GameShell playerName={playerName}>
       <div className="w-full max-w-5xl flex flex-col items-center">
         {/* Main Title */}
         <h1 className="text-[120px] font-iosevka-bold tracking-tight text-white mb-12 leading-none">
@@ -63,7 +66,7 @@ export default function HubMenu() {
 
               <Link href={game.href} className="w-full">
                 <Button
-                  variant={game.id === "tic-tac-toe" ? "primary" : "highlight"}
+                  variant="primary"
                   className="w-full"
                   disabled={game.status === "coming_soon"}
                 >
