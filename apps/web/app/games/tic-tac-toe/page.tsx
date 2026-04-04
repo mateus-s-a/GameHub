@@ -14,6 +14,7 @@ import RoomLobby from "../../components/RoomLobby";
 import useRoomLobby from "../../hooks/useRoomLobby";
 import MatchTerminationBanner from "../../components/MatchTerminationBanner";
 import Scoreboard from "../../components/Scoreboard";
+import ConfirmModal from "../../components/ConfirmModal";
 import { X } from "lucide-react";
 
 type PlayerMark = "X" | "O" | null;
@@ -45,7 +46,10 @@ export default function Home() {
     null,
   );
   const [tempNotification, setTempNotification] = useState<string | null>(null);
-  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<number | null>(null);
+  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<
+    number | null
+  >(null);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   const [board, setBoard] = useState<PlayerMark[]>(Array(9).fill(null));
   const [currentPlayer, setCurrentPlayer] = useState<PlayerMark>("X");
@@ -84,8 +88,9 @@ export default function Home() {
     });
 
     s.on("roomDestroyed", () => {
-      alert("The Host has destroyed the room.");
-      window.location.href = "/games/tic-tac-toe";
+      setDisconnectMessage(
+        "Server destroyed the room because: A player disconnected or an error occurred.",
+      );
     });
 
     s.on("gameStarted", () => {
@@ -331,9 +336,30 @@ export default function Home() {
         onReturnToSetup={handleReturnToSetup}
         onLeaveRoom={handleLeaveRoom}
       />
-      <h1 className="text-5xl border-b pb-4 mb-8 font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
+      <h1 className="text-5xl border-b pb-4 mb-4 font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 text-center">
         GameHub Tic-Tac-Toe
       </h1>
+
+      {isGameStarted && !winner && (
+        <button
+          onClick={() => setIsExitModalOpen(true)}
+          className="mb-6 px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-iosevka-bold rounded-lg border border-red-500/20 transition-all active:scale-95 mx-auto block"
+        >
+          Leave Match
+        </button>
+      )}
+
+      <ConfirmModal
+        isOpen={isExitModalOpen}
+        title="Leave Match?"
+        message="Are you sure you want to leave the current match? You will lose all your progress."
+        onConfirm={() => {
+          setIsExitModalOpen(false);
+          handleLeaveRoom();
+        }}
+        onCancel={() => setIsExitModalOpen(false)}
+        themeColor="cyan"
+      />
 
       <div className="bg-gray-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-gray-700 w-full max-w-md">
         <div className="flex justify-between w-full mb-6 text-sm font-semibold tracking-wide">

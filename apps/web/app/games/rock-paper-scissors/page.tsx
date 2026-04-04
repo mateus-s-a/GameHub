@@ -11,6 +11,7 @@ import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
 import AlertModal from "../../components/AlertModal";
+import ConfirmModal from "../../components/ConfirmModal";
 import MatchTerminationBanner from "../../components/MatchTerminationBanner";
 import Scoreboard from "../../components/Scoreboard";
 import EndMatchOptions from "../../components/EndMatchOptions";
@@ -53,7 +54,10 @@ export default function RPSGame() {
     null,
   );
   const [tempNotification, setTempNotification] = useState<string | null>(null);
-  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<number | null>(null);
+  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<
+    number | null
+  >(null);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   const rooms = useRoomList(socket);
   const roomLobby = useRoomLobby(socket, roomId);
@@ -79,8 +83,9 @@ export default function RPSGame() {
     });
 
     s.on("roomDestroyed", () => {
-      alert("The Host has destroyed the room.");
-      window.location.href = "/games/rock-paper-scissors";
+      setDisconnectMessage(
+        "Server destroyed the room because: A player disconnected or an error occurred.",
+      );
     });
 
     s.on("gameStarted", () => {
@@ -304,9 +309,30 @@ export default function RPSGame() {
         onReturnToSetup={handleReturnToSetup}
         onLeaveRoom={handleLeaveRoom}
       />
-      <h1 className="text-4xl font-iosevka-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+      <h1 className="text-4xl font-iosevka-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
         GameHub Rock-Paper-Scissors
       </h1>
+
+      {isGameStarted && gameState.state !== "game_over" && (
+        <button
+          onClick={() => setIsExitModalOpen(true)}
+          className="mb-8 px-5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-iosevka-bold rounded-xl border border-red-500/20 transition-all active:scale-95 mx-auto block backdrop-blur-sm"
+        >
+          Leave Match
+        </button>
+      )}
+
+      <ConfirmModal
+        isOpen={isExitModalOpen}
+        title="Leave Match?"
+        message="Are you sure you want to leave the current match? You will lose all your progress."
+        onConfirm={() => {
+          setIsExitModalOpen(false);
+          handleLeaveRoom();
+        }}
+        onCancel={() => setIsExitModalOpen(false)}
+        themeColor="purple"
+      />
 
       <div className="w-full max-w-2xl bg-gray-800 rounded-2xl p-8 border border-gray-700 shadow-2xl space-y-8">
         <Scoreboard

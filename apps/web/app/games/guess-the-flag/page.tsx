@@ -8,6 +8,7 @@ import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
 import TimerDisplay from "../../components/TimerDisplay";
 import BackButton from "../../components/BackButton";
 import AlertModal from "../../components/AlertModal";
+import ConfirmModal from "../../components/ConfirmModal";
 import EndMatchOptions from "../../components/EndMatchOptions";
 import { Wifi, WifiOff, X } from "lucide-react";
 import { useRoomList } from "../../hooks/useRoomList";
@@ -46,7 +47,10 @@ export default function GuessTheFlagGame() {
     null,
   );
   const [tempNotification, setTempNotification] = useState<string | null>(null);
-  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<number | null>(null);
+  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<
+    number | null
+  >(null);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   const rooms = useRoomList(socket);
   const roomLobby = useRoomLobby(socket, roomId);
@@ -72,8 +76,9 @@ export default function GuessTheFlagGame() {
     });
 
     s.on("roomDestroyed", () => {
-      alert("The Host has destroyed the room.");
-      window.location.href = "/games/guess-the-flag";
+      setDisconnectMessage(
+        "Server destroyed the room because: A player disconnected or an error occurred.",
+      );
     });
 
     s.on("gameStarted", () => {
@@ -297,9 +302,30 @@ export default function GuessTheFlagGame() {
         onReturnToSetup={handleReturnToSetup}
         onLeaveRoom={handleLeaveRoom}
       />
-      <h1 className="text-4xl font-iosevka-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">
+      <h1 className="text-4xl font-iosevka-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">
         GameHub Guess the Flag
       </h1>
+      
+      {isGameStarted && gameState.state !== "game_over" && (
+        <button
+          onClick={() => setIsExitModalOpen(true)}
+          className="mb-6 px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-iosevka-bold rounded-lg border border-red-500/20 transition-all active:scale-95"
+        >
+          Leave Match
+        </button>
+      )}
+
+      <ConfirmModal
+        isOpen={isExitModalOpen}
+        title="Leave Match?"
+        message="Are you sure you want to leave the current match? You will lose all your progress."
+        onConfirm={() => {
+          setIsExitModalOpen(false);
+          handleLeaveRoom();
+        }}
+        onCancel={() => setIsExitModalOpen(false)}
+        themeColor="orange"
+      />
 
       <div className="w-full max-w-4xl bg-gray-800 rounded-2xl p-8 border border-gray-700 shadow-2xl space-y-8 flex flex-col items-center">
         <Scoreboard

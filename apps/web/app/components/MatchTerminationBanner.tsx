@@ -13,7 +13,7 @@ export default function MatchTerminationBanner({
       <div className="bg-gray-900/90 backdrop-blur-md border-b-4 border-orange-500 rounded-2xl p-6 shadow-[0_0_50px_rgba(249,115,22,0.3)] flex items-center gap-6 overflow-hidden relative group">
         {/* Animated Background Pulse */}
         <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-red-500/10 animate-pulse" />
-        
+
         {/* Warning Icon Container */}
         <div className="relative w-16 h-16 bg-orange-500/20 rounded-xl flex items-center justify-center text-orange-400 shrink-0 border border-orange-500/30">
           <AlertTriangle className="w-8 h-8 animate-bounce" />
@@ -31,7 +31,10 @@ export default function MatchTerminationBanner({
           <div className="flex items-center gap-2 mt-2">
             <span className="flex h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
             <span className="text-orange-400 font-iosevka-medium text-sm">
-              Leaving match in <span className="text-white text-lg font-iosevka-bold mx-1">{countdown}s</span>
+              Leaving match in{" "}
+              <span className="text-white text-lg font-iosevka-bold mx-1">
+                {countdown}s
+              </span>
             </span>
           </div>
         </div>
