@@ -1,32 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Iosevka+Charon+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Iosevka+Charon+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap');
+@layer base {
+  :root {
+    --background: #111111;
+    --foreground: #ffffff;
+    --surface: #1a1a1a;
+    --border: #333333;
+    --muted: #888888;
+    --primary: #ffffff;
+    --secondary: #333333;
+    --matchmaking: #3b4a6b;
+  }
 
-:root {
-  --background: #0f1115;
-  --foreground: #f8fafc;
+  body {
+    @apply bg-[var(--background)] text-[var(--foreground)] min-h-screen overflow-x-hidden;
+    font-family: 'Iosevka Charon Mono', monospace;
+  }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: 'Iosevka Charon Mono', monospace;
-  overflow-x: hidden;
-  min-height: 100vh;
+@layer components {
+  .gh-card {
+    @apply bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 transition-all duration-200;
+  }
+
+  .gh-button {
+    @apply px-6 py-3 rounded-xl font-iosevka-bold text-sm tracking-widest uppercase transition-all active:scale-95 border flex items-center justify-center gap-2;
+  }
+
+  .gh-button-ghost {
+    @apply bg-[var(--surface)] border-[var(--border)] text-white hover:bg-[var(--border)];
+  }
+
+  .gh-button-primary {
+    @apply bg-[var(--surface)] border-[var(--border)] text-white hover:bg-[var(--border)] uppercase;
+  }
+
+  .gh-button-highlight {
+    @apply bg-[#2c3444] border-[#3b4a6b] text-white hover:bg-[#343e52] uppercase;
+  }
+
+  .gh-separator {
+    @apply flex items-center w-full gap-4 my-8;
+  }
+
+  .gh-separator-line {
+    @apply flex-grow h-[1px] bg-[var(--border)];
+  }
+
+  .gh-separator-text {
+    @apply text-[10px] text-[var(--muted)] font-iosevka-regular tracking-[0.3em] uppercase whitespace-nowrap;
+  }
 }
 
 @layer utilities {
-  .glass-card {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10 shadow-xl transition-all duration-300;
-  }
-  
-  .glass-card:hover {
-    @apply bg-white/10 border-white/20 transform -translate-y-1 shadow-2xl;
-  }
-
-  /* Custom Iosevka Classes */
   .font-iosevka-light { font-weight: 300; }
   .font-iosevka-regular { font-weight: 400; }
   .font-iosevka-medium { font-weight: 500; }

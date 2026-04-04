@@ -6,10 +6,9 @@ import GameSetup, {
   GameSetupConfig,
 } from "@/features/setup/components/GameSetup";
 import TimerDisplay from "@/features/match/components/TimerDisplay";
-import BackButton from "@/\(shared\)/components/ui/BackButton";
 import AlertModal from "@/\(shared\)/components/ui/AlertModal";
 import EndMatchOptions from "@/features/match/components/EndMatchOptions";
-import { Wifi, WifiOff } from "lucide-react";
+import { Wifi, WifiOff, X } from "lucide-react";
 import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import RoomBrowser from "@/features/lobby/components/RoomBrowser";
 import RoomLobby from "@/features/lobby/components/RoomLobby";
@@ -17,7 +16,9 @@ import useRoomLobby from "@/features/lobby/hooks/useRoomLobby";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
 import Scoreboard from "@/features/match/components/Scoreboard";
 import ConfirmModal from "@/\(shared\)/components/ui/ConfirmModal";
-import { X } from "lucide-react";
+import { GameShell } from "@repo/ui/game-shell";
+import { Card } from "@repo/ui/card";
+import { Button } from "@repo/ui/button";
 
 type PlayerMark = "X" | "O" | null;
 
@@ -133,12 +134,7 @@ export default function Home() {
 
     s.on("playerLeft", (message: string) => {
       setTempNotification(message);
-      // Automatically clear after 5 seconds
       setTimeout(() => setTempNotification(null), 5000);
-    });
-
-    s.on("disconnect", () => {
-      setSocketId(null);
     });
 
     return () => {
@@ -230,50 +226,26 @@ export default function Home() {
     }
   };
 
-  const handleDisconnectAcknowledge = () => {
-    setDisconnectMessage(null);
-    setRoomId(null);
-    setIsGameStarted(false);
-    setBoard(Array(9).fill(null));
-    setWinner(null);
-    setYourMark(null);
-    setRematchRequested(false);
-
-    setIsHost(false);
-    setSetupNeeded(false);
-  };
-
   if (setupNeeded && !roomId) {
     return (
-      <div className="min-h-screen relative flex items-center justify-center bg-gray-900 border-8 border-gray-800">
-        <BackButton
-          isHost={isHost}
-          isInSetup={true}
-          isGameOver={false}
-          onLeaveRoom={handleLeaveRoom}
-        />
-        <GameSetup onStart={handleStartGame} gameId="ttt" />
-      </div>
+      <GameShell socketId={socketId}>
+        <div className="w-full flex justify-center">
+          <GameSetup onStart={handleStartGame} gameId="ttt" />
+        </div>
+      </GameShell>
     );
   }
 
   if (!roomId && !setupNeeded) {
     return (
-      <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center pt-24 p-8 font-sans">
-        <BackButton
-          isHost={false}
-          isInSetup={false}
-          isGameOver={false}
-          isInLobby={true}
-          onLeaveRoom={() => (window.location.href = "/")}
-        />
+      <GameShell socketId={socketId}>
         <RoomBrowser
           rooms={rooms}
           onCreateRoom={handleCreateRoomClick}
           onJoinRoom={handleJoinRoomClick}
           gameLabel="Tic-Tac-Toe"
         />
-      </div>
+      </GameShell>
     );
   }
 
@@ -298,7 +270,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen relative bg-gray-900 text-white flex flex-col items-center justify-center p-8 font-sans">
+    <GameShell socketId={socketId}>
       {matchTerminationCountdown !== null && (
         <MatchTerminationBanner countdown={matchTerminationCountdown} />
       )}
@@ -316,8 +288,8 @@ export default function Home() {
       {/* Temporary Toast Notification */}
       {tempNotification && (
         <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-right duration-500">
-          <div className="bg-gray-800 border-l-4 border-cyan-500 text-white px-6 py-4 rounded-r-xl shadow-2xl flex items-center gap-3">
-            <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
+          <div className="bg-[#1a1a1a] border-l-4 border-white/20 text-white px-6 py-4 rounded-r-xl shadow-2xl flex items-center gap-3">
+            <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse" />
             <span className="font-iosevka-medium whitespace-pre-line">
               {tempNotification}
             </span>
@@ -331,147 +303,135 @@ export default function Home() {
         </div>
       )}
 
-      <BackButton
-        isHost={isHost}
-        isInSetup={false}
-        isGameOver={roundState === "game_over"}
-        onReturnToSetup={handleReturnToSetup}
-        onLeaveRoom={handleLeaveRoom}
-      />
-      <h1 className="text-5xl border-b pb-4 mb-4 font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 text-center">
-        GameHub Tic-Tac-Toe
-      </h1>
+      <div className="w-full max-w-4xl flex flex-col items-center">
+        <h1 className="text-4xl font-iosevka-bold mb-8 text-white tracking-widest uppercase">
+          Tic-Tac-Toe
+        </h1>
 
-      {isGameStarted && !winner && (
-        <button
-          onClick={() => setIsExitModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg border border-red-500/20 transition-all font-iosevka-medium text-xs mb-8 mx-auto active:scale-95"
-        >
-          <X className="w-3 h-3" />
-          <span>Leave Match</span>
-        </button>
-      )}
-
-      <ConfirmModal
-        isOpen={isExitModalOpen}
-        title="Leave Match?"
-        message="Are you sure you want to leave the current match? Your progress will be lost."
-        onConfirm={() => {
-          handleLeaveRoom();
-          setIsExitModalOpen(false);
-          window.location.href = "/";
-        }}
-        onCancel={() => setIsExitModalOpen(false)}
-        confirmText="Leave"
-        cancelText="Stay"
-        themeColor="red"
-      />
-
-      <div className="bg-gray-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-gray-700 w-full max-w-md">
-        <div className="flex justify-between w-full mb-6 text-sm font-semibold tracking-wide">
-          <span
-            className={`px-3 py-1 flex items-center gap-2 rounded-full border ${socketId ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}
+        {isGameStarted && !winner && (
+          <Button
+            variant="ghost"
+            onClick={() => setIsExitModalOpen(true)}
+            className="mb-8 border-red-500/20 text-red-500 hover:bg-red-500/10"
           >
-            {socketId ? (
-              <>
-                <Wifi className="w-4 h-4" /> Connected
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-4 h-4" /> Disconnected
-              </>
-            )}
-          </span>
-          {yourMark && (
-            <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-400">
-              You are: {yourMark}
-            </span>
-          )}
-        </div>
+            <X className="w-3 h-3" />
+            <span>LEAVE MATCH</span>
+          </Button>
+        )}
 
-        <Scoreboard
-          players={
-            gameStateData?.players.map((p) => ({
-              id: p.id,
-              name: p.mark === "X" ? "Player X" : "Player O",
-              score: scores[p.mark as "X" | "O"] || 0,
-              isConnected: true, // Simplified for TTT as it already handles disconnections via Alerts
-            })) || []
-          }
-          localPlayerId={socketId || ""}
-          currentRound={currentRound}
-          maxRounds={maxRounds}
-          themeColor="cyan"
+        <ConfirmModal
+          isOpen={isExitModalOpen}
+          title="Leave Match?"
+          message="Are you sure you want to leave the current match? Your progress will be lost."
+          onConfirm={() => {
+            handleLeaveRoom();
+            setIsExitModalOpen(false);
+            window.location.href = "/";
+          }}
+          onCancel={() => setIsExitModalOpen(false)}
+          confirmText="Leave"
+          cancelText="Stay"
+          themeColor="red"
         />
 
-        {/* State Information */}
-        <div className="text-center text-xl h-8 flex items-center justify-center mb-4">
-          {winner && winner !== "Draw" && roundState !== "round_result" && (
-            <span className="text-emerald-400 font-bold drop-shadow-md">
-              Player {winner} Wins the Match!
-            </span>
-          )}
-          {winner === "Draw" && roundState !== "round_result" && (
-            <span className="text-gray-400 font-bold drop-shadow-md">
-              It&apos;s a Draw!
-            </span>
-          )}
-          {roundState === "round_result" && (
-            <span className="text-yellow-400 font-iosevka-bold text-2xl drop-shadow-md animate-pulse">
-              Round Over! Get Ready...
-            </span>
-          )}
-          {!winner && currentPlayer === yourMark && (
-            <span className="text-blue-400 animate-pulse font-bold">
-              Your Turn
-            </span>
-          )}
-          {!winner && currentPlayer !== yourMark && (
-            <span className="text-gray-400 italic">
-              Opponent&apos;s Turn...
-            </span>
-          )}
-        </div>
-
-        {!winner && (
-          <TimerDisplay turnEndTime={gameStateData?.turnEndTime || null} />
-        )}
-
-        {/* Board */}
-        <div className="grid grid-cols-3 gap-3 bg-gray-700 p-3 rounded-2xl mb-8">
-          {board.map((cell, i) => (
-            <button
-              key={i}
-              onClick={() => handleMove(i)}
-              disabled={!!cell || !!winner || currentPlayer !== yourMark}
-              className={`w-24 h-24 bg-gray-800 rounded-xl shadow-inner transition-all duration-300 flex items-center justify-center text-5xl font-bold
-                ${!cell && !winner && currentPlayer === yourMark ? "hover:bg-gray-600 cursor-pointer hover:shadow-cyan-500/20" : "cursor-default"}
-                ${cell === "X" ? "text-cyan-400" : "text-rose-400"}`}
+        <Card className="w-full max-w-md p-10 flex flex-col items-center gap-8 bg-[#161616]">
+          <div className="flex justify-between w-full mb-2 text-xs font-iosevka-bold tracking-widest uppercase text-[var(--muted)]">
+            <span
+              className={`px-4 py-2 rounded-lg border ${socketId ? "bg-white/5 border-white/10" : "bg-red-500/10 border-red-500/20"}`}
             >
-              {cell && (
-                <span className="animate-in zoom-in-50 duration-200">
-                  {cell}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+              {socketId ? "CONNECTED" : "OFFLINE"}
+            </span>
+            {yourMark && (
+              <span className="px-4 py-2 rounded-lg bg-white/5 border border-white/10">
+                MARK: {yourMark}
+              </span>
+            )}
+          </div>
 
-        {/* End Game Options */}
-        {roundState === "game_over" && (
-          <EndMatchOptions
-            rematchRequested={rematchRequested}
-            opponentLeft={!!disconnectMessage}
-            hasOpponentRequested={
-              rematchRequests.find((id) => id !== socketId) !== undefined
+          <Scoreboard
+            players={
+              gameStateData?.players.map((p) => ({
+                id: p.id,
+                name: p.mark === "X" ? "Player X" : "Player O",
+                score: scores[p.mark as "X" | "O"] || 0,
+                isConnected: true,
+              })) || []
             }
-            onRequestRematch={requestRematch}
-            onPlayAgain={playAgain}
-            primaryColorGradient="from-blue-600 to-indigo-600"
-            primaryColorHover="hover:from-blue-500 hover:to-indigo-500"
+            localPlayerId={socketId || ""}
+            currentRound={currentRound}
+            maxRounds={maxRounds}
+            themeColor="white"
           />
-        )}
+
+          {/* State Information */}
+          <div className="text-center text-xl h-12 flex items-center justify-center mb-4 bg-[#222222] w-full rounded-xl border border-white/5">
+            {winner && winner !== "Draw" && roundState !== "round_result" && (
+              <span className="text-white font-iosevka-bold">
+                PLAYER {winner} WINS!
+              </span>
+            )}
+            {winner === "Draw" && roundState !== "round_result" && (
+              <span className="text-white/40 font-iosevka-bold">DRAW!</span>
+            )}
+            {roundState === "round_result" && (
+              <span className="text-white animate-pulse">ROUND OVER!</span>
+            )}
+            {!winner && currentPlayer === yourMark && (
+              <span className="text-white animate-pulse font-iosevka-bold">
+                YOUR TURN
+              </span>
+            )}
+            {!winner && currentPlayer !== yourMark && (
+              <span className="text-white/40 italic">
+                OPPONENT&apos;S TURN...
+              </span>
+            )}
+          </div>
+
+          {!winner && (
+            <div className="scale-150 py-4">
+              <TimerDisplay turnEndTime={gameStateData?.turnEndTime || null} />
+            </div>
+          )}
+
+          {/* Board */}
+          <div className="grid grid-cols-3 gap-3 bg-[#222222] p-4 rounded-2xl mb-8 border border-white/5 shadow-inner">
+            {board.map((cell, i) => (
+              <button
+                key={i}
+                onClick={() => handleMove(i)}
+                disabled={!!cell || !!winner || currentPlayer !== yourMark}
+                className={`w-28 h-28 bg-[#111111] rounded-xl transition-all duration-300 flex items-center justify-center text-5xl font-iosevka-bold border border-white/5
+                  ${!cell && !winner && currentPlayer === yourMark ? "hover:bg-[#1a1a1a] hover:border-white/10" : "cursor-default"}
+                  ${cell === "X" ? "text-white" : "text-white/40"}`}
+              >
+                {cell && (
+                  <span className="animate-in zoom-in-50 duration-200">
+                    {cell}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* End Game Options */}
+          {roundState === "game_over" && (
+            <div className="w-full pt-8 border-t border-white/5">
+              <EndMatchOptions
+                rematchRequested={rematchRequested}
+                opponentLeft={!!disconnectMessage}
+                hasOpponentRequested={
+                  rematchRequests.find((id) => id !== socketId) !== undefined
+                }
+                onRequestRematch={requestRematch}
+                onPlayAgain={playAgain}
+                primaryColorGradient="from-[#333333] to-[#1a1a1a]"
+                primaryColorHover="hover:from-[#444444] hover:to-[#222222]"
+              />
+            </div>
+          )}
+        </Card>
       </div>
-    </div>
+    </GameShell>
   );
 }

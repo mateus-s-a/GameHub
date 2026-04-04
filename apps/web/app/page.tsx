@@ -1,103 +1,79 @@
+"use client";
+
+import { GameShell } from "@repo/ui/game-shell";
+import { Card } from "@repo/ui/card";
+import { Button } from "@repo/ui/button";
+import { Separator } from "@repo/ui/separator";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 
 export default function HubMenu() {
   const games = [
     {
       id: "tic-tac-toe",
-      title: "Tic-Tac-Toe",
+      title: "TIC-TAC-TOE",
       description: "The classic 3x3 grid game. Simple, elegant, and ruthless.",
       status: "active",
       href: "/games/tic-tac-toe",
-      color: "from-cyan-500 to-blue-600",
+      buttonText: "PLAY NOW",
     },
     {
       id: "rock-paper-scissors",
-      title: "Rock-Paper-Scissors",
+      title: "ROCK-PAPER-SCISSORS",
       description: "A mental battle of hidden choices and commitments.",
       status: "active",
       href: "/games/rock-paper-scissors",
-      color: "from-purple-500 to-pink-600",
+      buttonText: "ENTER MATCHMAKING",
     },
     {
       id: "guess-the-flag",
-      title: "Guess the Flag PvP",
+      title: "GUESS THE FLAG PVP",
       description: "High-speed geographical trivia against live opponents.",
-      status: "active",
+      status: "coming_soon",
       href: "/games/guess-the-flag",
-      color: "from-orange-500 to-red-600",
+      buttonText: "ENTER MATCHMAKING",
     },
   ];
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8 relative overflow-hidden">
-      {/* Background ambient light */}
-      <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/20 rounded-full blur-[120px] -z-10 animate-pulse mix-blend-screen"
-        style={{ animationDuration: "4s" }}
-      />
-
-      <header className="mb-16 text-center space-y-4">
-        <h1 className="text-7xl font-iosevka-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-blue-100 to-blue-400 drop-shadow-sm">
+    <GameShell>
+      <div className="w-full max-w-5xl flex flex-col items-center">
+        {/* Main Title */}
+        <h1 className="text-[120px] font-iosevka-bold tracking-tight text-white mb-12 leading-none">
           GameHub
         </h1>
-        <p className="text-blue-200/60 font-iosevka-regular text-lg tracking-widest uppercase">
-          Select Your Arena
-        </p>
-      </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl">
-        {games.map((game) => {
-          const isActive = game.status === "active";
+        {/* Separator */}
+        <div className="w-full max-w-4xl px-8">
+          <Separator text="SELECT YOUR ARENA" />
+        </div>
 
-          const CardContent = (
-            <div
-              className={`glass-card rounded-3xl p-8 h-full flex flex-col relative overflow-hidden group ${!isActive ? "opacity-60 cursor-not-allowed hover:transform-none" : ""}`}
+        {/* Game Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-8">
+          {games.map((game) => (
+            <Card
+              key={game.id}
+              className="flex flex-col items-center text-center p-10 group bg-[#111111] hover:bg-[#151515] transition-all"
             >
-              {/* Card gradient effect */}
-              {isActive && (
-                <div
-                  className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500 rounded-3xl`}
-                />
-              )}
-
-              <div className="flex justify-between items-start mb-6">
-                <h2
-                  className={`text-2xl font-iosevka-bold ${isActive ? "text-white" : "text-gray-400"}`}
-                >
-                  {game.title}
-                </h2>
-                <span
-                  className={`px-3 py-1 text-xs font-iosevka-medium rounded-full ${isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-gray-700/50 text-gray-400"}`}
-                >
-                  {isActive ? "PLAY LIVE" : "SOON"}
-                </span>
-              </div>
-
-              <p className="text-gray-400 font-iosevka-light flex-grow leading-relaxed">
+              <h2 className="text-2xl font-iosevka-bold text-white mb-4 tracking-wider">
+                {game.title}
+              </h2>
+              <p className="text-sm font-iosevka-regular text-[var(--muted)] leading-relaxed mb-10 h-12">
                 {game.description}
               </p>
 
-              {isActive && (
-                <div className="mt-8 flex items-center text-sm font-iosevka-bold text-cyan-400 group-hover:text-cyan-300 transition-colors">
-                  ENTER MATCHMAKING{" "}
-                  <span className="ml-2 group-hover:translate-x-1 transition-transform">
-                    <ArrowRight className="w-5 h-5" />
-                  </span>
-                </div>
-              )}
-            </div>
-          );
-
-          return isActive ? (
-            <Link key={game.id} href={game.href} className="block outline-none">
-              {CardContent}
-            </Link>
-          ) : (
-            <div key={game.id}>{CardContent}</div>
-          );
-        })}
+              <Link href={game.href} className="w-full">
+                <Button
+                  variant={game.id === "tic-tac-toe" ? "primary" : "highlight"}
+                  className="w-full"
+                  disabled={game.status === "coming_soon"}
+                >
+                  {game.buttonText}
+                </Button>
+              </Link>
+            </Card>
+          ))}
+        </div>
       </div>
-    </main>
+    </GameShell>
   );
 }
