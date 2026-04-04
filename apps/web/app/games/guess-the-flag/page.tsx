@@ -12,6 +12,7 @@ import ConfirmModal from "../../components/ConfirmModal";
 import EndMatchOptions from "../../components/EndMatchOptions";
 import { Wifi, WifiOff, X } from "lucide-react";
 import { useRoomList } from "../../hooks/useRoomList";
+import RoundResults from "../../components/RoundResults";
 import RoomBrowser from "../../components/RoomBrowser";
 import RoomLobby from "../../components/RoomLobby";
 import useRoomLobby from "../../hooks/useRoomLobby";
@@ -305,7 +306,7 @@ export default function GuessTheFlagGame() {
       <h1 className="text-4xl font-iosevka-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">
         GameHub Guess the Flag
       </h1>
-      
+
       {isGameStarted && gameState.state !== "game_over" && (
         <button
           onClick={() => setIsExitModalOpen(true)}
@@ -400,28 +401,16 @@ export default function GuessTheFlagGame() {
                 </p>
               </div>
 
-              <div className="flex w-full justify-between items-center gap-4 mt-4">
-                <div className="w-1/2 bg-gray-900 p-4 rounded-xl border border-gray-700 text-center">
-                  <p className="text-gray-500 text-xs uppercase mb-2">
-                    You Guessed
-                  </p>
-                  <p
-                    className={`text-xl font-iosevka-medium ${me?.currentGuess === gameState.correctCountry ? "text-emerald-400" : "text-red-400 line-through decoration-2"}`}
-                  >
-                    {me?.currentGuess || "Nothing"}
-                  </p>
-                </div>
-                <div className="w-1/2 bg-gray-900 p-4 rounded-xl border border-gray-700 text-center">
-                  <p className="text-gray-500 text-xs uppercase mb-2">
-                    Opponent Guessed
-                  </p>
-                  <p
-                    className={`text-xl font-iosevka-medium ${opp?.currentGuess === gameState.correctCountry ? "text-emerald-400" : "text-red-400 line-through decoration-2"}`}
-                  >
-                    {opp?.currentGuess || "Nothing"}
-                  </p>
-                </div>
-              </div>
+              <RoundResults
+                players={gameState.players.map((p) => ({
+                  id: p.id,
+                  choice: p.currentGuess,
+                }))}
+                localPlayerId={socketId || ""}
+                correctAnswer={gameState.correctCountry}
+                themeColor="orange"
+                verb="Guessed"
+              />
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 w-full mt-4">
