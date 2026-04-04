@@ -1,8 +1,8 @@
 import React from "react";
 import { RoomInfo } from "@gamehub/types";
 import { Users, CheckCircle, XCircle, Play, X, Settings2 } from "lucide-react";
-import GameConfigPanel from "./GameConfigPanel";
-import { GameSetupConfig } from "./GameSetup";
+import GameConfigPanel from "@/features/setup/components/GameConfigPanel";
+import { GameSetupConfig } from "@/features/setup/components/GameSetup";
 
 export interface RoomLobbyProps {
   roomLobby: RoomInfo | null;

@@ -1,6 +1,6 @@
 import React from "react";
 import { Loader2, X } from "lucide-react";
-import BackButton from "./BackButton";
+import BackButton from "@/\(shared\)/components/ui/BackButton";
 
 export interface WaitingScreenProps {
   isHost: boolean;

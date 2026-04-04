@@ -2,19 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
-import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
-import TimerDisplay from "../../components/TimerDisplay";
-import BackButton from "../../components/BackButton";
-import AlertModal from "../../components/AlertModal";
-import EndMatchOptions from "../../components/EndMatchOptions";
+import GameSetup, {
+  GameSetupConfig,
+} from "@/features/setup/components/GameSetup";
+import TimerDisplay from "@/features/match/components/TimerDisplay";
+import BackButton from "@/\(shared\)/components/ui/BackButton";
+import AlertModal from "@/\(shared\)/components/ui/AlertModal";
+import EndMatchOptions from "@/features/match/components/EndMatchOptions";
 import { Wifi, WifiOff } from "lucide-react";
-import { useRoomList } from "../../hooks/useRoomList";
-import RoomBrowser from "../../components/RoomBrowser";
-import RoomLobby from "../../components/RoomLobby";
-import useRoomLobby from "../../hooks/useRoomLobby";
-import MatchTerminationBanner from "../../components/MatchTerminationBanner";
-import Scoreboard from "../../components/Scoreboard";
-import ConfirmModal from "../../components/ConfirmModal";
+import { useRoomList } from "@/features/lobby/hooks/useRoomList";
+import RoomBrowser from "@/features/lobby/components/RoomBrowser";
+import RoomLobby from "@/features/lobby/components/RoomLobby";
+import useRoomLobby from "@/features/lobby/hooks/useRoomLobby";
+import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
+import Scoreboard from "@/features/match/components/Scoreboard";
+import ConfirmModal from "@/\(shared\)/components/ui/ConfirmModal";
 import { X } from "lucide-react";
 
 type PlayerMark = "X" | "O" | null;
@@ -89,7 +91,7 @@ export default function Home() {
 
     s.on("roomDestroyed", () => {
       setDisconnectMessage(
-        "Server destroyed the room because: A player disconnected or an error occurred.",
+        "Server destroyed the room because: The match was terminated by the system.",
       );
     });
 
@@ -343,22 +345,26 @@ export default function Home() {
       {isGameStarted && !winner && (
         <button
           onClick={() => setIsExitModalOpen(true)}
-          className="mb-6 px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-iosevka-bold rounded-lg border border-red-500/20 transition-all active:scale-95 mx-auto block"
+          className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg border border-red-500/20 transition-all font-iosevka-medium text-xs mb-8 mx-auto active:scale-95"
         >
-          Leave Match
+          <X className="w-3 h-3" />
+          <span>Leave Match</span>
         </button>
       )}
 
       <ConfirmModal
         isOpen={isExitModalOpen}
         title="Leave Match?"
-        message="Are you sure you want to leave the current match? You will lose all your progress."
+        message="Are you sure you want to leave the current match? Your progress will be lost."
         onConfirm={() => {
-          setIsExitModalOpen(false);
           handleLeaveRoom();
+          setIsExitModalOpen(false);
+          window.location.href = "/";
         }}
         onCancel={() => setIsExitModalOpen(false)}
-        themeColor="cyan"
+        confirmText="Leave"
+        cancelText="Stay"
+        themeColor="red"
       />
 
       <div className="bg-gray-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-gray-700 w-full max-w-md">

@@ -4,20 +4,22 @@
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { GTFRoundState, GTFPlayer } from "@gamehub/guess-the-flag";
-import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
-import TimerDisplay from "../../components/TimerDisplay";
-import BackButton from "../../components/BackButton";
-import AlertModal from "../../components/AlertModal";
-import ConfirmModal from "../../components/ConfirmModal";
-import EndMatchOptions from "../../components/EndMatchOptions";
+import GameSetup, {
+  GameSetupConfig,
+} from "@/features/setup/components/GameSetup";
+import TimerDisplay from "@/features/match/components/TimerDisplay";
+import BackButton from "@/\(shared\)/components/ui/BackButton";
+import AlertModal from "@/\(shared\)/components/ui/AlertModal";
+import ConfirmModal from "@/\(shared\)/components/ui/ConfirmModal";
+import EndMatchOptions from "@/features/match/components/EndMatchOptions";
 import { Wifi, WifiOff, X } from "lucide-react";
-import { useRoomList } from "../../hooks/useRoomList";
-import RoundResults from "../../components/RoundResults";
-import RoomBrowser from "../../components/RoomBrowser";
-import RoomLobby from "../../components/RoomLobby";
-import useRoomLobby from "../../hooks/useRoomLobby";
-import MatchTerminationBanner from "../../components/MatchTerminationBanner";
-import Scoreboard from "../../components/Scoreboard";
+import { useRoomList } from "@/features/lobby/hooks/useRoomList";
+import RoundResults from "@/features/match/components/RoundResults";
+import RoomBrowser from "@/features/lobby/components/RoomBrowser";
+import RoomLobby from "@/features/lobby/components/RoomLobby";
+import useRoomLobby from "@/features/lobby/hooks/useRoomLobby";
+import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
+import Scoreboard from "@/features/match/components/Scoreboard";
 
 interface GameState {
   state: GTFRoundState;
@@ -78,7 +80,7 @@ export default function GuessTheFlagGame() {
 
     s.on("roomDestroyed", () => {
       setDisconnectMessage(
-        "Server destroyed the room because: A player disconnected or an error occurred.",
+        "Server destroyed the room because: The match was terminated by the system.",
       );
     });
 
@@ -319,13 +321,16 @@ export default function GuessTheFlagGame() {
       <ConfirmModal
         isOpen={isExitModalOpen}
         title="Leave Match?"
-        message="Are you sure you want to leave the current match? You will lose all your progress."
+        message="Are you sure you want to leave the current match? Your progress will be lost."
         onConfirm={() => {
-          setIsExitModalOpen(false);
           handleLeaveRoom();
+          setIsExitModalOpen(false);
+          window.location.href = "/";
         }}
         onCancel={() => setIsExitModalOpen(false)}
-        themeColor="orange"
+        confirmText="Leave"
+        cancelText="Stay"
+        themeColor="red"
       />
 
       <div className="w-full max-w-4xl bg-gray-800 rounded-2xl p-8 border border-gray-700 shadow-2xl space-y-8 flex flex-col items-center">

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import GameConfigPanel from "./GameConfigPanel";
+import GameConfigPanel from "@/features/setup/components/GameConfigPanel";
 
 export interface GameSetupConfig {
   maxRounds: number;

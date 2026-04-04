@@ -62,9 +62,8 @@ export default function Scoreboard({
         >
           {players.map((player, idx) => {
             const isLocal = player.id === localPlayerId;
-            const displayName =
-              player.name ||
-              (isLocal ? "You" : `player-${player.id.substring(0, 5)}`);
+            const shortId = player.id.substring(0, 5);
+            const displayName = `player-${shortId}${isLocal ? " (You)" : ""}`;
 
             return (
               <div

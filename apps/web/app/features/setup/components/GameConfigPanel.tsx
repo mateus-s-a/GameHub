@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { GameSetupConfig } from "./GameSetup";
+import { GameSetupConfig } from "@/features/setup/components/GameSetup";
 
 interface GameConfigPanelProps {
   gameId: "ttt" | "rps" | "gtf";

@@ -42,8 +42,8 @@ export default function RoundResults({
       {players.map((player) => {
         const isLocal = player.id === localPlayerId;
         const isCorrect = player.choice === correctAnswer;
-        const displayName =
-          player.name || `player-${player.id.substring(0, 5)}`;
+        const shortId = player.id.substring(0, 5);
+        const displayName = `player-${shortId}${isLocal ? " (You)" : ""}`;
 
         return (
           <div
@@ -54,7 +54,7 @@ export default function RoundResults({
               <span
                 className={`text-xs uppercase font-iosevka-bold tracking-widest ${isLocal ? theme.split(" ")[1] : "text-gray-500"}`}
               >
-                {displayName} {isLocal && "(You)"}
+                {displayName}
               </span>
               {isCorrect ? (
                 <div className="bg-emerald-500/20 p-1 rounded-full text-emerald-400 ring-4 ring-emerald-500/5">

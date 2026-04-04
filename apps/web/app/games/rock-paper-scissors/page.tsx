@@ -7,14 +7,16 @@ import {
   RoundState,
   PlayerState,
 } from "@gamehub/rock-paper-scissors";
-import GameSetup, { GameSetupConfig } from "../../components/GameSetup";
-import TimerDisplay from "../../components/TimerDisplay";
-import BackButton from "../../components/BackButton";
-import AlertModal from "../../components/AlertModal";
-import ConfirmModal from "../../components/ConfirmModal";
-import MatchTerminationBanner from "../../components/MatchTerminationBanner";
-import Scoreboard from "../../components/Scoreboard";
-import EndMatchOptions from "../../components/EndMatchOptions";
+import GameSetup, {
+  GameSetupConfig,
+} from "@/features/setup/components/GameSetup";
+import TimerDisplay from "@/features/match/components/TimerDisplay";
+import BackButton from "@/\(shared\)/components/ui/BackButton";
+import AlertModal from "@/\(shared\)/components/ui/AlertModal";
+import ConfirmModal from "@/\(shared\)/components/ui/ConfirmModal";
+import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
+import Scoreboard from "@/features/match/components/Scoreboard";
+import EndMatchOptions from "@/features/match/components/EndMatchOptions";
 import {
   Wifi,
   WifiOff,
@@ -24,10 +26,10 @@ import {
   HelpCircle,
   X,
 } from "lucide-react";
-import { useRoomList } from "../../hooks/useRoomList";
-import RoomBrowser from "../../components/RoomBrowser";
-import RoomLobby from "../../components/RoomLobby";
-import useRoomLobby from "../../hooks/useRoomLobby";
+import { useRoomList } from "@/features/lobby/hooks/useRoomList";
+import RoomBrowser from "@/features/lobby/components/RoomBrowser";
+import RoomLobby from "@/features/lobby/components/RoomLobby";
+import useRoomLobby from "@/features/lobby/hooks/useRoomLobby";
 
 interface GameState {
   state: RoundState;
@@ -84,7 +86,7 @@ export default function RPSGame() {
 
     s.on("roomDestroyed", () => {
       setDisconnectMessage(
-        "Server destroyed the room because: A player disconnected or an error occurred.",
+        "Server destroyed the room because: The match was terminated by the system.",
       );
     });
 
@@ -316,22 +318,26 @@ export default function RPSGame() {
       {isGameStarted && gameState.state !== "game_over" && (
         <button
           onClick={() => setIsExitModalOpen(true)}
-          className="mb-8 px-5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-iosevka-bold rounded-xl border border-red-500/20 transition-all active:scale-95 mx-auto block backdrop-blur-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg border border-red-500/20 transition-all font-iosevka-medium text-xs mb-8 mx-auto active:scale-95"
         >
-          Leave Match
+          <X className="w-3 h-3" />
+          <span>Leave Match</span>
         </button>
       )}
 
       <ConfirmModal
         isOpen={isExitModalOpen}
         title="Leave Match?"
-        message="Are you sure you want to leave the current match? You will lose all your progress."
+        message="Are you sure you want to leave the current match? Your progress will be lost."
         onConfirm={() => {
-          setIsExitModalOpen(false);
           handleLeaveRoom();
+          setIsExitModalOpen(false);
+          window.location.href = "/";
         }}
         onCancel={() => setIsExitModalOpen(false)}
-        themeColor="purple"
+        confirmText="Leave"
+        cancelText="Stay"
+        themeColor="red"
       />
 
       <div className="w-full max-w-2xl bg-gray-800 rounded-2xl p-8 border border-gray-700 shadow-2xl space-y-8">
