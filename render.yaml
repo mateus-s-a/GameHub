@@ -15,7 +15,7 @@ services:
           name: gamehub-db
           property: connectionString
       - key: NODE_VERSION
-        value: 18
+        value: 22
 
   # Frontend Web Service
   - type: web
@@ -29,7 +29,7 @@ services:
       - key: NEXT_PUBLIC_SOCKET_URL
         value: https://gamehub-api.onrender.com # Change this if you change the API service name
       - key: NODE_VERSION
-        value: 18
+        value: 22
 
 databases:
   - name: gamehub-db
