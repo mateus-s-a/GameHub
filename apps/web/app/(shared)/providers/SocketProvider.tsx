@@ -45,6 +45,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     const sessionId = getSessionId();
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+    console.log("Connecting to Socket at:", socketUrl);
     const s = io(socketUrl, {
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
