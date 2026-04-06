@@ -35,7 +35,7 @@ export default function RoomLobby({
   const allReady = roomLobby.players.every((p) => p.isReady);
   const canStart = roomLobby.players.length >= 2 && allReady;
 
-  const slots = Array.from({ length: 2 }).map((_, i) => {
+  const slots = Array.from({ length: roomLobby.maxPlayers }).map((_, i) => {
     return roomLobby.players[i] || null;
   });
 
@@ -50,9 +50,9 @@ export default function RoomLobby({
         {/* PLAYER SLOTS Card */}
         <Card
           title="PLAYER SLOTS"
-          className="h-[480px] p-10 flex flex-col gap-6"
+          className="min-h-[480px] h-fit p-10 flex flex-col gap-6"
         >
-          <div className="space-y-4">
+          <div className="flex-grow overflow-y-auto pr-2 space-y-4 max-h-[400px] custom-scrollbar">
             {slots.map((p, index) => (
               <div
                 key={p ? p.id : `empty-${index}`}

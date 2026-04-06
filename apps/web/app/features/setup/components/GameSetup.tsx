@@ -10,10 +10,15 @@ export interface GameSetupConfig {
 
 interface GameSetupProps {
   onStart: (config: GameSetupConfig) => void;
+  onCancel?: () => void;
   gameId: "ttt" | "rps" | "gtf";
 }
 
-export default function GameSetup({ onStart, gameId }: GameSetupProps) {
+export default function GameSetup({
+  onStart,
+  onCancel,
+  gameId,
+}: GameSetupProps) {
   const [currentConfig, setCurrentConfig] = useState<GameSetupConfig>({
     maxRounds: gameId === "gtf" ? 5 : 3,
     timeLimit: 15,
@@ -35,12 +40,14 @@ export default function GameSetup({ onStart, gameId }: GameSetupProps) {
         onChange={setCurrentConfig}
         onApply={handleStart}
       />
-      <button
-        onClick={() => handleStart(currentConfig)}
-        className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-110 text-white font-iosevka-bold text-2xl rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 border border-white/10"
-      >
-        Create Match
-      </button>
+      <div className="w-full space-y-3">
+        <button
+          onClick={() => handleStart(currentConfig)}
+          className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-110 text-white font-iosevka-bold text-2xl rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 border border-white/10"
+        >
+          Create Match
+        </button>
+      </div>
     </div>
   );
 }

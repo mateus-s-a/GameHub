@@ -21,6 +21,7 @@ import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
 import { useSocket } from "@/(shared)/providers/SocketProvider";
+import NavButton from "@/(shared)/components/ui/NavButton";
 
 type PlayerMark = "X" | "O" | null;
 
@@ -42,7 +43,7 @@ interface GameState {
 export default function Home() {
   const router = useRouter();
   const { socketId: globalSocketId, playerName } = useSocket();
-  
+
   const [socket, setSocket] = useState<Socket | null>(null);
   const [localSocketId, setLocalSocketId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -127,9 +128,14 @@ export default function Home() {
       setRematchRequested(false);
     });
 
-    s.on("opponentDisconnected", ({ playerName: leaverName }: { playerName: string }) => {
-      setDisconnectMessage(`Connection Lost: ${leaverName} has left the match.`);
-    });
+    s.on(
+      "opponentDisconnected",
+      ({ playerName: leaverName }: { playerName: string }) => {
+        setDisconnectMessage(
+          `Connection Lost: ${leaverName} has left the match.`,
+        );
+      },
+    );
 
     s.on("matchTerminationUpdate", ({ countdown }: { countdown: number }) => {
       setMatchTerminationCountdown(countdown);
@@ -212,7 +218,6 @@ export default function Home() {
     setRematchRequested(false);
     setSetupNeeded(false);
     setIsHost(false);
-    router.push("/");
   };
 
   const handleCreateRoomClick = () => {
@@ -237,8 +242,19 @@ export default function Home() {
   if (setupNeeded && !roomId) {
     return (
       <GameShell playerName={playerName}>
-        <div className="w-full flex justify-center">
-          <GameSetup onStart={handleStartGame} gameId="ttt" />
+        <div className="w-full max-w-5xl mx-auto flex flex-col items-start pt-12">
+          <NavButton
+            label="BACK TO LIST ROOMS"
+            onClick={() => setSetupNeeded(false)}
+            className="mb-12"
+          />
+          <div className="w-full flex justify-center">
+            <GameSetup
+              onStart={handleStartGame}
+              onCancel={() => setSetupNeeded(false)}
+              gameId="ttt"
+            />
+          </div>
         </div>
       </GameShell>
     );

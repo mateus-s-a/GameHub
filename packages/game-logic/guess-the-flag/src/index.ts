@@ -95,7 +95,7 @@ export class GuessTheFlagLogic {
   requestRematch(id: string): boolean {
     if (!this.players.has(id)) return false;
     this.rematchRequests.add(id);
-    return this.rematchRequests.size === this.maxPlayers;
+    return this.rematchRequests.size === this.players.size;
   }
 
   reset() {

@@ -63,7 +63,7 @@ export class TicTacToeLogic {
   requestRematch(id: string): boolean {
     if (!this.players.has(id)) return false;
     this.rematchRequests.add(id);
-    return this.rematchRequests.size === 2; // Returns true if both want a rematch
+    return this.rematchRequests.size === this.players.size;
   }
 
   startTurnTimer() {

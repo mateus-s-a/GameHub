@@ -60,7 +60,7 @@ export class RPSLogic {
   requestRematch(id: string): boolean {
     if (!this.players.has(id)) return false;
     this.rematchRequests.add(id);
-    return this.rematchRequests.size === 2;
+    return this.rematchRequests.size === this.players.size;
   }
 
   reset() {

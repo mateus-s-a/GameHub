@@ -14,6 +14,8 @@ interface RoomBrowserProps {
   gameLabel: string;
 }
 
+import NavButton from "@/(shared)/components/ui/NavButton";
+
 export default function RoomBrowser({
   rooms,
   onCreateRoom,
@@ -29,16 +31,11 @@ export default function RoomBrowser({
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col items-start pt-12">
       {/* Back Button */}
-      <button
+      <NavButton
         onClick={handleBackToHub}
-        className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#333333] rounded-lg text-xs font-iosevka-bold text-white mb-12 hover:bg-[#222222] transition-colors group"
-      >
-        <ArrowLeft
-          size={14}
-          className="group-hover:-translate-x-1 transition-transform"
-        />{" "}
-        BACK TO HUB
-      </button>
+        label="BACK TO HUB"
+        className="mb-12"
+      />
 
       {/* Lobby Title */}
       <h1 className="text-6xl font-iosevka-bold text-white mb-16 tracking-tight">

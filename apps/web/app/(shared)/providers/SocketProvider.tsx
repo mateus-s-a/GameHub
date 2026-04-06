@@ -25,8 +25,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
 
   // Derived playerName following the player-{short-id} rule
-  const playerName = socketId 
-    ? `PLAYER-${socketId.slice(0, 5).toUpperCase()}` 
+  const playerName = socketId
+    ? `PLAYER-${socketId.slice(0, 5).toUpperCase()}`
     : "GUEST";
 
   useEffect(() => {
@@ -58,7 +58,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, socketId, playerName, isConnected }}>
+    <SocketContext.Provider
+      value={{ socket, socketId, playerName, isConnected }}
+    >
       {children}
     </SocketContext.Provider>
   );

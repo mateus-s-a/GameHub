@@ -12,6 +12,8 @@ export interface BackButtonProps {
   onLeaveRoom: () => void;
 }
 
+import NavButton from "./NavButton";
+
 export default function BackButton({
   isHost,
   isInSetup,
@@ -41,12 +43,10 @@ export default function BackButton({
   }
 
   return (
-    <button
+    <NavButton
       onClick={handleBack}
-      className={`absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] hover:bg-[#222222] text-white 
-        font-iosevka-bold rounded-xl shadow-xl border border-white/5 transition-all active:scale-95 z-50`}
-    >
-      <ArrowLeft className="w-5 h-5" /> BACK TO HUB
-    </button>
+      label="BACK TO HUB"
+      className="absolute top-6 left-6 shadow-xl"
+    />
   );
 }

@@ -19,7 +19,9 @@ export function registerGenericLobbyEvents(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   socket.on("createRoom", (config?: any) => {
-    const hostName = socket.handshake.auth.playerName || `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
+    const hostName =
+      socket.handshake.auth.playerName ||
+      `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
     let maxPlayers = config?.maxPlayers || 2;
     const room = roomManager.createRoom(
       gameType,
@@ -36,7 +38,9 @@ export function registerGenericLobbyEvents(
   });
 
   socket.on("joinSpecificRoom", (roomId: string) => {
-    const playerName = socket.handshake.auth.playerName || `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
+    const playerName =
+      socket.handshake.auth.playerName ||
+      `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
     const room = roomManager.joinRoom(roomId, socket.id, playerName);
     if (!room) {
       socket.emit("roomError", "Room is full or doesn't exist.");
@@ -128,7 +132,11 @@ export function registerGenericLobbyEvents(
           // Cannot continue match with < 2 players - Match Terminated
           updatedRoom.status = "waiting";
           updatedRoom.countdown = 5; // Start backend countdown
-          namespace.to(roomId).emit("opponentDisconnected", { playerName: message.split(" ")[0] });
+          namespace
+            .to(roomId)
+            .emit("opponentDisconnected", {
+              playerName: message.split(" ")[0],
+            });
           namespace.to(roomId).emit("playerLeft", message);
           namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
 

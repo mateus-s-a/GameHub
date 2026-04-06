@@ -6,7 +6,10 @@ interface PlayerBadgeProps {
   className?: string;
 }
 
-export const PlayerBadge = ({ playerName, className = "" }: PlayerBadgeProps) => {
+export const PlayerBadge = ({
+  playerName,
+  className = "",
+}: PlayerBadgeProps) => {
   return (
     <div
       className={`flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 rounded-full backdrop-blur-sm shadow-xl ${className}`}

@@ -135,16 +135,16 @@ export default function GameConfigPanel({
               }
             >
               <option value={2}>2 Players (PvP)</option>
+              <option value={3}>3 Players</option>
               <option value={4}>4 Players (Small Group)</option>
-              <option value={8}>8 Players (Large Lobby)</option>
             </select>
 
             <div className="px-2">
               <input
                 type="range"
                 min="2"
-                max="8"
-                step="2"
+                max="4"
+                step="1"
                 value={localConfig.maxPlayers || 2}
                 disabled={readOnly}
                 onChange={(e) =>
@@ -154,7 +154,7 @@ export default function GameConfigPanel({
               />
               <div className="flex justify-between text-[10px] text-[var(--muted)] mt-2 font-iosevka-bold">
                 <span>2</span>
-                <span>8</span>
+                <span>4</span>
               </div>
             </div>
           </div>
