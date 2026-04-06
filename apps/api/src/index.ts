@@ -65,12 +65,40 @@ function scheduleNextRound(
 
 import { registerGenericLobbyEvents } from "./LobbyEvents";
 
+const loggedSessions = new Set<string>();
+function logConnection(socket: Socket, gameName: string) {
+  const sessionId = socket.handshake.auth.sessionId;
+  const logKey = `${gameName}:${sessionId || socket.id}`;
+
+  if (!loggedSessions.has(logKey)) {
+    console.log(
+      `[GameHub-API] User connected to ${gameName} (Socket: ${socket.id.substring(0, 5)})`,
+    );
+    loggedSessions.add(logKey);
+
+    setTimeout(() => loggedSessions.delete(logKey), 5000);
+  }
+}
+
+io.on("connection", (socket: Socket) => {
+  const sessionId = socket.handshake.auth.sessionId;
+  console.log(
+    `[GameHub-API] Transport connection established: ${socket.id.substring(0, 5)} (Session: ${sessionId?.substring(0, 5) || "N/A"})`,
+  );
+
+  socket.on("disconnect", (reason) => {
+    console.log(
+      `[GameHub-API] Transport disconnected: ${socket.id.substring(0, 5)} (${reason})`,
+    );
+  });
+});
+
 const tttNamespace = io.of("/ttt");
 const tttGames = new Map<string, TicTacToeLogic>();
 const tttSocketRooms = new Map<string, string>();
 
 tttNamespace.on("connection", (socket: Socket) => {
-  console.log("A user connected to Tic-Tac-Toe:", socket.id);
+  logConnection(socket, "Tic-Tac-Toe");
 
   registerGenericLobbyEvents(
     socket,
@@ -160,7 +188,7 @@ const rpsNamespace = io.of("/rps");
 const rpsGames = new Map<string, RPSLogic>();
 
 rpsNamespace.on("connection", (socket: Socket) => {
-  console.log("A user connected to Rock-Paper-Scissors:", socket.id);
+  logConnection(socket, "Rock-Paper-Scissors");
 
   registerGenericLobbyEvents(
     socket,
@@ -218,7 +246,7 @@ const gtfNamespace = io.of("/gtf");
 const gtfGames = new Map<string, GuessTheFlagLogic>();
 
 gtfNamespace.on("connection", (socket: Socket) => {
-  console.log("A user connected to Guess the Flag:", socket.id);
+  logConnection(socket, "Guess the Flag");
 
   registerGenericLobbyEvents(
     socket,

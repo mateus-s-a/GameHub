@@ -7,74 +7,88 @@ import GameSetup, {
   GameSetupConfig,
 } from "@/features/setup/components/GameSetup";
 import TimerDisplay from "@/features/match/components/TimerDisplay";
-import AlertModal from "@/\(shared\)/components/ui/AlertModal";
+import AlertModal from "@/(shared)/components/ui/AlertModal";
+import ConfirmModal from "@/(shared)/components/ui/ConfirmModal";
 import EndMatchOptions from "@/features/match/components/EndMatchOptions";
 import { X } from "lucide-react";
-import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import RoomBrowser from "@/features/lobby/components/RoomBrowser";
 import RoomLobby from "@/features/lobby/components/RoomLobby";
-import useRoomLobby from "@/features/lobby/hooks/useRoomLobby";
+import { useRoomList } from "@/features/lobby/hooks/useRoomList";
+import { useMatchManager } from "@/features/match/hooks/useMatchManager";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
-import Scoreboard from "@/features/match/components/Scoreboard";
-import ConfirmModal from "@/\(shared\)/components/ui/ConfirmModal";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
 import { useSocket } from "@/(shared)/providers/SocketProvider";
 import NavButton from "@/(shared)/components/ui/NavButton";
+import Scoreboard from "@/features/match/components/Scoreboard";
 
 type PlayerMark = "X" | "O" | null;
+type RoundState = "waiting_players" | "in_progress" | "game_over" | "round_result";
 
 interface GameState {
   board: PlayerMark[];
   currentPlayer: PlayerMark;
-  winner: PlayerMark | "Draw";
+  winner: PlayerMark | "DRAW";
+  winningLine: number[] | null;
   players: { id: string; mark: PlayerMark }[];
-  rematchRequests?: string[];
-  maxRounds?: number;
-  currentRound?: number;
-  timeLimit?: number;
-  turnEndTime?: number | null;
-  scores?: Record<"X" | "O", number>;
+  rematchRequests: string[];
+  currentRound: number;
+  maxRounds: number;
+  scores: Record<Exclude<PlayerMark, null>, number>;
+  state: RoundState;
   yourMark?: PlayerMark;
-  state?: string;
+  turnEndTime?: number | null;
 }
 
-export default function Home() {
+export default function TicTacToeGame() {
   const router = useRouter();
   const { socketId: globalSocketId, playerName } = useSocket();
 
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [localSocketId, setLocalSocketId] = useState<string | null>(null);
-  const [roomId, setRoomId] = useState<string | null>(null);
-  const [isGameStarted, setIsGameStarted] = useState(false);
-  const [setupNeeded, setSetupNeeded] = useState(false);
-  const [isHost, setIsHost] = useState(false);
-  const [rematchRequested, setRematchRequested] = useState(false);
-  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(
-    null,
-  );
-  const [tempNotification, setTempNotification] = useState<string | null>(null);
-  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<
-    number | null
-  >(null);
-  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  const {
+    socket,
+    localSocketId,
+    roomId,
+    setRoomId,
+    isHost,
+    setIsHost,
+    isGameStarted,
+    setIsGameStarted,
+    roomLobby,
+    disconnectMessage,
+    matchTerminationCountdown,
+    tempNotification,
+    setTempNotification,
+    rematchRequested,
+    setRematchRequested,
+    // Actions
+    createRoom,
+    joinRoom,
+    leaveRoom,
+    toggleReady,
+    startMatch,
+    requestRematch,
+    updateRoomConfig,
+  } = useMatchManager({
+    namespace: "ttt",
+    playerName,
+  });
 
+  const [gameStateData, setGameStateData] = useState<GameState | null>(null);
   const [board, setBoard] = useState<PlayerMark[]>(Array(9).fill(null));
   const [currentPlayer, setCurrentPlayer] = useState<PlayerMark>("X");
-  const [winner, setWinner] = useState<PlayerMark | "Draw">(null);
+  const [winner, setWinner] = useState<PlayerMark | "DRAW">(null);
   const [yourMark, setYourMark] = useState<PlayerMark>(null);
-
-  const [rematchRequests, setRematchRequests] = useState<string[]>([]);
+  const [roundState, setRoundState] = useState<RoundState>("waiting_players");
+  const [scores, setScores] = useState<Record<string, number>>({});
   const [currentRound, setCurrentRound] = useState(1);
   const [maxRounds, setMaxRounds] = useState(1);
+  const [rematchRequests, setRematchRequests] = useState<string[]>([]);
 
-  const [scores, setScores] = useState({ X: 0, O: 0 });
-  const [roundState, setRoundState] = useState<string>("waiting_players");
-  const [gameStateData, setGameStateData] = useState<GameState | null>(null);
+  const [setupNeeded, setSetupNeeded] = useState(false);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   const rooms = useRoomList(socket);
-  const roomLobby = useRoomLobby(socket, roomId);
 
   useEffect(() => {
     if (isGameStarted && socket && roomId) {
@@ -83,32 +97,9 @@ export default function Home() {
   }, [isGameStarted, socket, roomId]);
 
   useEffect(() => {
-    const s: Socket = io("http://localhost:3001/ttt", {
-      auth: { playerName },
-    });
-    setSocket(s);
+    if (!socket) return;
 
-    s.on("connect", () => {
-      setLocalSocketId(s.id || null);
-    });
-
-    s.on("matchFound", ({ roomId, isHost }) => {
-      setRoomId(roomId);
-      setIsHost(isHost || false);
-      setSetupNeeded(false);
-    });
-
-    s.on("roomDestroyed", () => {
-      setDisconnectMessage(
-        "Server destroyed the room because: The match was terminated by the system.",
-      );
-    });
-
-    s.on("gameStarted", () => {
-      setIsGameStarted(true);
-    });
-
-    s.on("gameState", (serverState: GameState) => {
+    socket.on("gameState", (serverState: GameState) => {
       setSetupNeeded(false);
       setGameStateData(serverState);
       setBoard(serverState.board);
@@ -124,100 +115,48 @@ export default function Home() {
       if (serverState.yourMark !== undefined) setYourMark(serverState.yourMark);
     });
 
-    s.on("rematchStarted", () => {
-      setRematchRequested(false);
-    });
-
-    s.on(
-      "opponentDisconnected",
-      ({ playerName: leaverName }: { playerName: string }) => {
-        setDisconnectMessage(
-          `Connection Lost: ${leaverName} has left the match.`,
-        );
-      },
-    );
-
-    s.on("matchTerminationUpdate", ({ countdown }: { countdown: number }) => {
-      setMatchTerminationCountdown(countdown);
-    });
-
-    s.on("matchTerminated", () => {
-      handleLeaveRoom();
-    });
-
-    s.on("playerLeft", (message: string) => {
-      setTempNotification(message);
-      setTimeout(() => setTempNotification(null), 5000);
+    socket.on("matchFound", () => {
+      // Game-specific resets
+      setWinner(null);
+      setBoard(Array(9).fill(null));
+      setRoundState("waiting_players");
     });
 
     return () => {
-      s.disconnect();
+      socket.off("gameState");
+      socket.off("matchFound");
     };
-  }, []);
+  }, [socket]);
 
-  const handleMove = (index: number) => {
+  const handleCellClick = (index: number) => {
     if (
       socket &&
       roomId &&
-      !board[index] &&
-      !winner &&
-      currentPlayer === yourMark
+      board[index] === null &&
+      winner === null &&
+      yourMark === currentPlayer
     ) {
-      const newBoard = [...board];
-      newBoard[index] = yourMark;
-      setBoard(newBoard);
-
       socket.emit("makeMove", { roomId, index });
     }
   };
 
-  const requestRematch = () => {
-    if (socket && roomId) {
-      setRematchRequested(true);
-      socket.emit("requestRematch", roomId);
-    }
-  };
-
   const playAgain = () => {
-    if (socket && roomId) {
-      socket.emit("leaveRoom", roomId);
-      setRoomId(null);
-      setIsGameStarted(false);
-      setBoard(Array(9).fill(null));
-      setWinner(null);
-      setYourMark(null);
-      setRematchRequested(false);
-      setDisconnectMessage(null);
-      setIsHost(false);
-      setSetupNeeded(false);
-    }
+    leaveRoom();
+    setBoard(Array(9).fill(null));
+    setWinner(null);
   };
 
   const handleReturnToSetup = () => {
-    if (socket && roomId) {
-      socket.emit("leaveRoom", roomId);
-    }
-    setRoomId(null);
-    setIsGameStarted(false);
-    setBoard(Array(9).fill(null));
-    setWinner(null);
-    setYourMark(null);
-    setRematchRequested(false);
+    leaveRoom();
     setSetupNeeded(true);
   };
 
   const handleLeaveRoom = () => {
-    if (socket && roomId) {
-      socket.emit("leaveRoom", roomId);
-    }
-    setRoomId(null);
-    setIsGameStarted(false);
+    leaveRoom();
     setBoard(Array(9).fill(null));
     setWinner(null);
-    setYourMark(null);
-    setRematchRequested(false);
+    setGameStateData(null);
     setSetupNeeded(false);
-    setIsHost(false);
   };
 
   const handleCreateRoomClick = () => {
@@ -376,86 +315,80 @@ export default function Home() {
               gameStateData?.players.map((p) => ({
                 id: p.id,
                 name: p.mark === "X" ? "Player X" : "Player O",
-                score: scores[p.mark as "X" | "O"] || 0,
+                score: scores[p.mark as string] || 0,
                 isConnected: true,
               })) || []
             }
             localPlayerId={localSocketId || ""}
-            currentRound={currentRound}
-            maxRounds={maxRounds}
-            themeColor="white"
-          />
+          currentRound={currentRound}
+          maxRounds={maxRounds}
+          themeColor="cyan"
+        />
 
-          {/* State Information */}
-          <div className="text-center text-xl h-12 flex items-center justify-center mb-4 bg-[#222222] w-full rounded-xl border border-white/5">
-            {winner && winner !== "Draw" && roundState !== "round_result" && (
-              <span className="text-white font-iosevka-bold">
-                PLAYER {winner} WINS!
-              </span>
-            )}
-            {winner === "Draw" && roundState !== "round_result" && (
-              <span className="text-white/40 font-iosevka-bold">DRAW!</span>
-            )}
-            {roundState === "round_result" && (
-              <span className="text-white animate-pulse">ROUND OVER!</span>
-            )}
-            {!winner && currentPlayer === yourMark && (
-              <span className="text-white animate-pulse font-iosevka-bold">
-                YOUR TURN
-              </span>
-            )}
-            {!winner && currentPlayer !== yourMark && (
-              <span className="text-white/40 italic">
-                OPPONENT&apos;S TURN...
-              </span>
-            )}
-          </div>
-
-          {!winner && (
-            <div className="scale-150 py-4">
-              <TimerDisplay turnEndTime={gameStateData?.turnEndTime || null} />
-            </div>
+        <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-[#111111] rounded-xl border border-white/5">
+          {roundState === "in_progress" && (
+            <span className="text-white animate-pulse font-iosevka-bold uppercase tracking-widest">
+              {yourMark === currentPlayer ? "YOUR TURN" : "OPPONENT'S TURN"}
+            </span>
           )}
-
-          {/* Board */}
-          <div className="grid grid-cols-3 gap-3 bg-[#222222] p-4 rounded-2xl mb-8 border border-white/5 shadow-inner">
-            {board.map((cell, i) => (
-              <button
-                key={i}
-                onClick={() => handleMove(i)}
-                disabled={!!cell || !!winner || currentPlayer !== yourMark}
-                className={`w-28 h-28 bg-[#111111] rounded-xl transition-all duration-300 flex items-center justify-center text-5xl font-iosevka-bold border border-white/5
-                  ${!cell && !winner && currentPlayer === yourMark ? "hover:bg-[#1a1a1a] hover:border-white/10" : "cursor-default"}
-                  ${cell === "X" ? "text-white" : "text-white/40"}`}
-              >
-                {cell && (
-                  <span className="animate-in zoom-in-50 duration-200">
-                    {cell}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* End Game Options */}
+          {roundState === "round_result" && (
+            <span className="text-white font-iosevka-bold uppercase tracking-widest">
+              {winner === "DRAW"
+                ? "IT'S A DRAW!"
+                : `${winner} WINS THE ROUND!`}
+            </span>
+          )}
           {roundState === "game_over" && (
-            <div className="w-full pt-8 border-t border-white/5">
-              <EndMatchOptions
-                rematchRequested={rematchRequested}
-                opponentLeft={!!disconnectMessage}
-                hasOpponentRequested={
-                  rematchRequests.find((id) => id !== localSocketId) !==
-                  undefined
-                }
-                onRequestRematch={requestRematch}
-                onPlayAgain={playAgain}
-                primaryColorGradient="from-[#333333] to-[#1a1a1a]"
-                primaryColorHover="hover:from-[#444444] hover:to-[#222222]"
-              />
-            </div>
+            <span className="text-white font-iosevka-bold uppercase tracking-widest">
+              GAME OVER!
+            </span>
           )}
-        </Card>
-      </div>
-    </GameShell>
-  );
+        </div>
+
+        {roundState === "in_progress" && (
+          <div className="scale-150 py-4">
+            <TimerDisplay turnEndTime={gameStateData?.turnEndTime || null} />
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-4 bg-[#1a1a1a] p-4 rounded-2xl shadow-2xl border border-white/5 relative">
+          {board.map((cell, i) => (
+            <button
+              key={i}
+              onClick={() => handleCellClick(i)}
+              disabled={
+                cell !== null || winner !== null || yourMark !== currentPlayer
+              }
+              className={`w-28 h-28 flex items-center justify-center text-5xl font-iosevka-bold rounded-xl transition-all duration-300 border ${
+                cell === "X"
+                  ? "text-cyan-400 bg-cyan-400/5 border-cyan-400/20 shadow-[0_0_20px_rgba(34,211,238,0.1)]"
+                  : cell === "O"
+                    ? "text-pink-400 bg-pink-400/5 border-pink-400/20 shadow-[0_0_20px_rgba(244,114,182,0.1)]"
+                    : "bg-[#111111] border-white/5 hover:border-white/20"
+              } hover:scale-[1.02] active:scale-95 disabled:scale-100 disabled:opacity-100`}
+            >
+              {cell}
+            </button>
+          ))}
+        </div>
+
+        {roundState === "game_over" && (
+          <div className="w-full pt-8 border-t border-white/5">
+            <EndMatchOptions
+              rematchRequested={rematchRequested}
+              opponentLeft={!!disconnectMessage}
+              hasOpponentRequested={
+                rematchRequests.find((id) => id !== localSocketId) !== undefined
+              }
+              onRequestRematch={requestRematch}
+              onPlayAgain={playAgain}
+              primaryColorGradient="from-cyan-600 to-cyan-900"
+              primaryColorHover="hover:from-cyan-500 hover:to-cyan-800"
+            />
+          </div>
+        )}
+      </Card>
+    </div>
+  </GameShell>
+);
 }

@@ -17,13 +17,13 @@ import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import RoundResults from "@/features/match/components/RoundResults";
 import RoomBrowser from "@/features/lobby/components/RoomBrowser";
 import RoomLobby from "@/features/lobby/components/RoomLobby";
-import useRoomLobby from "@/features/lobby/hooks/useRoomLobby";
+import { useMatchManager } from "@/features/match/hooks/useMatchManager";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
 import Scoreboard from "@/features/match/components/Scoreboard";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
-import { useSocket } from "@/(shared)/providers/SocketProvider";
+import { useSocket, getSessionId } from "@/(shared)/providers/SocketProvider";
 import NavButton from "@/(shared)/components/ui/NavButton";
 
 interface GameState {
@@ -45,26 +45,41 @@ export default function GuessTheFlagGame() {
   const router = useRouter();
   const { socketId: globalSocketId, playerName } = useSocket();
 
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [localSocketId, setLocalSocketId] = useState<string | null>(null);
+  const {
+    socket,
+    localSocketId,
+    roomId,
+    setRoomId,
+    isHost,
+    setIsHost,
+    isGameStarted,
+    setIsGameStarted,
+    roomLobby,
+    disconnectMessage,
+    matchTerminationCountdown,
+    tempNotification,
+    setTempNotification,
+    rematchRequested,
+    setRematchRequested,
+    // Actions
+    createRoom,
+    joinRoom,
+    leaveRoom,
+    toggleReady,
+    startMatch,
+    requestRematch,
+    updateRoomConfig,
+  } = useMatchManager({
+    namespace: "gtf",
+    playerName,
+  });
+
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [roomId, setRoomId] = useState<string | null>(null);
   const [localChoice, setLocalChoice] = useState<string | null>(null);
-  const [rematchRequested, setRematchRequested] = useState(false);
   const [setupNeeded, setSetupNeeded] = useState(false);
-  const [isHost, setIsHost] = useState(false);
-  const [isGameStarted, setIsGameStarted] = useState(false);
-  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(
-    null,
-  );
-  const [tempNotification, setTempNotification] = useState<string | null>(null);
-  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<
-    number | null
-  >(null);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   const rooms = useRoomList(socket);
-  const roomLobby = useRoomLobby(socket, roomId);
 
   useEffect(() => {
     if (isGameStarted && socket && roomId) {
@@ -73,71 +88,29 @@ export default function GuessTheFlagGame() {
   }, [isGameStarted, socket, roomId]);
 
   useEffect(() => {
-    const s: Socket = io("http://localhost:3001/gtf", {
-      auth: { playerName },
-    });
-    setSocket(s);
+    if (!socket) return;
 
-    s.on("connect", () => {
-      setLocalSocketId(s.id || null);
-    });
-
-    s.on("matchFound", ({ roomId, isHost }) => {
-      setRoomId(roomId);
-      setIsHost(isHost || false);
-      setSetupNeeded(false);
-    });
-
-    s.on("roomDestroyed", () => {
-      setDisconnectMessage(
-        "Server destroyed the room because: The match was terminated by the system.",
-      );
-    });
-
-    s.on("gameStarted", () => {
-      setIsGameStarted(true);
-    });
-
-    s.on("gameState", (serverState: GameState) => {
+    socket.on("gameState", (serverState: GameState) => {
       setGameState(serverState);
       if (
         serverState.state === "guessing_phase" &&
-        !serverState.players.find((p) => p.id === s.id)?.hasGuessed
+        !serverState.players.find((p) => p.id === socket.id)?.hasGuessed
       ) {
         setLocalChoice(null);
       }
     });
 
-    s.on("rematchStarted", () => {
-      setRematchRequested(false);
-    });
-
-    s.on(
-      "opponentDisconnected",
-      ({ playerName: leaverName }: { playerName: string }) => {
-        setDisconnectMessage(
-          `Connection Lost: ${leaverName} has left the match.`,
-        );
-      },
-    );
-
-    s.on("matchTerminationUpdate", ({ countdown }: { countdown: number }) => {
-      setMatchTerminationCountdown(countdown);
-    });
-
-    s.on("matchTerminated", () => {
-      handleLeaveRoom();
-    });
-
-    s.on("playerLeft", (message: string) => {
-      setTempNotification(message);
-      setTimeout(() => setTempNotification(null), 5000);
+    socket.on("matchFound", () => {
+      // Game-specific resets not covered by hook
+      setGameState(null);
+      setLocalChoice(null);
     });
 
     return () => {
-      s.disconnect();
+      socket.off("gameState");
+      socket.off("matchFound");
     };
-  }, []);
+  }, [socket]);
 
   const submitGuess = (guess: string) => {
     if (socket && roomId && gameState?.state === "guessing_phase") {
@@ -146,54 +119,26 @@ export default function GuessTheFlagGame() {
     }
   };
 
-  const requestRematch = () => {
-    if (socket && roomId) {
-      setRematchRequested(true);
-      socket.emit("requestRematch", roomId);
-    }
-  };
-
   const playAgain = () => {
-    if (socket && roomId) {
-      socket.emit("leaveRoom", roomId);
-      setRoomId(null);
-      setGameState(null);
-      setIsGameStarted(false);
-      setRematchRequested(false);
-      setDisconnectMessage(null);
-      setIsHost(false);
-      setSetupNeeded(false);
-    }
+    leaveRoom();
+    setGameState(null);
   };
 
   const handleReturnToSetup = () => {
-    if (socket && roomId) {
-      socket.emit("leaveRoom", roomId);
-    }
-    setRoomId(null);
+    leaveRoom();
     setGameState(null);
-    setIsGameStarted(false);
-    setRematchRequested(false);
     setSetupNeeded(true);
   };
 
   const handleLeaveRoom = () => {
-    if (socket && roomId) {
-      socket.emit("leaveRoom", roomId);
-    }
-    setRoomId(null);
+    leaveRoom();
     setGameState(null);
-    setIsGameStarted(false);
-    setRematchRequested(false);
     setSetupNeeded(false);
-    setIsHost(false);
   };
 
   const handleStartGame = (config: GameSetupConfig) => {
-    if (socket) {
-      socket.emit("createRoom", config);
-      setSetupNeeded(false);
-    }
+    createRoom(config);
+    setSetupNeeded(false);
   };
 
   const handleCreateRoomClick = () => {
@@ -202,10 +147,8 @@ export default function GuessTheFlagGame() {
   };
 
   const handleJoinRoomClick = (joinRoomId: string) => {
-    if (socket) {
-      setIsHost(false);
-      socket.emit("joinSpecificRoom", joinRoomId);
-    }
+    setIsHost(false);
+    joinRoom(joinRoomId);
   };
 
   if (setupNeeded && !roomId) {

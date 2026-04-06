@@ -30,6 +30,9 @@ export function registerGenericLobbyEvents(
       maxPlayers,
       config || {},
     );
+    console.log(
+      `[Lobby] [${gameType.toUpperCase()}] Room GH-${room.id.substring(0, 5).toUpperCase()} created by ${hostName} (Host)`,
+    );
     gameMap.set(room.id, createGameLogic(config || {}));
 
     socket.join(room.id);
@@ -49,6 +52,9 @@ export function registerGenericLobbyEvents(
 
     socket.join(roomId);
     socket.emit("matchFound", { roomId, isHost: false });
+    console.log(
+      `[Lobby] [${gameType.toUpperCase()}] ${playerName} joined Room GH-${roomId.substring(0, 5).toUpperCase()} (${room.playerCount}/${room.maxPlayers} players)`,
+    );
     namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
     namespace.to(roomId).emit("roomLobbyUpdate", room);
   });
@@ -71,6 +77,9 @@ export function registerGenericLobbyEvents(
     let countdown = 5;
     room.countdown = countdown;
     room.status = "starting";
+    console.log(
+      `[Match] [${gameType.toUpperCase()}] Match starting in Room GH-${roomId.substring(0, 5).toUpperCase()} (Countdown: 5s)`,
+    );
     namespace.to(roomId).emit("roomLobbyUpdate", room);
     namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
 
@@ -88,6 +97,9 @@ export function registerGenericLobbyEvents(
         clearInterval(interval);
         currentRoom.status = "in_progress";
         currentRoom.countdown = null;
+        console.log(
+          `[Match] [${gameType.toUpperCase()}] Game started in Room GH-${roomId.substring(0, 5).toUpperCase()} with ${currentRoom.playerCount} players`,
+        );
         namespace.emit(
           "roomListUpdate",
           roomManager.getAvailableRooms(gameType),
@@ -113,6 +125,9 @@ export function registerGenericLobbyEvents(
 
     if (!updatedRoom) {
       // Room empty (already deleted by RoomManager)
+      console.log(
+        `[Lobby] [${gameType.toUpperCase()}] Room GH-${roomId.substring(0, 5).toUpperCase()} destroyed (Empty)`,
+      );
       namespace.to(roomId).emit("roomDestroyed");
       gameMap.delete(roomId);
     } else {
@@ -132,11 +147,12 @@ export function registerGenericLobbyEvents(
           // Cannot continue match with < 2 players - Match Terminated
           updatedRoom.status = "waiting";
           updatedRoom.countdown = 5; // Start backend countdown
-          namespace
-            .to(roomId)
-            .emit("opponentDisconnected", {
-              playerName: message.split(" ")[0],
-            });
+          console.log(
+            `[Match] [${gameType.toUpperCase()}] Match in Room GH-${roomId.substring(0, 5).toUpperCase()} terminated (Insufficient players)`,
+          );
+          namespace.to(roomId).emit("opponentDisconnected", {
+            playerName: message.split(" ")[0],
+          });
           namespace.to(roomId).emit("playerLeft", message);
           namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
 
@@ -172,6 +188,9 @@ export function registerGenericLobbyEvents(
         }
       } else {
         // Lobby leave
+        console.log(
+          `[Lobby] [${gameType.toUpperCase()}] User ${socket.id.substring(0, 5)} left Room GH-${roomId.substring(0, 5).toUpperCase()}`,
+        );
         namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
         namespace.to(roomId).emit("playerLeft", message);
       }
