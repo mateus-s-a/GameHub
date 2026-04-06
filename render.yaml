@@ -5,7 +5,7 @@ services:
     env: node
     plan: free
     region: ohio # Adjust as needed
-    buildCommand: npm install && npx prisma generate --schema=apps/api/prisma/schema.prisma && npx turbo run build --filter=api
+    buildCommand: npm install && (cd apps/api && npx prisma generate) && npx turbo run build --filter=api
     startCommand: npm run start --filter=api
     envVars:
       - key: PORT
