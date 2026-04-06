@@ -6,7 +6,7 @@ services:
     plan: free
     region: ohio # Adjust as needed
     buildCommand: npm install && (cd apps/api && npx prisma generate) && npx turbo run build --filter=api
-    startCommand: npm run start --filter=api
+    startCommand: npm start -w api
     envVars:
       - key: PORT
         value: 3001
@@ -24,7 +24,7 @@ services:
     plan: free
     region: ohio # Adjust as needed
     buildCommand: npm install && npx turbo run build --filter=web
-    startCommand: npm run start --filter=web
+    startCommand: npm start -w web
     envVars:
       - key: NEXT_PUBLIC_SOCKET_URL
         value: https://gamehub-api.onrender.com # Change this if you change the API service name
