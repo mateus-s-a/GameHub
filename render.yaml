@@ -1,0 +1,37 @@
+services:
+  # Backend API Service
+  - type: web
+    name: gamehub-api
+    env: node
+    plan: free
+    region: ohio # Adjust as needed
+    buildCommand: npm install && npx prisma generate --schema=apps/api/prisma/schema.prisma && npx turbo run build --filter=api
+    startCommand: npm run start --filter=api
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gamehub-db
+          property: connectionString
+      - key: NODE_VERSION
+        value: 18
+
+  # Frontend Web Service
+  - type: web
+    name: gamehub-web
+    env: node
+    plan: free
+    region: ohio # Adjust as needed
+    buildCommand: npm install && npx turbo run build --filter=web
+    startCommand: npm run start --filter=web
+    envVars:
+      - key: NEXT_PUBLIC_SOCKET_URL
+        value: https://gamehub-api.onrender.com # Change this if you change the API service name
+      - key: NODE_VERSION
+        value: 18
+
+databases:
+  - name: gamehub-db
+    plan: free
+    region: ohio
