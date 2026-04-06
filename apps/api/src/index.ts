@@ -27,13 +27,20 @@ async function loadCountries() {
 loadCountries();
 
 const app = express();
-app.use(cors());
+const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
+
+app.use(cors({
+  origin: CORS_ORIGIN,
+  methods: ["GET", "POST"],
+  credentials: true
+}));
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: CORS_ORIGIN,
     methods: ["GET", "POST"],
+    credentials: true
   },
 });
 

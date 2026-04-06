@@ -31,7 +31,8 @@ export function useMatchManager({ namespace, playerName }: UseMatchManagerOption
 
   useEffect(() => {
     const sessionId = getSessionId();
-    const s: Socket = io(`http://localhost:3001/${namespace}`, {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+    const s: Socket = io(`${socketUrl}/${namespace}`, {
       auth: { playerName, sessionId },
     });
     setSocket(s);

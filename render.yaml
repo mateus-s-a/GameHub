@@ -14,6 +14,8 @@ services:
         fromDatabase:
           name: gamehub-db
           property: connectionString
+      - key: CORS_ORIGIN
+        value: https://gamehub-web.onrender.com # Change this if you change the Web service name
       - key: NODE_VERSION
         value: 22
 
