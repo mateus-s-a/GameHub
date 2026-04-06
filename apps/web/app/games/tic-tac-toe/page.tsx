@@ -24,7 +24,7 @@ import NavButton from "@/(shared)/components/ui/NavButton";
 import Scoreboard from "@/features/match/components/Scoreboard";
 
 type PlayerMark = "X" | "O" | null;
-type RoundState = "waiting_players" | "in_progress" | "game_over" | "round_result";
+type RoundState = "waiting_players" | "playing" | "game_over" | "round_result";
 
 interface GameState {
   board: PlayerMark[];
@@ -37,8 +37,8 @@ interface GameState {
   maxRounds: number;
   scores: Record<Exclude<PlayerMark, null>, number>;
   state: RoundState;
+  turnEndTime: number | null;
   yourMark?: PlayerMark;
-  turnEndTime?: number | null;
 }
 
 export default function TicTacToeGame() {
@@ -326,7 +326,7 @@ export default function TicTacToeGame() {
         />
 
         <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-[#111111] rounded-xl border border-white/5">
-          {roundState === "in_progress" && (
+          {roundState === "playing" && (
             <span className="text-white animate-pulse font-iosevka-bold uppercase tracking-widest">
               {yourMark === currentPlayer ? "YOUR TURN" : "OPPONENT'S TURN"}
             </span>
@@ -345,7 +345,7 @@ export default function TicTacToeGame() {
           )}
         </div>
 
-        {roundState === "in_progress" && (
+        {roundState === "playing" && (
           <div className="scale-150 py-4">
             <TimerDisplay turnEndTime={gameStateData?.turnEndTime || null} />
           </div>

@@ -97,7 +97,19 @@ export default function RoomLobby({
 
         {/* MATCH SETTINGS Column */}
         <div className="flex flex-col gap-6 h-full">
-          <Card title="MATCH SETTINGS" className="flex-grow p-10 bg-[#161616]">
+          <Card
+            title="MATCH SETTINGS"
+            className={`flex-grow p-10 bg-[#161616] relative overflow-hidden ${
+              !isHost ? "opacity-40 grayscale pointer-events-none" : ""
+            }`}
+          >
+            {!isHost && (
+              <div className="absolute inset-0 z-10 bg-black/20 flex items-center justify-center">
+                <span className="bg-white/10 border border-white/20 px-4 py-2 rounded-full text-[10px] font-iosevka-bold text-white/60 tracking-widest uppercase">
+                  Locked
+                </span>
+              </div>
+            )}
             <GameConfigPanel
               gameId={roomLobby.gameType as any}
               config={roomLobby.config}
@@ -139,20 +151,22 @@ export default function RoomLobby({
       </div>
 
       {/* Global Room Controls (Bottom Center) */}
-      <div className="flex items-center gap-6 mt-12 mb-12">
+      <div className="flex items-center justify-center gap-6 mt-12 mb-12 w-full">
         <Button
           onClick={onLeaveRoom}
           className="px-10 py-5 rounded-full text-lg tracking-tighter uppercase font-iosevka-bold border-2 border-white/10 hover:border-white/20"
         >
           LEAVE ROOM
         </Button>
-        <Button
-          onClick={onStartMatch}
-          disabled={!canStart}
-          className={`px-12 py-5 rounded-full text-lg tracking-tighter uppercase font-iosevka-bold border-2 ${canStart ? "bg-white/10 border-white/20 hover:bg-white/20" : "opacity-40 grayscale pointer-events-none"}`}
-        >
-          START MATCH
-        </Button>
+        {isHost && (
+          <Button
+            onClick={onStartMatch}
+            disabled={!canStart}
+            className={`px-12 py-5 rounded-full text-lg tracking-tighter uppercase font-iosevka-bold border-2 ${canStart ? "bg-white/10 border-white/20 hover:bg-white/20" : "opacity-40 grayscale pointer-events-none"}`}
+          >
+            START MATCH
+          </Button>
+        )}
       </div>
 
       {/* Game Countdown View */}

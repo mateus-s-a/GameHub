@@ -49,6 +49,10 @@ export function useMatchManager({ namespace, playerName }: UseMatchManagerOption
 
     s.on("roomLobbyUpdate", (room: RoomInfo) => {
       setRoomLobby(room);
+      // Synchronize host status in case of migration
+      if (s.id) {
+        setIsHost(room.hostId === s.id);
+      }
     });
 
     s.on("roomDestroyed", () => {
