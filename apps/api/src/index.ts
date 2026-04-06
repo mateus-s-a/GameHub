@@ -27,21 +27,38 @@ async function loadCountries() {
 loadCountries();
 
 const app = express();
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 
-app.use(cors({
-  origin: CORS_ORIGIN,
+/**
+ * Dynamic CORS configuration.
+ * - If CORS_ORIGIN is set, it allows only those origins (comma-separated).
+ * - If CORS_ORIGIN is not set, it reflects the requesting origin (allows all).
+ * This prevents the common "origin mismatch" error when deploying to Render,
+ * where service URLs may have unpredictable suffixes.
+ */
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
+  : null;
+
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (server-to-server, curl, health checks)
+    if (!origin) return callback(null, true);
+    // If no CORS_ORIGIN is set, allow everything (dev / open API)
+    if (!allowedOrigins) return callback(null, true);
+    // Check if the origin is in the allowed list
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Reject
+    callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
   methods: ["GET", "POST"],
-  credentials: true
-}));
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: CORS_ORIGIN,
-    methods: ["GET", "POST"],
-    credentials: true
-  },
+  cors: corsOptions,
 });
 
 /**

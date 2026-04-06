@@ -14,10 +14,11 @@ services:
         fromDatabase:
           name: gamehub-db
           property: connectionString
-      - key: CORS_ORIGIN
-        value: https://gamehub-web.onrender.com # Change this if you change the Web service name
       - key: NODE_VERSION
         value: 22
+      # Optional: Set CORS_ORIGIN in the Render Dashboard to restrict origins.
+      # Example: https://gamehub-web-snvi.onrender.com
+      # If not set, the API will accept requests from any origin.
 
   # Frontend Web Service
   - type: web
@@ -29,7 +30,10 @@ services:
     startCommand: "cd apps/web && npx next start"
     envVars:
       - key: NEXT_PUBLIC_SOCKET_URL
-        value: https://gamehub-api.onrender.com # Change this if you change the API service name
+        value: https://gamehub-api.onrender.com
+        # ⚠️ IMPORTANT: After first deploy, check your ACTUAL API URL in the
+        # Render Dashboard. Render may add a random suffix (e.g. gamehub-api-abc1.onrender.com).
+        # If it doesn't match, update this value in the Render Dashboard > Environment.
       - key: NODE_VERSION
         value: 22
 
