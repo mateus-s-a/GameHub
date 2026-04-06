@@ -1,6 +1,5 @@
 import React from "react";
 import { Logo } from "./logo";
-import { PlayerBadge } from "./player-badge";
 
 interface GameShellProps {
   children: React.ReactNode;
@@ -16,11 +15,6 @@ export const GameShell = ({ children, playerName }: GameShellProps) => {
       </div>
 
       {children}
-
-      {/* Bottom Profile Badge */}
-      <div className="absolute bottom-8 right-8">
-        <PlayerBadge playerName={playerName} />
-      </div>
     </div>
   );
 };

@@ -2,11 +2,15 @@ import React from "react";
 import { AlertTriangle, LogOut } from "lucide-react";
 
 interface MatchTerminationBannerProps {
-  countdown: number;
+  countdown?: number | null;
+  title?: string;
+  message?: string;
 }
 
 export default function MatchTerminationBanner({
   countdown,
+  title = "Connection Lost",
+  message = "Opponent left the room. Match terminated.",
 }: MatchTerminationBannerProps) {
   return (
     <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] w-full max-w-lg px-4 animate-in slide-in-from-top duration-500">
@@ -21,22 +25,24 @@ export default function MatchTerminationBanner({
         </div>
 
         {/* Text Content */}
-        <div className="flex-1 space-y-1 relative z-10">
-          <h3 className="text-xl font-iosevka-bold text-white tracking-wide">
-            Connection Lost
+        <div className="flex-1 space-y-1 relative z-10 text-center">
+          <h3 className="text-xl font-iosevka-bold text-white tracking-wide uppercase">
+            {title}
           </h3>
-          <p className="text-gray-400 font-iosevka-regular text-sm leading-tight">
-            Opponent left the room. Match terminated.
+          <p className="text-gray-400 font-iosevka-regular text-sm leading-tight whitespace-pre-line">
+            {message}
           </p>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="flex h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-            <span className="text-orange-400 font-iosevka-medium text-sm">
-              Leaving match in{" "}
-              <span className="text-white text-lg font-iosevka-bold mx-1">
-                {countdown}s
+          {countdown !== undefined && countdown !== null && (
+            <div className="flex items-center gap-2 mt-2 justify-center">
+              <span className="flex h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+              <span className="text-orange-400 font-iosevka-medium text-sm">
+                Leaving match in{" "}
+                <span className="text-white text-lg font-iosevka-bold mx-1">
+                  {countdown}s
+                </span>
               </span>
-            </span>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Exit Icon decoration */}

@@ -43,18 +43,19 @@ export default function RoundResults({
         const isLocal = player.id === localPlayerId;
         const isCorrect = player.choice === correctAnswer;
         const shortId = player.id.substring(0, 5).toUpperCase();
-        const displayName = `PLAYER-${shortId}${isLocal ? " (You)" : ""}`;
+        const displayName = player.name || `PLAYER-${shortId}`;
+        const label = isLocal ? `${displayName} (You)` : displayName;
 
         return (
           <div
             key={player.id}
             className={`bg-gray-900/50 p-6 rounded-2xl border ${isCorrect ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)]" : "border-gray-700/50"} backdrop-blur-sm transition-all hover:bg-gray-900/70`}
           >
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-4 text-center">
               <span
-                className={`text-xs uppercase font-iosevka-bold tracking-widest ${isLocal ? theme.split(" ")[1] : "text-gray-500"}`}
+                className={`text-[10px] font-iosevka-bold tracking-widest ${isLocal ? theme.split(" ")[1] : "text-gray-500"}`}
               >
-                {displayName}
+                {label}
               </span>
               {isCorrect ? (
                 <div className="bg-emerald-500/20 p-1 rounded-full text-emerald-400 ring-4 ring-emerald-500/5">

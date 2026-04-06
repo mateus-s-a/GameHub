@@ -1,6 +1,16 @@
 import { Socket, Namespace } from "socket.io";
 import { roomManager } from "./RoomManager";
 
+function getLogId(socket: Socket): string {
+  const playerName = socket.handshake.auth.playerName;
+  const socketId = socket.id.substring(0, 5);
+  if (playerName && !playerName.startsWith("PLAYER-")) {
+    const safeName = playerName.replace(/\n/g, " ");
+    return `${socketId}(${safeName})`;
+  }
+  return socketId;
+}
+
 export function registerGenericLobbyEvents(
   socket: Socket,
   namespace: Namespace,
@@ -31,7 +41,7 @@ export function registerGenericLobbyEvents(
       config || {},
     );
     console.log(
-      `[Lobby] [${gameType.toUpperCase()}] Room GH-${room.id.substring(0, 5).toUpperCase()} created by ${hostName} (Host)`,
+      `[Lobby] [${gameType.toUpperCase()}] Room GH-${room.id.substring(0, 5).toUpperCase()} created by ${getLogId(socket)} (Host)`,
     );
     gameMap.set(room.id, createGameLogic(config || {}));
 
@@ -53,7 +63,7 @@ export function registerGenericLobbyEvents(
     socket.join(roomId);
     socket.emit("matchFound", { roomId, isHost: false });
     console.log(
-      `[Lobby] [${gameType.toUpperCase()}] ${playerName} joined Room GH-${roomId.substring(0, 5).toUpperCase()} (${room.playerCount}/${room.maxPlayers} players)`,
+      `[Lobby] [${gameType.toUpperCase()}] ${getLogId(socket)} joined Room GH-${roomId.substring(0, 5).toUpperCase()} (${room.playerCount}/${room.maxPlayers} players)`,
     );
     namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
     namespace.to(roomId).emit("roomLobbyUpdate", room);
@@ -120,6 +130,10 @@ export function registerGenericLobbyEvents(
 
     const wasInProgress = room.status === "in_progress";
     const oldHostId = room.hostId;
+    const leaverLogId = getLogId(socket);
+    const leaverName =
+      socket.handshake.auth.playerName ||
+      `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
 
     const updatedRoom = roomManager.leaveRoom(roomId, socket.id);
 
@@ -137,9 +151,9 @@ export function registerGenericLobbyEvents(
       }
 
       // Preparation of notification message
-      let message = `PLAYER-${socket.id.substring(0, 5).toUpperCase()} left the match`;
+      let message = `${leaverName} left the match`;
       if (oldHostId === socket.id) {
-        message = `PLAYER-${socket.id.substring(0, 5).toUpperCase()} left (Host)\nPLAYER-${updatedRoom.hostId.substring(0, 5).toUpperCase()} is the new Host`;
+        message = `${leaverName} left (Host)\n${updatedRoom.hostName} is the new Host`;
       }
 
       if (wasInProgress) {
@@ -151,7 +165,7 @@ export function registerGenericLobbyEvents(
             `[Match] [${gameType.toUpperCase()}] Match in Room GH-${roomId.substring(0, 5).toUpperCase()} terminated (Insufficient players)`,
           );
           namespace.to(roomId).emit("opponentDisconnected", {
-            playerName: message.split(" ")[0],
+            playerName: leaverName,
           });
           namespace.to(roomId).emit("playerLeft", message);
           namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
@@ -189,7 +203,7 @@ export function registerGenericLobbyEvents(
       } else {
         // Lobby leave
         console.log(
-          `[Lobby] [${gameType.toUpperCase()}] User ${socket.id.substring(0, 5)} left Room GH-${roomId.substring(0, 5).toUpperCase()}`,
+          `[Lobby] [${gameType.toUpperCase()}] User ${leaverLogId} left Room GH-${roomId.substring(0, 5).toUpperCase()}`,
         );
         namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
         namespace.to(roomId).emit("playerLeft", message);

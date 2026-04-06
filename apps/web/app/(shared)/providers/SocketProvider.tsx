@@ -7,6 +7,9 @@ interface SocketContextType {
   socket: Socket | null;
   socketId: string | null;
   playerName: string;
+  updatePlayerName: (newName: string) => void;
+  isLocked: boolean;
+  setIsLocked: (locked: boolean) => void;
   isConnected: boolean;
 }
 
@@ -14,6 +17,9 @@ const SocketContext = createContext<SocketContextType>({
   socket: null,
   socketId: null,
   playerName: "GUEST",
+  updatePlayerName: () => {},
+  isLocked: false,
+  setIsLocked: () => {},
   isConnected: false,
 });
 
@@ -33,18 +39,26 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [socketId, setSocketId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
-  // Derived playerName following the player-{short-id} rule
-  const playerName = socketId
-    ? `PLAYER-${socketId.slice(0, 5).toUpperCase()}`
-    : "GUEST";
+  // Player state
+  const [playerName, setPlayerName] = useState<string>("GUEST");
 
   useEffect(() => {
-    // Only connect once on the client side
     if (typeof window === "undefined") return;
 
     const sessionId = getSessionId();
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+
+    // Initialize playerName from localStorage or sessionId
+    const storedName = localStorage.getItem("gh_player_name");
+    if (storedName) {
+      setPlayerName(storedName);
+    } else if (sessionId) {
+      setPlayerName(`PLAYER-${sessionId.slice(0, 5).toUpperCase()}`);
+    }
+
+    const socketUrl =
+      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
     console.log("Connecting to Socket at:", socketUrl);
     const s = io(socketUrl, {
       reconnectionAttempts: 5,
@@ -53,19 +67,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     s.on("connect", () => {
-      // Use a local check for the global connection to keep it simple within the provider
-      if (!(window as any)._gh_logged_global) {
-        console.log("Global Socket Connected:", s.id);
-        (window as any)._gh_logged_global = true;
-        setTimeout(() => { (window as any)._gh_logged_global = false; }, 5000);
-      }
       setSocketId(s.id || null);
       setIsConnected(true);
     });
 
     s.on("disconnect", () => {
-      console.log("Global Socket Disconnected");
-      setSocketId(null); // Reset when disconnected to trigger "GUEST" fallback
+      setSocketId(null);
       setIsConnected(false);
     });
 
@@ -76,9 +83,22 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
+  const updatePlayerName = (newName: string) => {
+    setPlayerName(newName);
+    localStorage.setItem("gh_player_name", newName);
+  };
+
   return (
     <SocketContext.Provider
-      value={{ socket, socketId, playerName, isConnected }}
+      value={{
+        socket,
+        socketId,
+        playerName,
+        updatePlayerName,
+        isLocked,
+        setIsLocked,
+        isConnected,
+      }}
     >
       {children}
     </SocketContext.Provider>

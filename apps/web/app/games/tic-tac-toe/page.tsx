@@ -223,11 +223,12 @@ export default function TicTacToeGame() {
       <RoomLobby
         roomLobby={roomLobby}
         localPlayerId={localSocketId || ""}
-        onToggleReady={() => socket?.emit("toggleReady", roomId)}
-        onStartMatch={() => socket?.emit("startMatch", roomId)}
+        onToggleReady={toggleReady}
+        onStartMatch={startMatch}
         onLeaveRoom={handleLeaveRoom}
         onUpdateConfig={handleUpdateConfig}
         themeColor="cyan"
+        tempNotification={tempNotification}
       />
     );
   }
@@ -235,7 +236,18 @@ export default function TicTacToeGame() {
   return (
     <GameShell playerName={playerName}>
       {matchTerminationCountdown !== null && (
-        <MatchTerminationBanner countdown={matchTerminationCountdown} />
+        <MatchTerminationBanner
+          countdown={matchTerminationCountdown}
+          title="Match Terminated"
+          message="Insufficient players remaining. Returning to lobby..."
+        />
+      )}
+
+      {tempNotification && matchTerminationCountdown === null && (
+        <MatchTerminationBanner
+          title="Notification"
+          message={tempNotification}
+        />
       )}
 
       <AlertModal
@@ -314,81 +326,82 @@ export default function TicTacToeGame() {
             players={
               gameStateData?.players.map((p) => ({
                 id: p.id,
-                name: p.mark === "X" ? "Player X" : "Player O",
+                name: roomLobby?.players.find((rp) => rp.id === p.id)?.name,
                 score: scores[p.mark as string] || 0,
                 isConnected: true,
               })) || []
             }
             localPlayerId={localSocketId || ""}
-          currentRound={currentRound}
-          maxRounds={maxRounds}
-          themeColor="cyan"
-        />
+            currentRound={currentRound}
+            maxRounds={maxRounds}
+            themeColor="cyan"
+          />
 
-        <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-[#111111] rounded-xl border border-white/5">
+          <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-[#111111] rounded-xl border border-white/5">
+            {roundState === "playing" && (
+              <span className="text-white animate-pulse font-iosevka-bold uppercase tracking-widest">
+                {yourMark === currentPlayer ? "YOUR TURN" : "OPPONENT'S TURN"}
+              </span>
+            )}
+            {roundState === "round_result" && (
+              <span className="text-white font-iosevka-bold uppercase tracking-widest">
+                {winner === "DRAW"
+                  ? "IT'S A DRAW!"
+                  : `${winner} WINS THE ROUND!`}
+              </span>
+            )}
+            {roundState === "game_over" && (
+              <span className="text-white font-iosevka-bold uppercase tracking-widest">
+                GAME OVER!
+              </span>
+            )}
+          </div>
+
           {roundState === "playing" && (
-            <span className="text-white animate-pulse font-iosevka-bold uppercase tracking-widest">
-              {yourMark === currentPlayer ? "YOUR TURN" : "OPPONENT'S TURN"}
-            </span>
+            <div className="scale-150 py-4">
+              <TimerDisplay turnEndTime={gameStateData?.turnEndTime || null} />
+            </div>
           )}
-          {roundState === "round_result" && (
-            <span className="text-white font-iosevka-bold uppercase tracking-widest">
-              {winner === "DRAW"
-                ? "IT'S A DRAW!"
-                : `${winner} WINS THE ROUND!`}
-            </span>
-          )}
+
+          <div className="grid grid-cols-3 gap-4 bg-[#1a1a1a] p-4 rounded-2xl shadow-2xl border border-white/5 relative">
+            {board.map((cell, i) => (
+              <button
+                key={i}
+                onClick={() => handleCellClick(i)}
+                disabled={
+                  cell !== null || winner !== null || yourMark !== currentPlayer
+                }
+                className={`w-28 h-28 flex items-center justify-center text-5xl font-iosevka-bold rounded-xl transition-all duration-300 border ${
+                  cell === "X"
+                    ? "text-cyan-400 bg-cyan-400/5 border-cyan-400/20 shadow-[0_0_20px_rgba(34,211,238,0.1)]"
+                    : cell === "O"
+                      ? "text-pink-400 bg-pink-400/5 border-pink-400/20 shadow-[0_0_20px_rgba(244,114,182,0.1)]"
+                      : "bg-[#111111] border-white/5 hover:border-white/20"
+                } hover:scale-[1.02] active:scale-95 disabled:scale-100 disabled:opacity-100`}
+              >
+                {cell}
+              </button>
+            ))}
+          </div>
+
           {roundState === "game_over" && (
-            <span className="text-white font-iosevka-bold uppercase tracking-widest">
-              GAME OVER!
-            </span>
+            <div className="w-full pt-8 border-t border-white/5">
+              <EndMatchOptions
+                rematchRequested={rematchRequested}
+                opponentLeft={!!disconnectMessage}
+                hasOpponentRequested={
+                  rematchRequests.find((id) => id !== localSocketId) !==
+                  undefined
+                }
+                onRequestRematch={requestRematch}
+                onPlayAgain={playAgain}
+                primaryColorGradient="from-cyan-600 to-cyan-900"
+                primaryColorHover="hover:from-cyan-500 hover:to-cyan-800"
+              />
+            </div>
           )}
-        </div>
-
-        {roundState === "playing" && (
-          <div className="scale-150 py-4">
-            <TimerDisplay turnEndTime={gameStateData?.turnEndTime || null} />
-          </div>
-        )}
-
-        <div className="grid grid-cols-3 gap-4 bg-[#1a1a1a] p-4 rounded-2xl shadow-2xl border border-white/5 relative">
-          {board.map((cell, i) => (
-            <button
-              key={i}
-              onClick={() => handleCellClick(i)}
-              disabled={
-                cell !== null || winner !== null || yourMark !== currentPlayer
-              }
-              className={`w-28 h-28 flex items-center justify-center text-5xl font-iosevka-bold rounded-xl transition-all duration-300 border ${
-                cell === "X"
-                  ? "text-cyan-400 bg-cyan-400/5 border-cyan-400/20 shadow-[0_0_20px_rgba(34,211,238,0.1)]"
-                  : cell === "O"
-                    ? "text-pink-400 bg-pink-400/5 border-pink-400/20 shadow-[0_0_20px_rgba(244,114,182,0.1)]"
-                    : "bg-[#111111] border-white/5 hover:border-white/20"
-              } hover:scale-[1.02] active:scale-95 disabled:scale-100 disabled:opacity-100`}
-            >
-              {cell}
-            </button>
-          ))}
-        </div>
-
-        {roundState === "game_over" && (
-          <div className="w-full pt-8 border-t border-white/5">
-            <EndMatchOptions
-              rematchRequested={rematchRequested}
-              opponentLeft={!!disconnectMessage}
-              hasOpponentRequested={
-                rematchRequests.find((id) => id !== localSocketId) !== undefined
-              }
-              onRequestRematch={requestRematch}
-              onPlayAgain={playAgain}
-              primaryColorGradient="from-cyan-600 to-cyan-900"
-              primaryColorHover="hover:from-cyan-500 hover:to-cyan-800"
-            />
-          </div>
-        )}
-      </Card>
-    </div>
-  </GameShell>
-);
+        </Card>
+      </div>
+    </GameShell>
+  );
 }

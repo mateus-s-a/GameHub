@@ -1,6 +1,7 @@
 import React from "react";
 import { RoomInfo } from "@gamehub/types";
 import { User } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import GameConfigPanel from "@/features/setup/components/GameConfigPanel";
 import { GameSetupConfig } from "@/features/setup/components/GameSetup";
 import { GameShell } from "@repo/ui/game-shell";
@@ -16,6 +17,7 @@ export interface RoomLobbyProps {
   onLeaveRoom: () => void;
   onUpdateConfig?: (config: GameSetupConfig) => void;
   themeColor?: string;
+  tempNotification?: string | null;
 }
 
 export default function RoomLobby({
@@ -25,7 +27,8 @@ export default function RoomLobby({
   onStartMatch,
   onLeaveRoom,
   onUpdateConfig,
-  themeColor = "emerald",
+  themeColor = "cyan",
+  tempNotification,
 }: RoomLobbyProps) {
   const { playerName } = useSocket();
 
@@ -46,6 +49,32 @@ export default function RoomLobby({
 
   return (
     <GameShell playerName={playerName}>
+      {/* Notifications */}
+      <AnimatePresence>
+        {tempNotification && (
+          <motion.div
+            initial={{ opacity: 0, x: 50, y: -20 }}
+            animate={{ opacity: 1, x: 0, y: 0 }}
+            exit={{ opacity: 0, x: 50, y: -20 }}
+            className="fixed top-8 right-8 z-[100] w-full max-w-sm px-4"
+          >
+            <div className="bg-gray-900/90 backdrop-blur-md border-b-4 border-blue-500 rounded-2xl p-6 shadow-2xl flex items-center gap-6 overflow-hidden relative">
+              <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 shrink-0 border border-blue-500/30">
+                <User size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-iosevka-bold text-white uppercase tracking-wider">
+                  Notification
+                </h3>
+                <p className="text-gray-400 font-iosevka-regular text-sm whitespace-pre-line">
+                  {tempNotification}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-24">
         {/* PLAYER SLOTS Card */}
         <Card

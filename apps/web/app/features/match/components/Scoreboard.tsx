@@ -63,7 +63,8 @@ export default function Scoreboard({
           {players.map((player, idx) => {
             const isLocal = player.id === localPlayerId;
             const shortId = player.id.substring(0, 5).toUpperCase();
-            const displayName = `PLAYER-${shortId}${isLocal ? " (You)" : ""}`;
+            const displayName = player.name || `PLAYER-${shortId}`;
+            const label = isLocal ? `${displayName} (You)` : displayName;
 
             return (
               <div
@@ -74,11 +75,11 @@ export default function Scoreboard({
                     : "bg-gray-800/40 border-transparent"
                 }`}
               >
-                <div className="flex items-center gap-2 mb-1 w-full justify-center">
+                <div className="flex items-center gap-2 mb-1 w-full justify-center text-center">
                   <span
-                    className={`text-[10px] font-iosevka-bold uppercase tracking-widest truncate max-w-[80px] ${isLocal ? selectedStyle.textAccent : "text-gray-400"}`}
+                    className={`text-[10px] font-iosevka-bold tracking-widest truncate max-w-[100px] ${isLocal ? selectedStyle.textAccent : "text-gray-400"}`}
                   >
-                    {displayName}
+                    {label}
                   </span>
                   {player.isConnected !== false ? (
                     <Wifi

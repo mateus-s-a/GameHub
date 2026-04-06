@@ -199,6 +199,7 @@ export default function RPSGame() {
         onLeaveRoom={handleLeaveRoom}
         onUpdateConfig={handleUpdateConfig}
         themeColor="purple"
+        tempNotification={tempNotification}
       />
     );
   }
@@ -217,7 +218,18 @@ export default function RPSGame() {
   return (
     <GameShell playerName={playerName}>
       {matchTerminationCountdown !== null && (
-        <MatchTerminationBanner countdown={matchTerminationCountdown} />
+        <MatchTerminationBanner
+          countdown={matchTerminationCountdown}
+          title="Match Terminated"
+          message="Insufficient players remaining. Returning to lobby..."
+        />
+      )}
+
+      {tempNotification && matchTerminationCountdown === null && (
+        <MatchTerminationBanner
+          title="Notification"
+          message={tempNotification}
+        />
       )}
 
       <AlertModal
@@ -279,11 +291,18 @@ export default function RPSGame() {
 
         <Card className="w-full max-w-3xl p-10 flex flex-col gap-8 bg-[#161616]">
           <Scoreboard
-            players={gameState.players}
+            players={
+              (gameState?.players.map((p) => ({
+                id: p.id,
+                name: roomLobby?.players.find((rp) => rp.id === p.id)?.name,
+                score: p.score,
+                isConnected: true,
+              })) as any) || []
+            }
             localPlayerId={localSocketId || ""}
-            currentRound={gameState.currentRound}
-            maxRounds={gameState.maxRounds}
-            themeColor="white"
+            currentRound={gameState?.currentRound || 1}
+            maxRounds={gameState?.maxRounds || 1}
+            themeColor="orange"
           />
 
           {/* State Information */}

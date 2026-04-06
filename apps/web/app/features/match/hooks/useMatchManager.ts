@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
-import { getSessionId } from "@/(shared)/providers/SocketProvider";
+import { getSessionId, useSocket } from "@/(shared)/providers/SocketProvider";
 import { RoomInfo } from "@gamehub/types";
 
 interface UseMatchManagerOptions {
@@ -8,14 +8,22 @@ interface UseMatchManagerOptions {
   playerName: string;
 }
 
-export function useMatchManager({ namespace, playerName }: UseMatchManagerOptions) {
+export function useMatchManager({
+  namespace,
+  playerName,
+}: UseMatchManagerOptions) {
+  const { setIsLocked } = useSocket();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [localSocketId, setLocalSocketId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState(false);
   const [isGameStarted, setIsGameStarted] = useState(false);
-  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(null);
-  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<number | null>(null);
+  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(
+    null,
+  );
+  const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<
+    number | null
+  >(null);
   const [tempNotification, setTempNotification] = useState<string | null>(null);
   const [rematchRequested, setRematchRequested] = useState(false);
   const [roomLobby, setRoomLobby] = useState<RoomInfo | null>(null);
@@ -31,7 +39,8 @@ export function useMatchManager({ namespace, playerName }: UseMatchManagerOption
 
   useEffect(() => {
     const sessionId = getSessionId();
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+    const socketUrl =
+      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
     const s: Socket = io(`${socketUrl}/${namespace}`, {
       auth: { playerName, sessionId },
     });
@@ -58,7 +67,7 @@ export function useMatchManager({ namespace, playerName }: UseMatchManagerOption
 
     s.on("roomDestroyed", () => {
       setDisconnectMessage(
-        "Server destroyed the room because: The match was terminated by the system."
+        "Server destroyed the room because: The match was terminated by the system.",
       );
     });
 
@@ -70,9 +79,14 @@ export function useMatchManager({ namespace, playerName }: UseMatchManagerOption
       setRematchRequested(false);
     });
 
-    s.on("opponentDisconnected", ({ playerName: leaverName }: { playerName: string }) => {
-      setDisconnectMessage(`Connection Lost: ${leaverName} has left the match.`);
-    });
+    s.on(
+      "opponentDisconnected",
+      ({ playerName: leaverName }: { playerName: string }) => {
+        setDisconnectMessage(
+          `Connection Lost: ${leaverName} has left the match.`,
+        );
+      },
+    );
 
     s.on("matchTerminationUpdate", ({ countdown }: { countdown: number }) => {
       setMatchTerminationCountdown(countdown);
@@ -96,13 +110,19 @@ export function useMatchManager({ namespace, playerName }: UseMatchManagerOption
   }, [namespace, playerName, resetMatchStates]);
 
   // Common Actions
-  const createRoom = useCallback((config: any) => {
-    socket?.emit("createRoom", config);
-  }, [socket]);
+  const createRoom = useCallback(
+    (config: any) => {
+      socket?.emit("createRoom", config);
+    },
+    [socket],
+  );
 
-  const joinRoom = useCallback((id: string) => {
-    socket?.emit("joinSpecificRoom", id);
-  }, [socket]);
+  const joinRoom = useCallback(
+    (id: string) => {
+      socket?.emit("joinSpecificRoom", id);
+    },
+    [socket],
+  );
 
   const leaveRoom = useCallback(() => {
     if (socket && roomId) {
@@ -113,6 +133,11 @@ export function useMatchManager({ namespace, playerName }: UseMatchManagerOption
     setIsHost(false);
     resetMatchStates();
   }, [socket, roomId, resetMatchStates]);
+
+  useEffect(() => {
+    setIsLocked(!!roomId);
+    return () => setIsLocked(false);
+  }, [roomId, setIsLocked]);
 
   const toggleReady = useCallback(() => {
     if (socket && roomId) {
@@ -133,11 +158,14 @@ export function useMatchManager({ namespace, playerName }: UseMatchManagerOption
     }
   }, [socket, roomId]);
 
-  const updateRoomConfig = useCallback((config: any) => {
-    if (socket && roomId) {
-      socket.emit("updateRoomConfig", { roomId, config });
-    }
-  }, [socket, roomId]);
+  const updateRoomConfig = useCallback(
+    (config: any) => {
+      if (socket && roomId) {
+        socket.emit("updateRoomConfig", { roomId, config });
+      }
+    },
+    [socket, roomId],
+  );
 
   return {
     socket,
@@ -164,6 +192,6 @@ export function useMatchManager({ namespace, playerName }: UseMatchManagerOption
     startMatch,
     requestRematch,
     updateRoomConfig,
-    resetMatchStates
+    resetMatchStates,
   };
 }

@@ -196,11 +196,12 @@ export default function GuessTheFlagGame() {
       <RoomLobby
         roomLobby={roomLobby}
         localPlayerId={localSocketId || ""}
-        onToggleReady={() => socket?.emit("toggleReady", roomId)}
-        onStartMatch={() => socket?.emit("startMatch", roomId)}
+        onToggleReady={toggleReady}
+        onStartMatch={startMatch}
         onLeaveRoom={handleLeaveRoom}
         onUpdateConfig={handleUpdateConfig}
-        themeColor="orange"
+        themeColor="emerald"
+        tempNotification={tempNotification}
       />
     );
   }
@@ -218,7 +219,18 @@ export default function GuessTheFlagGame() {
   return (
     <GameShell playerName={playerName}>
       {matchTerminationCountdown !== null && (
-        <MatchTerminationBanner countdown={matchTerminationCountdown} />
+        <MatchTerminationBanner
+          countdown={matchTerminationCountdown}
+          title="Match Terminated"
+          message="Insufficient players remaining. Returning to lobby..."
+        />
+      )}
+
+      {tempNotification && matchTerminationCountdown === null && (
+        <MatchTerminationBanner
+          title="Notification"
+          message={tempNotification}
+        />
       )}
 
       <AlertModal
@@ -342,6 +354,7 @@ export default function GuessTheFlagGame() {
                 <RoundResults
                   players={gameState.players.map((p) => ({
                     id: p.id,
+                    name: roomLobby?.players.find((rp) => rp.id === p.id)?.name || "Unknown",
                     choice: p.currentGuess,
                   }))}
                   localPlayerId={localSocketId || ""}

@@ -40,7 +40,10 @@ const allowedOrigins = process.env.CORS_ORIGIN
   : null;
 
 const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void,
+  ) => {
     // Allow requests with no origin (server-to-server, curl, health checks)
     if (!origin) return callback(null, true);
     // If no CORS_ORIGIN is set, allow everything (dev / open API)
