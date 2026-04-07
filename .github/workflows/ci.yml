@@ -35,3 +35,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Deploy to Render (API & Web)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          curl "${{ secrets.RENDER_API_DEPLOY_HOOK_URL }}"
+          curl "${{ secrets.RENDER_WEB_DEPLOY_HOOK_URL }}"
