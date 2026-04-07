@@ -22,13 +22,13 @@ export default function UserProfile() {
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  const handleCancel = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleCancel = (e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
     setIsEditing(false);
     setEditValue(playerName);
   };
 
-  const handleSave = (e?: React.FormEvent | React.MouseEvent) => {
+  const handleSave = (e?: React.SyntheticEvent) => {
     e?.preventDefault();
     e?.stopPropagation();
     if (editValue.trim() && editValue.trim() !== playerName) {
@@ -66,7 +66,7 @@ export default function UserProfile() {
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSave();
-                if (e.key === "Escape") handleCancel(e as any);
+                if (e.key === "Escape") handleCancel(e);
               }}
               className="bg-transparent border-none outline-none text-white font-iosevka-bold text-sm tracking-widest w-full"
               maxLength={15}

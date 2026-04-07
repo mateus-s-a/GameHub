@@ -2,7 +2,7 @@
 
 import React from "react";
 import { RoomInfo } from "@gamehub/types";
-import { User, Clock, ArrowLeft } from "lucide-react";
+import { User, Clock } from "lucide-react";
 import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
 import { useRouter } from "next/navigation";

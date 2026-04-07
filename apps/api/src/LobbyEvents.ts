@@ -32,7 +32,7 @@ export function registerGenericLobbyEvents(
     const hostName =
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
-    let maxPlayers = config?.maxPlayers || 2;
+    const maxPlayers = config?.maxPlayers || 2;
     const room = roomManager.createRoom(
       gameType,
       socket.id,

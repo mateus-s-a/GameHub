@@ -27,7 +27,6 @@ export default function RoomLobby({
   onStartMatch,
   onLeaveRoom,
   onUpdateConfig,
-  themeColor = "cyan",
   tempNotification,
 }: RoomLobbyProps) {
   const { playerName } = useSocket();

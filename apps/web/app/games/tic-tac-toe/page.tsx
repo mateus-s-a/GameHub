@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { io, Socket } from "socket.io-client";
+import { io } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import GameSetup, {
   GameSetupConfig,
@@ -43,33 +43,26 @@ interface GameState {
 }
 
 export default function TicTacToeGame() {
-  const router = useRouter();
-  const { socketId: globalSocketId, playerName } = useSocket();
+  const { playerName } = useSocket();
 
   const {
     socket,
     localSocketId,
     roomId,
-    setRoomId,
-    isHost,
     setIsHost,
     isGameStarted,
-    setIsGameStarted,
     roomLobby,
     disconnectMessage,
     matchTerminationCountdown,
     tempNotification,
     setTempNotification,
     rematchRequested,
-    setRematchRequested,
     // Actions
-    createRoom,
     joinRoom,
     leaveRoom,
     toggleReady,
     startMatch,
     requestRematch,
-    updateRoomConfig,
   } = useMatchManager({
     namespace: "ttt",
     playerName,
@@ -141,15 +134,10 @@ export default function TicTacToeGame() {
     }
   };
 
-  const playAgain = () => {
+    const playAgain = () => {
     leaveRoom();
     setBoard(Array(9).fill(null));
     setWinner(null);
-  };
-
-  const handleReturnToSetup = () => {
-    leaveRoom();
-    setSetupNeeded(true);
   };
 
   const handleLeaveRoom = () => {

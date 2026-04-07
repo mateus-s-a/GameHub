@@ -6,7 +6,7 @@ interface GameShellProps {
   playerName: string;
 }
 
-export const GameShell = ({ children, playerName }: GameShellProps) => {
+export const GameShell = ({ children }: GameShellProps) => {
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-center p-8 overflow-hidden">
       {/* Top Header */}
