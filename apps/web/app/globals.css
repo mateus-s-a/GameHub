@@ -6,6 +6,7 @@
 
 @layer base {
   :root {
+    background-color: #0e0e10;
     --background: #111111;
     --foreground: #ffffff;
     --surface: #1a1a1a;
@@ -14,11 +15,30 @@
     --primary: #ffffff;
     --secondary: #333333;
     --matchmaking: #3b4a6b;
+    
+    /* Theme Variables */
+    --theme-bg: #0e0e10;
+    --theme-glow: rgba(255, 255, 255, 0.04);
   }
 
   body {
-    @apply bg-[var(--background)] text-[var(--foreground)] min-h-screen overflow-x-hidden;
+    @apply text-[var(--foreground)] min-h-screen overflow-x-hidden;
     font-family: 'Iosevka Charon Mono', monospace;
+    position: relative;
+    z-index: 1;
+  }
+
+  .bg-atmosphere {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse 80% 60% at 50% 40%,
+      var(--theme-glow) 0%,
+      transparent 70%
+    );
+    transition: background 2s ease-in-out;
   }
 }
 

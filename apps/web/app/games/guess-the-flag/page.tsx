@@ -354,7 +354,9 @@ export default function GuessTheFlagGame() {
                 <RoundResults
                   players={gameState.players.map((p) => ({
                     id: p.id,
-                    name: roomLobby?.players.find((rp) => rp.id === p.id)?.name || "Unknown",
+                    name:
+                      roomLobby?.players.find((rp) => rp.id === p.id)?.name ||
+                      "Unknown",
                     choice: p.currentGuess,
                   }))}
                   localPlayerId={localSocketId || ""}

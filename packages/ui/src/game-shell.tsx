@@ -8,7 +8,7 @@ interface GameShellProps {
 
 export const GameShell = ({ children, playerName }: GameShellProps) => {
   return (
-    <div className="min-h-screen relative flex flex-col items-center justify-center p-8 overflow-hidden bg-[var(--background)]">
+    <div className="min-h-screen relative flex flex-col items-center justify-center p-8 overflow-hidden">
       {/* Top Header */}
       <div className="absolute top-8 left-8">
         <Logo />

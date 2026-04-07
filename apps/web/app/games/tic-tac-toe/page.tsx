@@ -22,6 +22,7 @@ import { Button } from "@repo/ui/button";
 import { useSocket } from "@/(shared)/providers/SocketProvider";
 import NavButton from "@/(shared)/components/ui/NavButton";
 import Scoreboard from "@/features/match/components/Scoreboard";
+import { motion, AnimatePresence } from "framer-motion";
 
 type PlayerMark = "X" | "O" | null;
 type RoundState = "waiting_players" | "playing" | "game_over" | "round_result";
@@ -363,24 +364,123 @@ export default function TicTacToeGame() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-4 bg-[#1a1a1a] p-4 rounded-2xl shadow-2xl border border-white/5 relative">
+          <div className="grid grid-cols-3 gap-4 bg-[#1a1a1a] p-4 rounded-2xl shadow-2xl border border-white/5 relative overflow-hidden">
+            {/* Winning Line Overlay */}
+            {roundState === "round_result" &&
+              gameStateData?.winningLine &&
+              gameStateData.winningLine.length === 3 && (
+                <svg
+                  className="absolute inset-0 z-10 w-full h-full pointer-events-none"
+                  viewBox="0 0 300 300"
+                >
+                  {(() => {
+                    const line = gameStateData.winningLine;
+                    if (!line || line.length < 3) return null;
+                    const getCoords = (idx: number) => ({
+                      x: (idx % 3) * 100 + 50,
+                      y: Math.floor(idx / 3) * 100 + 50,
+                    });
+                    const startPos = line[0] ?? 0;
+                    const endPos = line[2] ?? 0;
+                    const start = getCoords(startPos);
+                    const end = getCoords(endPos);
+                    return (
+                      <motion.line
+                        x1={start.x}
+                        y1={start.y}
+                        x2={end.x}
+                        y2={end.y}
+                        stroke={winner === "X" ? "#22d3ee" : "#f472b6"}
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        style={{
+                          filter: `drop-shadow(0 0 12px ${winner === "X" ? "#22d3ee" : "#f472b6"})`,
+                        }}
+                        initial={{ pathLength: 0, opacity: 0 }}
+                        animate={{ pathLength: 1, opacity: 1 }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                      />
+                    );
+                  })()}
+                </svg>
+              )}
+
             {board.map((cell, i) => (
-              <button
+              <motion.button
                 key={i}
+                whileHover={
+                  cell === null && winner === null && yourMark === currentPlayer
+                    ? { scale: 1.05, backgroundColor: "rgba(255,255,255,0.03)" }
+                    : {}
+                }
+                whileTap={
+                  cell === null && winner === null && yourMark === currentPlayer
+                    ? { scale: 0.95 }
+                    : {}
+                }
                 onClick={() => handleCellClick(i)}
                 disabled={
                   cell !== null || winner !== null || yourMark !== currentPlayer
                 }
-                className={`w-28 h-28 flex items-center justify-center text-5xl font-iosevka-bold rounded-xl transition-all duration-300 border ${
+                className={`w-28 h-28 flex items-center justify-center rounded-xl border z-20 ${
                   cell === "X"
                     ? "text-cyan-400 bg-cyan-400/5 border-cyan-400/20 shadow-[0_0_20px_rgba(34,211,238,0.1)]"
                     : cell === "O"
                       ? "text-pink-400 bg-pink-400/5 border-pink-400/20 shadow-[0_0_20px_rgba(244,114,182,0.1)]"
                       : "bg-[#111111] border-white/5 hover:border-white/20"
-                } hover:scale-[1.02] active:scale-95 disabled:scale-100 disabled:opacity-100`}
+                } disabled:opacity-100 relative`}
               >
-                {cell}
-              </button>
+                <AnimatePresence>
+                  {cell === "X" && (
+                    <motion.svg
+                      viewBox="0 0 100 100"
+                      className="w-16 h-16 stroke-current"
+                      style={{ filter: "drop-shadow(0 0 8px currentColor)" }}
+                    >
+                      <motion.line
+                        x1="20"
+                        y1="20"
+                        x2="80"
+                        y2="80"
+                        strokeWidth="12"
+                        strokeLinecap="round"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 0.3 }}
+                      />
+                      <motion.line
+                        x1="80"
+                        y1="20"
+                        x2="20"
+                        y2="80"
+                        strokeWidth="12"
+                        strokeLinecap="round"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 0.3, delay: 0.2 }}
+                      />
+                    </motion.svg>
+                  )}
+                  {cell === "O" && (
+                    <motion.svg
+                      viewBox="0 0 100 100"
+                      className="w-16 h-16 stroke-current fill-none"
+                      style={{ filter: "drop-shadow(0 0 8px currentColor)" }}
+                    >
+                      <motion.circle
+                        cx="50"
+                        cy="50"
+                        r="35"
+                        strokeWidth="12"
+                        strokeLinecap="round"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 0.5 }}
+                      />
+                    </motion.svg>
+                  )}
+                </AnimatePresence>
+              </motion.button>
             ))}
           </div>
 

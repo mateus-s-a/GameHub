@@ -1,5 +1,23 @@
-import React from "react";
+"use client";
+
 import { Wifi, WifiOff } from "lucide-react";
+import { motion, useSpring, useTransform } from "framer-motion";
+import { useEffect } from "react";
+
+function AnimatedNumber({ value }: { value: number }) {
+  const spring = useSpring(value, {
+    mass: 0.8,
+    stiffness: 75,
+    damping: 15,
+  });
+  const display = useTransform(spring, (current) => Math.round(current));
+
+  useEffect(() => {
+    spring.set(value);
+  }, [value, spring]);
+
+  return <motion.span>{display}</motion.span>;
+}
 
 export interface ScoreboardPlayer {
   id: string;
@@ -39,6 +57,61 @@ const THEME_STYLES = {
   },
 };
 
+function ScoreCard({
+  player,
+  isLocal,
+  selectedStyle,
+}: {
+  player: ScoreboardPlayer;
+  isLocal: boolean;
+  selectedStyle: any;
+}) {
+  const shortId = player.id.substring(0, 5).toUpperCase();
+  const displayName = player.name || `PLAYER-${shortId}`;
+  const label = isLocal ? `${displayName} (You)` : displayName;
+
+  return (
+    <motion.div
+      key={`score-${player.id}-${player.score}`}
+      initial={false}
+      animate={{
+        filter: ["brightness(1)", "brightness(1.5)", "brightness(1)"],
+      }}
+      transition={{ duration: 0.3 }}
+      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-300 ${
+        isLocal
+          ? `${selectedStyle.borderAccent} ${selectedStyle.bgAccent} shadow-[0_0_15px_rgba(0,0,0,0.2)]`
+          : "bg-gray-800/40 border-transparent"
+      }`}
+    >
+      <div className="flex items-center gap-2 mb-1 w-full justify-center text-center">
+        <span
+          className={`text-[10px] font-iosevka-bold tracking-widest truncate max-w-[100px] ${isLocal ? selectedStyle.textAccent : "text-gray-400"}`}
+        >
+          {label}
+        </span>
+        {player.isConnected !== false ? (
+          <Wifi
+            className={`w-3 h-3 ${isLocal ? "text-emerald-400" : "text-gray-500"}`}
+          />
+        ) : (
+          <WifiOff className="w-3 h-3 text-red-500 animate-pulse" />
+        )}
+      </div>
+      <div className="text-3xl font-iosevka-bold text-white tabular-nums">
+        <AnimatedNumber value={player.score} />
+      </div>
+      {isLocal && (
+        <span
+          className={`text-[8px] font-iosevka-medium mt-1 uppercase ${selectedStyle.textAccent} opacity-80`}
+        >
+          Your Score
+        </span>
+      )}
+    </motion.div>
+  );
+}
+
 export default function Scoreboard({
   players,
   localPlayerId,
@@ -60,48 +133,14 @@ export default function Scoreboard({
         <div
           className={`flex-1 grid ${isMultiplayer ? "grid-cols-2 lg:grid-cols-4 gap-3" : "grid-cols-2 gap-16 w-full"}`}
         >
-          {players.map((player, idx) => {
-            const isLocal = player.id === localPlayerId;
-            const shortId = player.id.substring(0, 5).toUpperCase();
-            const displayName = player.name || `PLAYER-${shortId}`;
-            const label = isLocal ? `${displayName} (You)` : displayName;
-
-            return (
-              <div
-                key={player.id}
-                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-300 ${
-                  isLocal
-                    ? `${selectedStyle.borderAccent} ${selectedStyle.bgAccent} shadow-[0_0_15px_rgba(0,0,0,0.2)]`
-                    : "bg-gray-800/40 border-transparent"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1 w-full justify-center text-center">
-                  <span
-                    className={`text-[10px] font-iosevka-bold tracking-widest truncate max-w-[100px] ${isLocal ? selectedStyle.textAccent : "text-gray-400"}`}
-                  >
-                    {label}
-                  </span>
-                  {player.isConnected !== false ? (
-                    <Wifi
-                      className={`w-3 h-3 ${isLocal ? "text-emerald-400" : "text-gray-500"}`}
-                    />
-                  ) : (
-                    <WifiOff className="w-3 h-3 text-red-500 animate-pulse" />
-                  )}
-                </div>
-                <div className="text-3xl font-iosevka-bold text-white tabular-nums">
-                  {player.score}
-                </div>
-                {isLocal && (
-                  <span
-                    className={`text-[8px] font-iosevka-medium mt-1 uppercase ${selectedStyle.textAccent} opacity-80`}
-                  >
-                    Your Score
-                  </span>
-                )}
-              </div>
-            );
-          })}
+          {players.map((player) => (
+            <ScoreCard
+              key={player.id}
+              player={player}
+              isLocal={player.id === localPlayerId}
+              selectedStyle={selectedStyle}
+            />
+          ))}
         </div>
 
         {/* Round Counter */}
