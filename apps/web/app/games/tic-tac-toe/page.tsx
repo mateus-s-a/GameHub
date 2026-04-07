@@ -134,7 +134,7 @@ export default function TicTacToeGame() {
     }
   };
 
-    const playAgain = () => {
+  const playAgain = () => {
     leaveRoom();
     setBoard(Array(9).fill(null));
     setWinner(null);

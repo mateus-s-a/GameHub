@@ -20,6 +20,24 @@ export interface RoomLobbyProps {
   tempNotification?: string | null;
 }
 
+const GAME_THEMES = {
+  ttt: {
+    gradient: "from-cyan-500 to-blue-600",
+    glow: "shadow-cyan-500/50",
+    border: "border-cyan-400/30",
+  },
+  gtf: {
+    gradient: "from-emerald-500 to-teal-600",
+    glow: "shadow-emerald-500/50",
+    border: "border-emerald-400/30",
+  },
+  rps: {
+    gradient: "from-purple-500 to-indigo-600",
+    glow: "shadow-purple-500/50",
+    border: "border-purple-400/30",
+  },
+};
+
 export default function RoomLobby({
   roomLobby,
   localPlayerId,
@@ -36,6 +54,9 @@ export default function RoomLobby({
   const isHost = roomLobby.hostId === localPlayerId;
   const allReady = roomLobby.players.every((p) => p.isReady);
   const canStart = roomLobby.players.length >= 2 && allReady;
+  const theme =
+    GAME_THEMES[roomLobby.gameType as keyof typeof GAME_THEMES] ||
+    GAME_THEMES.ttt;
 
   const slots = Array.from({ length: roomLobby.maxPlayers }).map((_, i) => {
     return roomLobby.players[i] || null;
@@ -151,7 +172,7 @@ export default function RoomLobby({
                           className={`px-6 py-2 rounded-full text-xs font-iosevka-bold tracking-widest border-white/10 disabled:opacity-80 ${p.id === localPlayerId && !p.isReady ? "animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.1)]" : ""}`}
                           disabled={p.id !== localPlayerId}
                         >
-                          {p.isReady ? "READY UP" : "WAITING"}
+                          {p.isReady ? "READY" : "WAITING"}
                         </Button>
                       </motion.div>
                     )}
@@ -244,18 +265,35 @@ export default function RoomLobby({
           </Button>
         </motion.div>
         {isHost && (
-          <motion.div
-            whileHover={{ scale: canStart ? 1.05 : 1 }}
-            whileTap={{ scale: canStart ? 0.95 : 1 }}
+          <motion.button
+            onClick={onStartMatch}
+            disabled={!canStart}
+            whileHover={
+              canStart ? { scale: 1.05, filter: "brightness(1.1)" } : {}
+            }
+            whileTap={canStart ? { scale: 0.95 } : {}}
+            className={`relative overflow-hidden px-12 py-5 rounded-full text-lg tracking-tighter uppercase font-iosevka-bold border-2 transition-all duration-300 ${
+              canStart
+                ? `bg-gradient-to-r ${theme.gradient} border-white/20 ${theme.glow}`
+                : "bg-white/5 border-white/10 opacity-30 cursor-not-allowed grayscale"
+            }`}
           >
-            <Button
-              onClick={onStartMatch}
-              disabled={!canStart}
-              className={`px-12 py-5 rounded-full text-lg tracking-tighter uppercase font-iosevka-bold border-2 ${canStart ? "bg-white/10 border-white/20 hover:bg-white/20 shadow-[0_0_30px_rgba(255,255,255,0.1)]" : "opacity-40 grayscale pointer-events-none"}`}
-            >
-              START MATCH
-            </Button>
-          </motion.div>
+            {/* Shimmer Overlay */}
+            {canStart && (
+              <motion.div
+                initial={{ left: "-100%" }}
+                animate={{ left: "100%" }}
+                transition={{
+                  repeat: Infinity,
+                  duration: 2,
+                  ease: "linear",
+                  repeatDelay: 1,
+                }}
+                className="absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
+              />
+            )}
+            <span className="relative z-10">START MATCH</span>
+          </motion.button>
         )}
       </motion.div>
 

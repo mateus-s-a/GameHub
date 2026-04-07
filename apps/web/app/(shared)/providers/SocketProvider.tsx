@@ -11,6 +11,8 @@ interface SocketContextType {
   isLocked: boolean;
   setIsLocked: (locked: boolean) => void;
   isConnected: boolean;
+  isProfileExpanded: boolean;
+  setIsProfileExpanded: (expanded: boolean) => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -21,6 +23,8 @@ const SocketContext = createContext<SocketContextType>({
   isLocked: false,
   setIsLocked: () => {},
   isConnected: false,
+  isProfileExpanded: true,
+  setIsProfileExpanded: () => {},
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -40,6 +44,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socketId, setSocketId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isProfileExpanded, setIsProfileExpandedState] = useState(true);
 
   // Player state
   const [playerName, setPlayerName] = useState<string>("GUEST");
@@ -55,6 +60,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setPlayerName(storedName);
     } else if (sessionId) {
       setPlayerName(`PLAYER-${sessionId.slice(0, 5).toUpperCase()}`);
+    }
+
+    // Initialize isProfileExpanded from localStorage
+    const storedExpanded = localStorage.getItem("gh_profile_expanded");
+    if (storedExpanded !== null) {
+      setIsProfileExpandedState(storedExpanded === "true");
     }
 
     const socketUrl =
@@ -88,6 +99,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem("gh_player_name", newName);
   };
 
+  const setIsProfileExpanded = (expanded: boolean) => {
+    setIsProfileExpandedState(expanded);
+    localStorage.setItem("gh_profile_expanded", expanded.toString());
+  };
+
   return (
     <SocketContext.Provider
       value={{
@@ -98,6 +114,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         isLocked,
         setIsLocked,
         isConnected,
+        isProfileExpanded,
+        setIsProfileExpanded,
       }}
     >
       {children}
