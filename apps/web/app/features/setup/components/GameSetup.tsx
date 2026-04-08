@@ -42,7 +42,7 @@ export default function GameSetup({
   const [currentConfig, setCurrentConfig] = useState<GameSetupConfig>({
     maxRounds: gameId === "gtf" ? 5 : 3,
     timeLimit: 15,
-    region: "All",
+    region: "Global",
     maxPlayers: 2,
   });
 
