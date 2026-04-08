@@ -1,58 +1,126 @@
-# GameHub
+<div align="center">
+  <img src="apps/web/app/favicon.ico" width="80" height="80" alt="GameHub Logo" />
+  <h1>GameHub</h1>
+  <p><strong>A Scalable Multi-Game Real-Time Platform</strong></p>
+  <p>
+    <img src="https://img.shields.io/badge/Next.js-16.2-black?style=for-the-badge&logo=next.js" alt="Next.js" />
+    <img src="https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react" alt="React" />
+    <img src="https://img.shields.io/badge/TypeScript-5.9-blue?style=for-the-badge&logo=typescript" alt="TypeScript" />
+    <img src="https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css" alt="Tailwind CSS" />
+    <img src="https://img.shields.io/badge/Turborepo-2.8-EF4444?style=for-the-badge&logo=turborepo" alt="Turborepo" />
+  </p>
+</div>
 
-GameHub is a scalable multi-game real-time platform built with a modular monolith monorepo architecture.
+---
+
+## Overview
+
+GameHub is a high-performance, real-time gaming platform designed with a **Modular Monolith Monorepo** architecture. It provides a seamless multiplayer experience with server-authoritative logic, premium UI interactions, and a scalable foundation for adding new games.
+
+### Key Features
+
+- **Real-Time Multiplayer**: Powered by Socket.io for low-latency gameplay and instant state synchronization.
+- **Premium Aesthetics**: Dynamic game-aware themes, glassmorphism UI, and animated shimmer buttons using **Framer Motion**.
+- **Modular Architecture**: Isolated game logic packages ensuring server-authoritative rules and easy extensibility.
+- **Lobby System**: Robust match-making with room codes, host controls, and player readiness states.
+- **Unified Tech Stack**: Full-stack TypeScript for end-to-end type safety across the monorepo.
+
+---
+
+## Games Library
+
+| Game | Number of Players |
+| :--- | :--- |
+| **Tic Tac Toe** | 2 Players |
+| **Rock Paper Scissors** | 2 Players |
+| **Guess the Flag** | 2-4 Players |
+
+---
 
 ## Technology Stack
 
-- **Frontend**: Next.js (App Router), React 19, Tailwind CSS
-- **Backend**: Node.js, Express, Socket.io
-- **Database**: PostgreSQL with Prisma ORM
-- **Monorepo**: Turborepo with npm workspaces
-- **Language**: TypeScript
+### Core Frameworks
+- **Frontend**: [Next.js 16 (App Router)](https://nextjs.org/) & [React 19](https://react.dev/)
+- **Backend**: [Node.js](https://nodejs.org/) with [Express](https://expressjs.com/)
+- **Real-time**: [Socket.io](https://socket.io/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) & [Framer Motion](https://www.framer.com/motion/)
+
+### Infrastructure & Tooling
+- **Database**: [PostgreSQL](https://www.postgresql.org/) managed via [Prisma ORM](https://www.prisma.io/)
+- **Monorepo Manager**: [Turborepo](https://turbo.build/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+
+---
+
+## Project Structure
+
+```text
+GameHub/
+├── apps/
+│   ├── web/          # Next.js frontend application
+│   └── api/          # Express & Socket.io backend server
+├── packages/
+│   ├── core/         # Shared constants & business logic
+│   ├── game-logic/   # Isolated game engines (ttt, rps, gtf)
+│   ├── types/        # Unified TypeScript interfaces
+│   ├── ui/           # Shared high-end UI component library
+│   └── config/       # Shared ESLint, Tailwind, and TS configs
+└── setup.sh          # Automated installation and setup script
+```
+
+---
 
 ## Getting Started
 
-Follow these instructions to run the project locally.
+### Prerequisites
+- **Node.js**: `>= 20.19`
+- **npm**: `>= 11.10`
+- **PostgreSQL**: Running instance with `DATABASE_URL` configured
 
-### 1. Install Dependencies
+### Manual Installation
 
-Run the following command from the root directory to install all dependencies across the workspaces:
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-```bash
-npm install
-```
+2. **Database Configuration**:
+   Create a `.env` file in `apps/api/` and add your database URL:
+   ```env
+   DATABASE_URL="postgresql://user:password@localhost:5432/gamehub"
+   ```
 
-### 2. Run the Development Servers
+3. **Prisma Setup**:
+   Generate the client and push the schema to your database:
+   ```bash
+   npx turbo run generate --filter=api
+   cd apps/api && npx prisma db push && cd ../..
+   ```
 
-To start both the frontend Next.js app and the backend API server simultaneously with hot-reloading, run:
+4. **Run Development Servers**:
+   ```bash
+   npm run dev
+   ```
+   - **Frontend**: `http://localhost:3000`
+   - **Backend/Sockets**: `http://localhost:3001`
 
-```bash
-npm run dev
-```
+---
 
-- The **Frontend App** will be available at: `http://localhost:3000`
-- The **Backend API/Socket Hub** will be running on: `http://localhost:3001`
+## Building for Production
 
-### 3. Build for Production
-
-To compile the TypeScript files and build the Next.js optimized production bundle, run:
-
+To create optimized production builds for all applications:
 ```bash
 npm run build
 ```
+To start the production servers:
+```bash
+npx turbo run start
+```
 
-### 4. Code Quality & Formatting
+---
 
-We use Turborepo to orchestrate linting and formatting across all packages:
+## Code Quality
 
-- **Lint the codebase**: `npm run lint`
-- **Format code with Prettier**: `npm run format`
-- **Check TypeScript types**: `npm run check-types`
-
-## Monorepo Structure
-
-- `apps/web`: Next.js frontend application.
-- `apps/api`: Express & Socket.io backend server.
-- `packages/core`: Shared game constants and business logic.
-- `packages/types`: Shared TypeScript interfaces.
-- `packages/game-logic`: Isolated, server-authoritative rule engines for each game (e.g., `tic-tac-toe`).
+- **Linting**: `npm run lint`
+- **Formatting**: `npm run format`
+- **Type Checking**: `npm run check-types`
