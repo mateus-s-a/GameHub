@@ -292,7 +292,10 @@ export default function GuessTheFlagGame() {
 
         <Card className="w-full max-w-3xl p-10 flex flex-col items-center gap-8 bg-[#161616]">
           <Scoreboard
-            players={gameState.players}
+            players={gameState.players.map((p) => ({
+              ...p,
+              name: roomLobby?.players.find((rp) => rp.id === p.id)?.name,
+            }))}
             localPlayerId={localSocketId || ""}
             currentRound={gameState.currentRound}
             maxRounds={gameState.maxRounds}
