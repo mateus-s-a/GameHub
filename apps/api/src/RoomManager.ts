@@ -3,8 +3,17 @@ import { randomUUID } from "crypto";
 
 export class RoomManager {
   private rooms: Map<string, RoomInfo> = new Map();
+  private playerToRoomMap: Map<string, string> = new Map();
 
   constructor() {}
+
+  /**
+   * O(1) reverse lookup: find which room a player is in.
+   * Used by the disconnect handler to clean up ghost rooms.
+   */
+  public getRoomIdByPlayerId(playerId: string): string | null {
+    return this.playerToRoomMap.get(playerId) ?? null;
+  }
 
   public createRoom(
     gameType: string,
@@ -35,6 +44,7 @@ export class RoomManager {
       config,
     };
     this.rooms.set(roomId, newRoom);
+    this.playerToRoomMap.set(hostId, roomId);
     return newRoom;
   }
 
@@ -55,6 +65,13 @@ export class RoomManager {
   }
 
   public removeRoom(roomId: string): boolean {
+    const room = this.rooms.get(roomId);
+    if (room) {
+      // Clean up all player entries from the index
+      for (const player of room.players) {
+        this.playerToRoomMap.delete(player.id);
+      }
+    }
     return this.rooms.delete(roomId);
   }
 
@@ -86,6 +103,7 @@ export class RoomManager {
       });
 
       this.rooms.set(roomId, room);
+      this.playerToRoomMap.set(playerId, roomId);
       return room;
     }
     return null;
@@ -97,6 +115,7 @@ export class RoomManager {
 
     room.players = room.players.filter((p) => p.id !== playerId);
     room.playerCount = room.players.length;
+    this.playerToRoomMap.delete(playerId);
 
     // Se a sala ficar vazia, destruímos ela
     if (room.playerCount <= 0) {

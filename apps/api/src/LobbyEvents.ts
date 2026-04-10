@@ -128,6 +128,9 @@ export function registerGenericLobbyEvents(
     const room = roomManager.getRoom(roomId);
     if (!room) return;
 
+    // Idempotency: skip if player already left (handles leaveRoom + disconnect race)
+    if (!room.players.find((p) => p.id === socket.id)) return;
+
     const wasInProgress = room.status === "in_progress";
     const oldHostId = room.hostId;
     const leaverLogId = getLogId(socket);
@@ -219,11 +222,11 @@ export function registerGenericLobbyEvents(
   });
 
   socket.on("disconnect", () => {
-    for (const [roomId, game] of gameMap.entries()) {
-      if (game.players && game.players.has(socket.id)) {
-        if (onLeaveExtra) onLeaveExtra(socket.id);
-        handleLeaveOrDisconnect(roomId);
-      }
+    const roomId = roomManager.getRoomIdByPlayerId(socket.id);
+    if (roomId) {
+      socket.leave(roomId);
+      if (onLeaveExtra) onLeaveExtra(socket.id);
+      handleLeaveOrDisconnect(roomId);
     }
   });
 

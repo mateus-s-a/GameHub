@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { getSessionId, useSocket } from "@/(shared)/providers/SocketProvider";
 import { RoomInfo } from "@gamehub/types";
@@ -27,6 +27,9 @@ export function useMatchManager({
   const [tempNotification, setTempNotification] = useState<string | null>(null);
   const [rematchRequested, setRematchRequested] = useState(false);
   const [roomLobby, setRoomLobby] = useState<RoomInfo | null>(null);
+
+  // Ref to capture current roomId for cleanup (useEffect closures can't read state reliably)
+  const roomIdRef = useRef<string | null>(null);
 
   // Core reset logic to prevent "stuck" notifications
   const resetMatchStates = useCallback(() => {
@@ -105,6 +108,10 @@ export function useMatchManager({
     });
 
     return () => {
+      // SPA navigation guard: attempt clean leave before disconnect
+      if (roomIdRef.current) {
+        s.emit("leaveRoom", roomIdRef.current);
+      }
       s.disconnect();
     };
   }, [namespace, playerName, resetMatchStates]);
@@ -133,6 +140,11 @@ export function useMatchManager({
     setIsHost(false);
     resetMatchStates();
   }, [socket, roomId, resetMatchStates]);
+
+  // Keep the ref in sync with state so cleanup can read it
+  useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
 
   useEffect(() => {
     setIsLocked(!!roomId);
