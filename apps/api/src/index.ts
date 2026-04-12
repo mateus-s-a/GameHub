@@ -91,6 +91,8 @@ function scheduleNextRound(
 }
 
 import { registerGenericLobbyEvents } from "./LobbyEvents";
+import { roomManager } from "./RoomManager";
+import { renderDashboard } from "./views/dashboard";
 
 const loggedSessions = new Set<string>();
 function logConnection(socket: Socket, gameName: string) {
@@ -452,7 +454,11 @@ setInterval(() => {
 }, 1000);
 
 app.get("/", (req, res) => {
-  res.send("GamesHub API is running");
+  res.send(renderDashboard(roomManager.getStats()));
+});
+
+app.get("/api/stats", (req, res) => {
+  res.json(roomManager.getStats());
 });
 
 const PORT = process.env.PORT || 3001;

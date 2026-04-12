@@ -24,3 +24,9 @@ export interface RoomInfo {
   countdown: number | null;
   config?: any;
 }
+
+export interface ServerStats {
+  totalRooms: number;
+  totalPlayers: number;
+  gameBreakdown: Record<string, number>;
+}

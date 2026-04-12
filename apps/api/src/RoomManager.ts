@@ -1,4 +1,4 @@
-import { RoomInfo, RoomLobbyPlayer } from "@gamehub/types";
+import { RoomInfo, RoomLobbyPlayer, ServerStats } from "@gamehub/types";
 import { randomUUID } from "crypto";
 
 export class RoomManager {
@@ -155,6 +155,22 @@ export class RoomManager {
 
     this.rooms.set(roomId, room);
     return room;
+  }
+
+  public getStats(): ServerStats {
+    const totalRooms = this.rooms.size;
+    const totalPlayers = this.playerToRoomMap.size;
+    const gameBreakdown: Record<string, number> = {};
+
+    for (const room of this.rooms.values()) {
+      gameBreakdown[room.gameType] = (gameBreakdown[room.gameType] || 0) + 1;
+    }
+
+    return {
+      totalRooms,
+      totalPlayers,
+      gameBreakdown,
+    };
   }
 }
 
