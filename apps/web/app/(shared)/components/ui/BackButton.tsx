@@ -32,7 +32,7 @@ export default function BackButton({
       // Trigger the specialized leave logic (e.g. socket emit)
       onLeaveRoom();
       // Ensure we use soft navigation back to hub if we aren't handling it elsewhere
-      router.push("/");
+      router.push("/games");
     }
   };
 

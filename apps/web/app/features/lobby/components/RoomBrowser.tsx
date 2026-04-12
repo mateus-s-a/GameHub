@@ -25,7 +25,7 @@ export default function RoomBrowser({
   const router = useRouter();
 
   const handleBackToHub = () => {
-    router.push("/");
+    router.push("/games");
   };
 
   return (

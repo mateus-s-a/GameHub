@@ -29,23 +29,25 @@ GameHub is a high-performance, real-time gaming platform designed with a **Modul
 
 ## Games Library
 
-| Game | Number of Players |
-| :--- | :--- |
-| **Tic Tac Toe** | 2 Players |
-| **Rock Paper Scissors** | 2 Players |
-| **Guess the Flag** | 2-4 Players |
+| Game                    | Number of Players |
+| :---------------------- | :---------------- |
+| **Tic Tac Toe**         | 2 Players         |
+| **Rock Paper Scissors** | 2 Players         |
+| **Guess the Flag**      | 2-4 Players       |
 
 ---
 
 ## Technology Stack
 
 ### Core Frameworks
+
 - **Frontend**: [Next.js 16 (App Router)](https://nextjs.org/) & [React 19](https://react.dev/)
 - **Backend**: [Node.js](https://nodejs.org/) with [Express](https://expressjs.com/)
 - **Real-time**: [Socket.io](https://socket.io/)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/) & [Framer Motion](https://www.framer.com/motion/)
 
 ### Infrastructure & Tooling
+
 - **Database**: [PostgreSQL](https://www.postgresql.org/) managed via [Prisma ORM](https://www.prisma.io/)
 - **Monorepo Manager**: [Turborepo](https://turbo.build/)
 - **Icons**: [Lucide React](https://lucide.dev/)
@@ -73,6 +75,7 @@ GameHub/
 ## Getting Started
 
 ### Prerequisites
+
 - **Node.js**: `>= 20.19`
 - **npm**: `>= 11.10`
 - **PostgreSQL**: Running instance with `DATABASE_URL` configured
@@ -80,27 +83,32 @@ GameHub/
 ### Manual Installation
 
 1. **Install Dependencies**:
+
    ```bash
    npm install
    ```
 
 2. **Database Configuration**:
    Create a `.env` file in `apps/api/` and add your database URL:
+
    ```env
    DATABASE_URL="postgresql://user:password@localhost:5432/gamehub"
    ```
 
 3. **Prisma Setup**:
    Generate the client and push the schema to your database:
+
    ```bash
    npx turbo run generate --filter=api
    cd apps/api && npx prisma db push && cd ../..
    ```
 
 4. **Run Development Servers**:
+
    ```bash
    npm run dev
    ```
+
    - **Frontend**: `http://localhost:3000`
    - **Backend/Sockets**: `http://localhost:3001`
 
@@ -109,10 +117,13 @@ GameHub/
 ## Building for Production
 
 To create optimized production builds for all applications:
+
 ```bash
 npm run build
 ```
+
 To start the production servers:
+
 ```bash
 npx turbo run start
 ```
