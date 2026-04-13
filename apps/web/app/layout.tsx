@@ -3,6 +3,7 @@ import "./globals.css";
 import { SocketProvider } from "./(shared)/providers/SocketProvider";
 import UserProfile from "./(shared)/components/ui/UserProfile";
 import ThemeController from "./(shared)/components/layout/ThemeController";
+import TransitionProvider from "./(shared)/components/TransitionProvider";
 
 export const metadata: Metadata = {
   title: "GameHub",
@@ -20,7 +21,7 @@ export default function RootLayout({
         <SocketProvider>
           <ThemeController />
           <div className="bg-atmosphere" />
-          {children}
+          <TransitionProvider>{children}</TransitionProvider>
           <UserProfile />
         </SocketProvider>
       </body>
