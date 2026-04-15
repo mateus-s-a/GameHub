@@ -1,7 +1,15 @@
-import React, { useState, useEffect } from "react";
-import { GameSetupConfig } from "@/features/setup/components/GameSetup";
+import React, { useState, useEffect, useMemo } from "react";
+import { GameSetupConfig } from "@gamehub/types";
+import { 
+  compareConfigs, 
+  ROUND_OPTIONS, 
+  TIME_OPTIONS, 
+  PLAYER_OPTIONS 
+} from "@gamehub/core";
 import { Button } from "@repo/ui/button";
-import { Lock } from "lucide-react";
+import { Lock, RefreshCw, Check } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import StepSlider from "@/features/setup/components/StepSlider";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Root registry: fields that become locked FOR THE HOST once inside a lobby.
@@ -10,8 +18,6 @@ import { Lock } from "lucide-react";
 // ─────────────────────────────────────────────────────────────────────────────
 const LOBBY_LOCKED_FIELDS: Record<string, Array<keyof GameSetupConfig>> = {
   gtf: ["maxPlayers"],
-  // ttt: [],
-  // rps: [],
 };
 
 function isFieldLobbyLocked(
@@ -21,11 +27,6 @@ function isFieldLobbyLocked(
   return LOBBY_LOCKED_FIELDS[gameId]?.includes(field) ?? false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Wrapper that overlays a LOCKED badge on any config section that is
-// lobby-locked. Only the host sees this badge — guests see the card
-// as fully greyed out via the parent panel's read-only state.
-// ─────────────────────────────────────────────────────────────────────────────
 function LockedFieldWrapper({
   locked,
   isHost,
@@ -71,12 +72,21 @@ export default function GameConfigPanel({
   onChange,
 }: GameConfigPanelProps) {
   const [localConfig, setLocalConfig] = useState<GameSetupConfig>(config);
+  const [isPending, setIsPending] = useState(false);
 
+  // Memoize changes to avoid re-calculating on every unrelated render
+  const hasChanges = useMemo(() => {
+    return !compareConfigs(localConfig, config);
+  }, [localConfig, config]);
+
+  // Sync with server config ONLY if we don't have local modifications
+  // This prevents the "sync race" when players join/leave during editing.
   useEffect(() => {
-    if (!isHost) {
+    if (!hasChanges || !isHost) {
       setLocalConfig(config);
+      setIsPending(false); // Reset pending if server confirms/broadcasts
     }
-  }, [config, isHost]);
+  }, [config, isHost, hasChanges]);
 
   const handleChange = (
     field: keyof GameSetupConfig,
@@ -91,14 +101,20 @@ export default function GameConfigPanel({
     });
   };
 
-  // A field is disabled if: the user isn't the host, OR the field is lobby-locked
+  const handleApply = async () => {
+    setIsPending(true);
+    onApply(localConfig);
+  };
+
+  const handleReset = () => {
+    setLocalConfig(config);
+  };
+
   const isDisabled = (field: keyof GameSetupConfig): boolean =>
     !isHost || (isLobby && isFieldLobbyLocked(gameId, field));
 
   const selectClass =
     "w-full bg-[#222222] text-white p-4 rounded-xl border border-[#333333] focus:outline-none focus:border-white/40 disabled:opacity-60 transition-all appearance-none cursor-pointer";
-  const rangeClass =
-    "w-full accent-white bg-[#333333] h-1 rounded-lg outline-none appearance-none cursor-pointer";
 
   return (
     <div className="space-y-8 w-full font-iosevka-regular">
@@ -114,30 +130,21 @@ export default function GameConfigPanel({
             value={localConfig.maxRounds}
             onChange={(e) => handleChange("maxRounds", Number(e.target.value))}
           >
-            <option value={1}>1 Round (Sudden Death)</option>
-            <option value={3}>Best of 3</option>
-            <option value={5}>Best of 5</option>
-            <option value={7}>Best of 7</option>
+            {ROUND_OPTIONS.map((val) => (
+              <option key={val} value={val}>
+                {val === 1 ? "1 Round (Sudden Death)" : `Best of ${val}`}
+              </option>
+            ))}
           </select>
 
-          <div className="px-2">
-            <input
-              type="range"
-              min="1"
-              max="7"
-              step="1"
-              value={localConfig.maxRounds <= 7 ? localConfig.maxRounds : 7}
-              disabled={isDisabled("maxRounds")}
-              onChange={(e) =>
-                handleChange("maxRounds", Number(e.target.value))
-              }
-              className={rangeClass}
-            />
-            <div className="flex justify-between text-[10px] text-[var(--muted)] mt-2 font-iosevka-bold">
-              <span>1</span>
-              <span>7</span>
-            </div>
-          </div>
+          <StepSlider
+            options={ROUND_OPTIONS}
+            value={localConfig.maxRounds}
+            onChange={(v) => handleChange("maxRounds", v)}
+            disabled={isDisabled("maxRounds")}
+            label="Number of Rounds"
+            formatter={(val) => (val === 1 ? "1 Round" : `Best of ${val}`)}
+          />
         </div>
       </div>
 
@@ -153,33 +160,29 @@ export default function GameConfigPanel({
             value={localConfig.timeLimit}
             onChange={(e) => handleChange("timeLimit", Number(e.target.value))}
           >
-            <option value={5}>5 Seconds (Blitz)</option>
-            <option value={15}>15 Seconds (Normal)</option>
-            <option value={30}>30 Seconds</option>
-            <option value={0}>Unlimited</option>
+            {TIME_OPTIONS.map((val) => (
+              <option key={val} value={val}>
+                {val === 0
+                  ? "Unlimited"
+                  : `${val} Seconds ${val <= 5 ? "(Blitz)" : val === 15 ? "(Normal)" : ""}`}
+              </option>
+            ))}
           </select>
 
-          <div className="px-2 text-center">
-            <input
-              type="range"
-              min="0"
-              max="60"
-              step="5"
-              value={localConfig.timeLimit}
-              disabled={isDisabled("timeLimit")}
-              onChange={(e) =>
-                handleChange("timeLimit", Number(e.target.value))
-              }
-              className={rangeClass}
-            />
-          </div>
+          <StepSlider
+            options={TIME_OPTIONS}
+            value={localConfig.timeLimit}
+            onChange={(v) => handleChange("timeLimit", v)}
+            disabled={isDisabled("timeLimit")}
+            label="Turn Time"
+            formatter={(val) => (val === 0 ? "Unlimited" : `${val}s`)}
+          />
         </div>
       </div>
 
       {/* GTF Specific Options: Max Players & Region */}
       {gameId === "gtf" && (
         <>
-          {/* Max Players — lobby-locked once the room is live */}
           <div className="flex flex-col gap-4">
             <label className="text-sm text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
               Max Players
@@ -197,34 +200,25 @@ export default function GameConfigPanel({
                     handleChange("maxPlayers", Number(e.target.value))
                   }
                 >
-                  <option value={2}>2 Players (PvP)</option>
-                  <option value={3}>3 Players</option>
-                  <option value={4}>4 Players (Small Group)</option>
+                  {PLAYER_OPTIONS.map((val) => (
+                    <option key={val} value={val}>
+                      {val} Players {val === 2 ? "(PvP)" : val === 4 ? "(Small Group)" : ""}
+                    </option>
+                  ))}
                 </select>
 
-                <div className="px-2">
-                  <input
-                    type="range"
-                    min="2"
-                    max="4"
-                    step="1"
-                    value={localConfig.maxPlayers || 2}
-                    disabled={isDisabled("maxPlayers")}
-                    onChange={(e) =>
-                      handleChange("maxPlayers", Number(e.target.value))
-                    }
-                    className={rangeClass}
-                  />
-                  <div className="flex justify-between text-[10px] text-[var(--muted)] mt-2 font-iosevka-bold">
-                    <span>2</span>
-                    <span>4</span>
-                  </div>
-                </div>
+                <StepSlider
+                  options={PLAYER_OPTIONS}
+                  value={localConfig.maxPlayers || 2}
+                  onChange={(v) => handleChange("maxPlayers", v)}
+                  disabled={isDisabled("maxPlayers")}
+                  label="Max Players"
+                  formatter={(val) => `${val} Players`}
+                />
               </div>
             </LockedFieldWrapper>
           </div>
 
-          {/* Region / Continents */}
           <div className="flex flex-col gap-4">
             <label className="text-sm text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
               Region / Continent
@@ -248,14 +242,56 @@ export default function GameConfigPanel({
         </>
       )}
 
-      {isHost && isLobby && localConfig !== config && (
-        <Button
-          variant="highlight"
-          onClick={() => onApply(localConfig)}
-          className="w-full mt-4"
-        >
-          APPLY CHANGES
-        </Button>
+      {/* Action Buttons for Host in Lobby */}
+      {isHost && isLobby && (
+        <div className="pt-4 space-y-3">
+          <div className="flex gap-3 h-14">
+            <AnimatePresence>
+              {hasChanges && (
+                <motion.div
+                  initial={{ opacity: 0, x: -20, width: 0 }}
+                  animate={{ opacity: 1, x: 0, width: "100%" }}
+                  exit={{ opacity: 0, x: -20, width: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="flex-1"
+                >
+                  <Button
+                    variant="ghost"
+                    onClick={handleReset}
+                    className="w-full h-full border-2 border-white/5 hover:bg-white/5 text-white/60 font-iosevka-bold uppercase tracking-widest"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Reset
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <Button
+              variant={hasChanges ? "highlight" : "ghost"}
+              onClick={handleApply}
+              disabled={!hasChanges || isPending}
+              className={`flex-[2] h-full transition-all duration-300 ${
+                hasChanges
+                  ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-none text-white shadow-lg shadow-blue-500/20"
+                  : "bg-white/5 border-white/10 opacity-40 grayscale"
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2 font-iosevka-bold uppercase tracking-[0.2em]">
+                {isPending ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : hasChanges ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Apply Changes
+                  </>
+                ) : (
+                  "Settings Saved"
+                )}
+              </div>
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

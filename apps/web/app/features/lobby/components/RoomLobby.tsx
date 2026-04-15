@@ -3,7 +3,7 @@ import { RoomInfo } from "@gamehub/types";
 import { User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import GameConfigPanel from "@/features/setup/components/GameConfigPanel";
-import { GameSetupConfig } from "@/features/setup/components/GameSetup";
+import { GameSetupConfig } from "@gamehub/types";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";

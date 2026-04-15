@@ -8,9 +8,8 @@ import {
   RoundState,
   PlayerState,
 } from "@gamehub/rock-paper-scissors";
-import GameSetup, {
-  GameSetupConfig,
-} from "@/features/setup/components/GameSetup";
+import { GameSetupConfig } from "@gamehub/types";
+import GameSetup from "@/features/setup/components/GameSetup";
 import TimerDisplay from "@/features/match/components/TimerDisplay";
 import AlertModal from "@/(shared)/components/ui/AlertModal";
 import ConfirmModal from "@/(shared)/components/ui/ConfirmModal";

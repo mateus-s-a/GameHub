@@ -2,13 +2,7 @@ import { useState } from "react";
 import GameConfigPanel from "@/features/setup/components/GameConfigPanel";
 import { motion } from "framer-motion";
 import { Sparkles, ArrowRight } from "lucide-react";
-
-export interface GameSetupConfig {
-  maxRounds: number;
-  timeLimit: number;
-  region?: string; // Only for GTF
-  maxPlayers?: number; // Only for GTF currently mapped
-}
+import { GameSetupConfig } from "@gamehub/types";
 
 interface GameSetupProps {
   onStart: (config: GameSetupConfig) => void;

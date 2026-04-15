@@ -1,4 +1,9 @@
-import { RoomInfo, RoomLobbyPlayer, ServerStats } from "@gamehub/types";
+import {
+  RoomInfo,
+  RoomLobbyPlayer,
+  ServerStats,
+  GameSetupConfig,
+} from "@gamehub/types";
 import { randomUUID } from "crypto";
 
 export class RoomManager {
@@ -20,8 +25,7 @@ export class RoomManager {
     hostId: string,
     hostName: string,
     maxPlayers: number,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    config?: any,
+    config?: GameSetupConfig,
   ): RoomInfo {
     const roomId = randomUUID();
     const hostPlayer: RoomLobbyPlayer = {
@@ -41,12 +45,16 @@ export class RoomManager {
       maxPlayers,
       players: [hostPlayer],
       countdown: null,
-      config,
+      config: config || {
+        maxRounds: 3,
+        timeLimit: 15,
+      },
     };
     this.rooms.set(roomId, newRoom);
     this.playerToRoomMap.set(hostId, roomId);
     return newRoom;
   }
+
 
   public toggleReady(roomId: string, playerId: string): RoomInfo | null {
     const room = this.rooms.get(roomId);
@@ -143,8 +151,10 @@ export class RoomManager {
     return room;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public updateRoomConfig(roomId: string, config: any): RoomInfo | null {
+  public updateRoomConfig(
+    roomId: string,
+    config: GameSetupConfig,
+  ): RoomInfo | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
 

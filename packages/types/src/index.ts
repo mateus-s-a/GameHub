@@ -12,6 +12,13 @@ export interface RoomLobbyPlayer {
   isReady: boolean;
 }
 
+export interface GameSetupConfig {
+  maxRounds: number;
+  timeLimit: number;
+  region?: string; // Only for GTF
+  maxPlayers?: number; // Only for GTF currently mapped
+}
+
 export interface RoomInfo {
   id: string;
   gameType: string;
@@ -22,7 +29,7 @@ export interface RoomInfo {
   maxPlayers: number;
   players: RoomLobbyPlayer[];
   countdown: number | null;
-  config?: any;
+  config: GameSetupConfig;
 }
 
 export interface ServerStats {

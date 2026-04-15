@@ -1,3 +1,2 @@
-export const GAME_CONSTANTS = {
-  TIC_TAC_TOE_GRID_SIZE: 3,
-};
+export * from "./constants";
+export * from "./utils";
