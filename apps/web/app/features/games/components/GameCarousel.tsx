@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { GAMES_REGISTRY } from "@gamehub/core";
+import { GAMES_REGISTRY, ANIMATION_TOKENS } from "@gamehub/core";
 import { Logo } from "@repo/ui/logo";
 import { useCarousel } from "../hooks/useCarousel";
 import GameCard from "./GameCard";
@@ -34,41 +34,49 @@ export default function GameCarousel() {
     return diff > 0 ? 2 : -2; // Off-screen
   };
 
+  /**
+   * FIREFOX HARDWARE ACCELERATION STRATEGY:
+   * 1. Use 'rotateZ(0.01deg)' to force a new compositor layer.
+   * 2. Use 'transform-style: preserve-3d' and 'perspective' on the container.
+   * 3. Avoid animating 'filter' values (handled via opacity cross-fade in GameCard).
+   */
+  const gpuHint = { rotateZ: 0.01 };
+
   const cardVariants = {
     center: {
       x: "0%",
       scale: 1,
       opacity: 1,
-      filter: "blur(0px)",
       zIndex: 10,
+      ...gpuHint,
     },
     left: {
       x: "-75%",
       scale: 0.72,
       opacity: 0.4,
-      filter: "blur(3px)",
       zIndex: 1,
+      ...gpuHint,
     },
     right: {
       x: "75%",
       scale: 0.72,
       opacity: 0.4,
-      filter: "blur(3px)",
       zIndex: 1,
+      ...gpuHint,
     },
     hiddenLeft: {
       x: "-150%",
       scale: 0.5,
       opacity: 0,
-      filter: "blur(8px)",
       zIndex: 0,
+      ...gpuHint,
     },
     hiddenRight: {
       x: "150%",
       scale: 0.5,
       opacity: 0,
-      filter: "blur(8px)",
       zIndex: 0,
+      ...gpuHint,
     },
   };
 
@@ -87,11 +95,12 @@ export default function GameCarousel() {
 
   const transitionConfig = prefersReducedMotion
     ? { duration: 0.15 }
-    : { type: "spring" as const, stiffness: 200, damping: 28, mass: 1 };
+    : ANIMATION_TOKENS.CAROUSEL_SPRING;
 
   return (
     <div
       className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden select-none"
+      style={{ perspective: "1200px" }}
     >
       {/* Ambient background glow */}
       <div
@@ -109,7 +118,10 @@ export default function GameCarousel() {
 
       {/* Carousel Container */}
       <div className="relative w-full flex-1 flex items-center justify-center">
-        <div className="relative w-full max-w-[420px] md:max-w-[480px] aspect-[3/4] md:aspect-[3/4]">
+        <div 
+          className="relative w-full max-w-[420px] md:max-w-[480px] aspect-[3/4] md:aspect-[3/4]"
+          style={{ transformStyle: "preserve-3d" }}
+        >
           {games.map((game, index) => {
             const relPos = getRelativeIndex(index);
             const variant = getVariant(relPos);
@@ -131,6 +143,7 @@ export default function GameCarousel() {
                   cursor: isAdjacent ? "pointer" : "default",
                   pointerEvents:
                     isActive || isAdjacent ? "auto" : "none",
+                  transformStyle: "preserve-3d",
                 }}
               >
                 <GameCard game={game} isActive={isActive} />

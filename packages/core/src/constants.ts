@@ -10,3 +10,13 @@ export type PlayerOption = typeof PLAYER_OPTIONS[number];
 export const GAME_CONSTANTS = {
   TIC_TAC_TOE_GRID_SIZE: 3,
 } as const;
+
+export const ANIMATION_TOKENS = {
+  CAROUSEL_SPRING: {
+    type: "spring",
+    stiffness: 260,
+    damping: 32,
+    mass: 1,
+  },
+  BLUR_FIXED_AMOUNT: "blur(12px)",
+} as const;
