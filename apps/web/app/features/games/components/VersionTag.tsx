@@ -4,7 +4,7 @@ export default function VersionTag() {
   return (
     <div className="fixed bottom-8 left-8 z-40">
       <span className="text-[11px] text-white/20 font-iosevka-regular tracking-widest">
-        v0.5.5 — Beta
+        v0.5.6 — Beta
       </span>
     </div>
   );
