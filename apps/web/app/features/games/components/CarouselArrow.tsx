@@ -22,6 +22,7 @@ export default function CarouselArrow({
       disabled={disabled}
       ariaLabel={isNext ? "Next game" : "Previous game"}
       className="group w-12 h-12 md:w-14 md:h-14"
+      dragListener={false}
     >
       <svg
         width="24"

@@ -20,3 +20,9 @@ export const ANIMATION_TOKENS = {
   },
   BLUR_FIXED_AMOUNT: "blur(12px)",
 } as const;
+
+export const CAROUSEL_GESTURE_CONFIG = {
+  SWIPE_THRESHOLD: 50,
+  VELOCITY_THRESHOLD: 500,
+  DRAG_ELASTIC: 0.2,
+} as const;

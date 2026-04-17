@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { GAMES_REGISTRY, ANIMATION_TOKENS } from "@gamehub/core";
 import { Logo } from "@repo/ui/logo";
 import { useCarousel } from "../hooks/useCarousel";
+import { useCarouselDrag } from "../hooks/useCarouselDrag";
 import GameCard from "./GameCard";
 import CarouselDots from "./CarouselDots";
 import VersionTag from "./VersionTag";
@@ -24,6 +25,12 @@ export default function GameCarousel() {
   } = useCarousel({
     totalItems: games.length,
   });
+
+  // Gestures
+  const { dragProps, isDragging } = useCarouselDrag(
+    () => handleNext(),
+    () => handlePrev()
+  );
 
   // Throttled navigation to prevent rapid-click stutter
   const handleNext = () => {
@@ -141,14 +148,24 @@ export default function GameCarousel() {
       </div>
 
       {/* Desktop Navigation Arrows — Flanking the central card area on PC */}
-      <div className="absolute inset-0 flex items-center justify-between z-40 pointer-events-none max-w-[1200px] mx-auto px-4 md:px-0">
-        <div className="pointer-events-auto">
-          <CarouselArrow direction="prev" onClick={handlePrev} />
-        </div>
-        <div className="pointer-events-auto">
-          <CarouselArrow direction="next" onClick={handleNext} />
-        </div>
-      </div>
+      <AnimatePresence>
+        {!isDragging && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 flex items-center justify-between z-40 pointer-events-none max-w-[1200px] mx-auto px-4 md:px-0"
+          >
+            <div className="pointer-events-auto">
+              <CarouselArrow direction="prev" onClick={handlePrev} />
+            </div>
+            <div className="pointer-events-auto">
+              <CarouselArrow direction="next" onClick={handleNext} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Carousel Container */}
       <div className="relative w-full flex-1 flex items-center justify-center">
@@ -169,6 +186,7 @@ export default function GameCarousel() {
                 variants={cardVariants}
                 animate={variant}
                 transition={transitionConfig}
+                {...dragProps}
                 onClick={() => {
                   // Only trigger card-based nav if clicking the "peek" area explicitly
                   // and not the center card which has its own CTAs
@@ -180,6 +198,7 @@ export default function GameCarousel() {
                   pointerEvents:
                     isActive || isAdjacent ? "auto" : "none",
                   transformStyle: "preserve-3d",
+                  touchAction: "pan-y", // Prevent vertical scroll interference
                 }}
               >
                 <GameCard game={game} isActive={isActive} />
