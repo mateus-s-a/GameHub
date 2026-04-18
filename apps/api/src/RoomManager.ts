@@ -55,7 +55,6 @@ export class RoomManager {
     return newRoom;
   }
 
-
   public toggleReady(roomId: string, playerId: string): RoomInfo | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;

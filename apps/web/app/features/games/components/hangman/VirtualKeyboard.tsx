@@ -22,7 +22,7 @@ export default function VirtualKeyboard({
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (disabled) return;
-      
+
       const target = e.target as HTMLElement;
       const button = target.closest("button");
       if (!button) return;
@@ -32,12 +32,12 @@ export default function VirtualKeyboard({
         onKeyPress(key);
       }
     },
-    [onKeyPress, guessedLetters, disabled]
+    [onKeyPress, guessedLetters, disabled],
   );
 
   return (
-    <div 
-      className="flex flex-col gap-2 md:gap-3 items-center" 
+    <div
+      className="flex flex-col gap-2 md:gap-3 items-center"
       onClick={handleClick}
     >
       {ROWS.map((row, rowIndex) => (
@@ -48,7 +48,9 @@ export default function VirtualKeyboard({
               <motion.button
                 key={key}
                 data-key={key}
-                whileHover={!isGuessed && !disabled ? { scale: 1.1, y: -2 } : {}}
+                whileHover={
+                  !isGuessed && !disabled ? { scale: 1.1, y: -2 } : {}
+                }
                 whileTap={!isGuessed && !disabled ? { scale: 0.95 } : {}}
                 disabled={isGuessed || disabled}
                 className={`
@@ -62,7 +64,10 @@ export default function VirtualKeyboard({
                   ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
                 `}
                 style={{
-                  boxShadow: !isGuessed && !disabled ? "0 4px 12px rgba(0,0,0,0.2)" : "none",
+                  boxShadow:
+                    !isGuessed && !disabled
+                      ? "0 4px 12px rgba(0,0,0,0.2)"
+                      : "none",
                 }}
               >
                 {key}

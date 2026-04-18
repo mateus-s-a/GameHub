@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { GameSetupConfig } from "@gamehub/types";
-import { 
-  compareConfigs, 
-  ROUND_OPTIONS, 
-  TIME_OPTIONS, 
-  PLAYER_OPTIONS 
+import {
+  compareConfigs,
+  ROUND_OPTIONS,
+  TIME_OPTIONS,
+  PLAYER_OPTIONS,
 } from "@gamehub/core";
 import { Button } from "@repo/ui/button";
 import { Lock, RefreshCw, Check } from "lucide-react";
@@ -202,7 +202,8 @@ export default function GameConfigPanel({
                 >
                   {PLAYER_OPTIONS.map((val) => (
                     <option key={val} value={val}>
-                      {val} Players {val === 2 ? "(PvP)" : val === 4 ? "(Small Group)" : ""}
+                      {val} Players{" "}
+                      {val === 2 ? "(PvP)" : val === 4 ? "(Small Group)" : ""}
                     </option>
                   ))}
                 </select>

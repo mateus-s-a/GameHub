@@ -13,8 +13,10 @@ export const useCarouselDrag = (onNext: () => void, onPrev: () => void) => {
     const { SWIPE_THRESHOLD, VELOCITY_THRESHOLD } = CAROUSEL_GESTURE_CONFIG;
 
     // Detect direction based on offset distance OR high velocity "flick"
-    const isSwipeLeft = offset.x < -SWIPE_THRESHOLD || velocity.x < -VELOCITY_THRESHOLD;
-    const isSwipeRight = offset.x > SWIPE_THRESHOLD || velocity.x > VELOCITY_THRESHOLD;
+    const isSwipeLeft =
+      offset.x < -SWIPE_THRESHOLD || velocity.x < -VELOCITY_THRESHOLD;
+    const isSwipeRight =
+      offset.x > SWIPE_THRESHOLD || velocity.x > VELOCITY_THRESHOLD;
 
     if (isSwipeLeft) {
       onNext();

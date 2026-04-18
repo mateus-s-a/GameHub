@@ -2,6 +2,7 @@ export enum HangmanEvent {
   GUESS = "hangman:guess",
   STATE_UPDATE = "hangman:state_update",
   PLAYER_SOLVED = "hangman:player_solved",
+  MATCH_OVER = "hangman:match_over",
 }
 
 export type HangmanPlayerStatus = "playing" | "solved" | "failed";

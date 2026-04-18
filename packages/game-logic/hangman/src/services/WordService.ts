@@ -3,7 +3,8 @@ import { DEFAULT_WORDS } from "../word-lists";
 export class WordService {
   private static buffer: string[] = [];
   private static BUFFER_SIZE = 10;
-  private static API_URL = "https://random-word-api.herokuapp.com/word?number=1";
+  private static API_URL =
+    "https://random-word-api.herokuapp.com/word?number=1";
 
   static async init() {
     await this.fillBuffer();

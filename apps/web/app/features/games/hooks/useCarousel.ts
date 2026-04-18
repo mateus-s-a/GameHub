@@ -7,9 +7,7 @@ interface UseCarouselOptions {
   totalItems: number;
 }
 
-export function useCarousel({
-  totalItems,
-}: UseCarouselOptions) {
+export function useCarousel({ totalItems }: UseCarouselOptions) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(0); // -1 left, 1 right
   const prefersReducedMotion = useReducedMotion();

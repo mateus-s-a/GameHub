@@ -14,7 +14,11 @@ export default function HangmanHero({
       shapeRendering="geometricPrecision"
     >
       {/* Gallows Structure — Subtle ghost borders */}
-      <g stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" strokeLinecap="round">
+      <g
+        stroke="rgba(255,255,255,0.08)"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      >
         {/* Base */}
         <line x1="60" y1="220" x2="160" y2="220" />
         {/* Post */}
@@ -24,13 +28,26 @@ export default function HangmanHero({
         {/* Support */}
         <line x1="80" y1="90" x2="110" y2="60" />
         {/* Rope */}
-        <line x1="180" y1="60" x2="180" y2="90" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+        <line
+          x1="180"
+          y1="60"
+          x2="180"
+          y2="90"
+          stroke="rgba(255,255,255,0.15)"
+          strokeWidth="1"
+        />
       </g>
 
       {/* The Hangman — Layered segments for performance-optimized opacity transitions */}
       <g stroke="rgba(255,255,255,0.12)" strokeWidth="2" strokeLinecap="round">
         {/* Head */}
-        <circle cx="180" cy="105" r="15" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.15)" />
+        <circle
+          cx="180"
+          cy="105"
+          r="15"
+          fill="rgba(255,255,255,0.04)"
+          stroke="rgba(255,255,255,0.15)"
+        />
         {/* Body */}
         <line x1="180" y1="120" x2="180" y2="170" />
         {/* Arms */}
@@ -50,8 +67,18 @@ export default function HangmanHero({
       </g>
 
       {/* Ambient environment arcs */}
-      <path d="M60 250 Q160 220 260 250" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" fill="none" />
-      <path d="M40 260 Q160 225 280 260" stroke="rgba(255,255,255,0.02)" strokeWidth="0.5" fill="none" />
+      <path
+        d="M60 250 Q160 220 260 250"
+        stroke="rgba(255,255,255,0.04)"
+        strokeWidth="0.5"
+        fill="none"
+      />
+      <path
+        d="M40 260 Q160 225 280 260"
+        stroke="rgba(255,255,255,0.02)"
+        strokeWidth="0.5"
+        fill="none"
+      />
     </svg>
   );
 }

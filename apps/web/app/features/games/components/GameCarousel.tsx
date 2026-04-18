@@ -15,21 +15,15 @@ export default function GameCarousel() {
   const games = GAMES_REGISTRY.filter((g) => g.status === "active");
   const transitionRef = useRef<number>(0);
 
-  const {
-    activeIndex,
-    direction,
-    goTo,
-    goNext,
-    goPrev,
-    prefersReducedMotion,
-  } = useCarousel({
-    totalItems: games.length,
-  });
+  const { activeIndex, direction, goTo, goNext, goPrev, prefersReducedMotion } =
+    useCarousel({
+      totalItems: games.length,
+    });
 
   // Gestures
   const { dragProps, isDragging } = useCarouselDrag(
     () => handleNext(),
-    () => handlePrev()
+    () => handlePrev(),
   );
 
   // Throttled navigation to prevent rapid-click stutter
@@ -150,7 +144,7 @@ export default function GameCarousel() {
       {/* Desktop Navigation Arrows — Flanking the central card area on PC */}
       <AnimatePresence>
         {!isDragging && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -169,7 +163,7 @@ export default function GameCarousel() {
 
       {/* Carousel Container */}
       <div className="relative w-full flex-1 flex items-center justify-center">
-        <div 
+        <div
           className="relative w-full max-w-[420px] md:max-w-[480px] aspect-[3/4] md:aspect-[3/4]"
           style={{ transformStyle: "preserve-3d" }}
         >
@@ -195,8 +189,7 @@ export default function GameCarousel() {
                 }}
                 style={{
                   cursor: isAdjacent ? "pointer" : "default",
-                  pointerEvents:
-                    isActive || isAdjacent ? "auto" : "none",
+                  pointerEvents: isActive || isAdjacent ? "auto" : "none",
                   transformStyle: "preserve-3d",
                   touchAction: "pan-y", // Prevent vertical scroll interference
                 }}

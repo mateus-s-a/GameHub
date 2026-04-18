@@ -1,9 +1,16 @@
-import { HangmanGameState, HangmanPlayerState, HangmanPlayerStatus } from "@gamehub/core";
+import {
+  HangmanGameState,
+  HangmanPlayerState,
+  HangmanPlayerStatus,
+} from "@gamehub/core";
 
 export const MAX_ATTEMPTS = 6;
 
 export class HangmanEngine {
-  static createInitialState(playerIds: string[], wordLength: number): HangmanGameState {
+  static createInitialState(
+    playerIds: string[],
+    wordLength: number,
+  ): HangmanGameState {
     const players: Record<string, HangmanPlayerState> = {};
     const maskedWord = "_".repeat(wordLength);
 
@@ -40,7 +47,7 @@ export class HangmanEngine {
     state: HangmanGameState,
     playerId: string,
     letter: string,
-    secretWord: string
+    secretWord: string,
   ): HangmanGameState {
     const player = state.players[playerId];
     if (!player || player.status !== "playing") return state;
@@ -51,7 +58,7 @@ export class HangmanEngine {
     const newGuessedLetters = [...player.guessedLetters, upperLetter];
     const newMaskedWord = this.getMaskedWord(secretWord, newGuessedLetters);
     const isCorrect = secretWord.includes(upperLetter);
-    
+
     let newAttempts = player.attemptsLeft;
     if (!isCorrect) newAttempts -= 1;
 

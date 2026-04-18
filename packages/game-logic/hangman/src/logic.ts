@@ -16,7 +16,7 @@ export class HangmanLogic {
       this.state,
       playerId,
       letter,
-      this.secretWord
+      this.secretWord,
     );
     // Return true if state changed
     return prevState !== JSON.stringify(this.state);
@@ -28,7 +28,7 @@ export class HangmanLogic {
 
   public isGameOver(): boolean {
     return Object.values(this.state.players).every(
-      (p: HangmanPlayerState) => p.status !== "playing"
+      (p: HangmanPlayerState) => p.status !== "playing",
     );
   }
 }

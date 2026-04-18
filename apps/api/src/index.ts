@@ -361,18 +361,24 @@ hangmanNamespace.on("connection", (socket: Socket) => {
     (roomId: string) => {
       const room = roomManager.getRoom(roomId);
       if (room) {
-        hangmanController.initGame(roomId, room.players.map(p => p.id));
+        hangmanController.initGame(
+          roomId,
+          room.players.map((p) => p.id),
+        );
       }
-    }
+    },
   );
 
   socket.on(GameEvent.JOIN_ROOM, (roomId: string) => {
     socket.join(roomId);
   });
 
-  socket.on(GameEvent.GAME_MOVE, ({ roomId, action }: { roomId: string; action: any }) => {
-    hangmanController.handleMove(socket, roomId, action);
-  });
+  socket.on(
+    GameEvent.GAME_MOVE,
+    ({ roomId, action }: { roomId: string; action: any }) => {
+      hangmanController.handleMove(socket, roomId, action);
+    },
+  );
 });
 
 function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
