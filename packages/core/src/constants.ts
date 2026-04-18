@@ -26,3 +26,12 @@ export const CAROUSEL_GESTURE_CONFIG = {
   VELOCITY_THRESHOLD: 500,
   DRAG_ELASTIC: 0.2,
 } as const;
+
+export enum GameEvent {
+  JOIN_ROOM = "joinRoom",
+  LEAVE_ROOM = "leaveRoom",
+  GAME_MOVE = "gameMove",
+  STATE_UPDATE = "gameState",
+  REMATCH_REQUEST = "requestRematch",
+  REMATCH_STARTED = "rematchStarted",
+}

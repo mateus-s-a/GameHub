@@ -5,6 +5,13 @@ import cors from "cors";
 import { TicTacToeLogic } from "@gamehub/tic-tac-toe";
 import { RPSLogic, RPSChoice } from "@gamehub/rock-paper-scissors";
 import { GuessTheFlagLogic, GTFCountry } from "@gamehub/guess-the-flag";
+import { WordService } from "@gamehub/hangman";
+import { HangmanController } from "./controllers/HangmanController";
+import { GameEvent } from "@gamehub/core";
+
+// Initialize word buffer
+WordService.init();
+
 // Load countries
 let allCountries: GTFCountry[] = [];
 async function loadCountries() {
@@ -335,6 +342,37 @@ gtfNamespace.on("connection", (socket: Socket) => {
   });
 
   // Rematch and Submit events stay the same
+});
+
+// --- Hangman Namespace ---
+const hangmanNamespace = io.of("/hangman");
+const hangmanController = new HangmanController(hangmanNamespace);
+
+hangmanNamespace.on("connection", (socket: Socket) => {
+  logConnection(socket, "Hangman");
+
+  registerGenericLobbyEvents(
+    socket,
+    hangmanNamespace,
+    "hangman",
+    new Map(), // We use the controller's internal map
+    () => null, // No-op logic creator since controller handles init
+    undefined,
+    (roomId: string) => {
+      const room = roomManager.getRoom(roomId);
+      if (room) {
+        hangmanController.initGame(roomId, room.players.map(p => p.id));
+      }
+    }
+  );
+
+  socket.on(GameEvent.JOIN_ROOM, (roomId: string) => {
+    socket.join(roomId);
+  });
+
+  socket.on(GameEvent.GAME_MOVE, ({ roomId, action }: { roomId: string; action: any }) => {
+    hangmanController.handleMove(socket, roomId, action);
+  });
 });
 
 function startGTFRound(roomId: string, game: GuessTheFlagLogic) {

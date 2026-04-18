@@ -1,15 +1,15 @@
 import React, { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { type GameEntry, ANIMATION_TOKENS } from "@gamehub/core";
-import TicTacToeHero from "./illustrations/TicTacToeHero";
-import GuessTheFlagHero from "./illustrations/GuessTheFlagHero";
-import RockPaperScissorsHero from "./illustrations/RockPaperScissorsHero";
 
-const illustrationMap: Record<GameEntry["illustration"], React.FC<{ className?: string }>> = {
-  ttt: TicTacToeHero,
-  gtf: GuessTheFlagHero,
-  rps: RockPaperScissorsHero,
+// Lazy-load illustrations for optimal bundle size
+const illustrationMap = {
+  ttt: dynamic(() => import("./illustrations/TicTacToeHero")),
+  gtf: dynamic(() => import("./illustrations/GuessTheFlagHero")),
+  rps: dynamic(() => import("./illustrations/RockPaperScissorsHero")),
+  hangman: dynamic(() => import("./illustrations/HangmanHero")),
 };
 
 interface GameCardProps {

@@ -11,7 +11,7 @@ export interface GameEntry {
   description: string;
   status: "active" | "coming_soon";
   accentColor: string;
-  illustration: "ttt" | "rps" | "gtf";
+  illustration: "ttt" | "rps" | "gtf" | "hangman";
   maxPlayers: number;
 }
 
@@ -48,6 +48,17 @@ export const GAMES_REGISTRY: readonly GameEntry[] = [
     accentColor: "rgba(255, 200, 130, 0.06)",
     illustration: "rps",
     maxPlayers: 2,
+  },
+  {
+    id: "hangman",
+    slug: "hangman",
+    title: "HANGMAN",
+    category: "WORD",
+    description: "A race against time and limited chances to solve the mystery word.",
+    status: "active",
+    accentColor: "rgba(200, 255, 130, 0.06)",
+    illustration: "hangman",
+    maxPlayers: 4,
   },
 ] as const satisfies readonly GameEntry[];
 

@@ -179,6 +179,15 @@ export function useMatchManager({
     [socket, roomId],
   );
 
+  const makeMove = useCallback(
+    (action: any) => {
+      if (socket && roomId) {
+        socket.emit("gameMove", { roomId, action });
+      }
+    },
+    [socket, roomId],
+  );
+
   return {
     socket,
     localSocketId,
@@ -204,6 +213,7 @@ export function useMatchManager({
     startMatch,
     requestRematch,
     updateRoomConfig,
+    makeMove,
     resetMatchStates,
   };
 }

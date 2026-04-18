@@ -15,6 +15,7 @@
     "@gamehub/types": "*",
     "@gamehub/rock-paper-scissors": "*",
     "@gamehub/guess-the-flag": "*",
+    "@gamehub/hangman": "*",
     "@prisma/client": "^7.4.2",
     "cors": "^2.8.5",
     "express": "^4.21.0",
