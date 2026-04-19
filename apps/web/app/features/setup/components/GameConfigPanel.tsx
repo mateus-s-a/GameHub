@@ -55,7 +55,7 @@ function LockedFieldWrapper({
 }
 
 interface GameConfigPanelProps {
-  gameId: "ttt" | "rps" | "gtf";
+  gameId: "ttt" | "rps" | "gtf" | "hangman";
   config: GameSetupConfig;
   onApply: (config: GameSetupConfig) => void;
   isHost: boolean;

@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   getGameBySlug,
-  GameEvent,
   HangmanGameState,
   HangmanEvent,
 } from "@gamehub/core";
@@ -22,6 +21,8 @@ import VirtualKeyboard from "@/features/games/components/hangman/VirtualKeyboard
 import HangmanVisual from "@/features/games/components/hangman/HangmanVisual";
 import OpponentProgress from "@/features/games/components/hangman/OpponentProgress";
 import TimerDisplay from "@/features/match/components/TimerDisplay";
+import GameSetup from "@/features/setup/components/GameSetup";
+import { GameSetupConfig } from "@gamehub/types";
 
 export default function HangmanPage() {
   const { playerName } = useSocket();
@@ -53,10 +54,11 @@ export default function HangmanPage() {
   const [gameState, setGameState] = useState<HangmanGameState | null>(null);
   const [isMatchOver, setIsMatchOver] = useState(false);
   const [returnCountdown, setReturnCountdown] = useState<number | null>(null);
+  const [setupNeeded, setSetupNeeded] = useState(false);
   const rooms = useRoomList(socket);
 
   const myState = gameState?.players[localSocketId || ""];
-  const isGameOver = myState?.status !== "playing" || isMatchOver;
+  const isGameOver = isMatchOver || (myState != null && myState.status !== "playing");
 
   useEffect(() => {
     if (isGameStarted && socket && roomId) {
@@ -67,7 +69,7 @@ export default function HangmanPage() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on(GameEvent.STATE_UPDATE, (state: HangmanGameState) => {
+    socket.on(HangmanEvent.STATE_UPDATE, (state: HangmanGameState) => {
       setGameState(state);
     });
 
@@ -83,7 +85,7 @@ export default function HangmanPage() {
     });
 
     return () => {
-      socket.off(GameEvent.STATE_UPDATE);
+      socket.off(HangmanEvent.STATE_UPDATE);
       socket.off(HangmanEvent.PLAYER_SOLVED);
       socket.off(HangmanEvent.MATCH_OVER);
     };
@@ -132,14 +134,33 @@ export default function HangmanPage() {
     makeMove({ letter });
   };
 
-  if (!roomId) {
+  if (setupNeeded && !roomId) {
+    return (
+      <GameShell playerName={playerName}>
+        <div className="w-full max-w-5xl mx-auto flex flex-col items-start pt-12">
+          <div className="w-full flex justify-center">
+            <GameSetup
+              onStart={(config: GameSetupConfig) => {
+                socket?.emit("createRoom", config);
+                setSetupNeeded(false);
+              }}
+              onCancel={() => setSetupNeeded(false)}
+              gameId="hangman"
+            />
+          </div>
+        </div>
+      </GameShell>
+    );
+  }
+
+  if (!roomId && !setupNeeded) {
     return (
       <GameShell playerName={playerName}>
         <RoomBrowser
           rooms={rooms}
           onCreateRoom={() => {
             setIsHost(true);
-            socket?.emit("createRoom", { maxRounds: 1, timeLimit: 60 });
+            setSetupNeeded(true);
           }}
           onJoinRoom={(id) => joinRoom(id)}
           gameLabel="Hangman"
@@ -187,20 +208,17 @@ export default function HangmanPage() {
               Hangman Versus
             </h1>
             <div className="flex items-center gap-4 text-[10px] font-iosevka-medium tracking-widest text-white/30">
-              <span>ROOM: {roomId.substring(0, 8)}</span>
+              <span>ROOM: {roomId?.substring(0, 8)}</span>
               <span className="w-1 h-1 rounded-full bg-white/20" />
               <span>CATEGORY: {gameMetadata?.category}</span>
             </div>
           </div>
 
+          <TimerDisplay turnEndTime={gameState?.turnEndTime || null} />
+
           <Card className="w-full p-8 md:p-12 bg-[#121212] border-white/5 flex flex-col md:flex-row items-center gap-16 relative overflow-hidden shadow-2xl">
             {/* Ambient Background */}
-            <div
-              className="absolute inset-0 pointer-events-none opacity-10"
-              style={{
-                background: `radial-gradient(circle at 50% 50%, ${gameMetadata?.accentColor}, transparent 70%)`,
-              }}
-            />
+            <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(circle_at_50%_50%,var(--theme-accent),transparent_70%)]" />
 
             {/* Visual Gallows */}
             <div className="relative z-10 w-48 h-48 md:w-64 md:h-64 flex items-center justify-center">
@@ -237,7 +255,7 @@ export default function HangmanPage() {
                 <VirtualKeyboard
                   onKeyPress={handleKeyPress}
                   guessedLetters={myState?.guessedLetters || []}
-                  disabled={myState?.status !== "playing" || isGameOver}
+                  disabled={!myState || myState.status !== "playing" || isGameOver}
                 />
 
                 <div className="flex items-center gap-6">
@@ -282,9 +300,11 @@ export default function HangmanPage() {
                   className={`p-5 bg-[#141414] border-white/5 transition-all duration-300 ${isLocal ? "ring-1 ring-white/10" : ""}`}
                 >
                   <OpponentProgress
+                    name={player.name}
                     attemptsLeft={pState?.attemptsLeft ?? 6}
                     progress={pState?.progress ?? 0}
                     isLocal={isLocal}
+                    status={pState?.status ?? "playing"}
                   />
                 </Card>
               );

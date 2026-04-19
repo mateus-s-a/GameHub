@@ -21,6 +21,14 @@ export class WordService {
     return word.toUpperCase();
   }
 
+  static async generateWordsForMatch(count: number): Promise<string[]> {
+    const words: string[] = [];
+    for (let i = 0; i < count; i++) {
+      words.push(await this.getNextWord());
+    }
+    return words;
+  }
+
   private static async fillBuffer() {
     const needed = this.BUFFER_SIZE - this.buffer.length;
     if (needed <= 0) return;

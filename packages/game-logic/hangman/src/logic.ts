@@ -1,13 +1,21 @@
-import { HangmanGameState, HangmanPlayerState } from "@gamehub/core";
+import {
+  HangmanGameState,
+  HangmanPlayerState,
+  HangmanConfig,
+} from "@gamehub/core";
 import { HangmanEngine } from "./engine";
 
 export class HangmanLogic {
   public state: HangmanGameState;
   private secretWord: string;
 
-  constructor(word: string, playerIds: string[]) {
+  constructor(word: string, playerIds: string[], config: HangmanConfig) {
     this.secretWord = word.toUpperCase();
-    this.state = HangmanEngine.createInitialState(playerIds, word.length);
+    this.state = HangmanEngine.createInitialState(
+      playerIds,
+      word.length,
+      config,
+    );
   }
 
   public submitGuess(playerId: string, letter: string): boolean {

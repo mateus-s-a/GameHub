@@ -12,12 +12,32 @@ export class HangmanController {
 
   constructor(private namespace: Namespace) {}
 
-  public async initGame(roomId: string, playerIds: string[]) {
+  public async initGame(
+    roomId: string,
+    playerIds: string[],
+    config: any,
+  ) {
+    const normalizedConfig = this.normalizeHangmanConfig(config);
     // Eager word fetch - already initialized by WordService.init() on server start
     const word = await WordService.getNextWord();
-    const game = new HangmanLogic(word, playerIds);
+    const game = new HangmanLogic(word, playerIds, {
+      maxRounds: normalizedConfig.maxRounds,
+      timeLimitSec: normalizedConfig.timeLimitSec,
+    });
+
+    // Set match timer with network buffer (1.5s)
+    game.state.turnEndTime =
+      Date.now() + normalizedConfig.timeLimitSec * 1000 + 1500;
+
     this.games.set(roomId, game);
     this.broadcastState(roomId);
+  }
+
+  private normalizeHangmanConfig(raw?: any) {
+    return {
+      maxRounds: Math.min(10, Math.max(1, raw?.maxRounds ?? 3)),
+      timeLimitSec: Math.min(300, Math.max(5, raw?.timeLimit ?? 60)),
+    };
   }
 
   public handleMove(
@@ -103,7 +123,7 @@ export class HangmanController {
 
       this.namespace
         .to(targetPlayerId)
-        .emit(GameEvent.STATE_UPDATE, personalizedState);
+        .emit(HangmanEvent.STATE_UPDATE, personalizedState);
     });
   }
 

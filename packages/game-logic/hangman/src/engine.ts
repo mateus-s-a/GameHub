@@ -2,6 +2,7 @@ import {
   HangmanGameState,
   HangmanPlayerState,
   HangmanPlayerStatus,
+  HangmanConfig,
 } from "@gamehub/core";
 
 export const MAX_ATTEMPTS = 6;
@@ -10,6 +11,7 @@ export class HangmanEngine {
   static createInitialState(
     playerIds: string[],
     wordLength: number,
+    config: HangmanConfig,
   ): HangmanGameState {
     const players: Record<string, HangmanPlayerState> = {};
     const maskedWord = "_".repeat(wordLength);
@@ -27,6 +29,10 @@ export class HangmanEngine {
     return {
       players,
       winners: [],
+      currentRound: 1,
+      maxRounds: config.maxRounds,
+      timeLimitSec: config.timeLimitSec,
+      turnEndTime: null,
     };
   }
 

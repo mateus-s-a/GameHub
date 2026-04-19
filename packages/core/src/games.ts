@@ -3,8 +3,10 @@
  * Used by both the Web (carousel rendering) and API (room validation).
  */
 
+export type GameId = "ttt" | "rps" | "gtf" | "hangman";
+
 export interface GameEntry {
-  id: string;
+  id: GameId;
   slug: string;
   title: string;
   category: string;
@@ -14,6 +16,45 @@ export interface GameEntry {
   illustration: "ttt" | "rps" | "gtf" | "hangman";
   maxPlayers: number;
 }
+
+export const GAME_THEMES = {
+  ttt: {
+    id: "ttt",
+    name: "Tic-Tac-Toe",
+    colors: {
+      background: "#0a1218",
+      glow: "rgba(34, 211, 238, 0.08)",
+      accent: "#22d3ee",
+    },
+  },
+  gtf: {
+    id: "gtf",
+    name: "Guess The Flag",
+    colors: {
+      background: "#0a140e",
+      glow: "rgba(16, 185, 129, 0.08)",
+      accent: "#10b981",
+    },
+  },
+  rps: {
+    id: "rps",
+    name: "Rock Paper Scissors",
+    colors: {
+      background: "#110a18",
+      glow: "rgba(168, 85, 247, 0.08)",
+      accent: "#a855f7",
+    },
+  },
+  hangman: {
+    id: "hangman",
+    name: "Hangman",
+    colors: {
+      background: "#10140a",
+      glow: "rgba(132, 204, 22, 0.08)",
+      accent: "#84cc16",
+    },
+  },
+} as const;
 
 export const GAMES_REGISTRY: readonly GameEntry[] = [
   {
@@ -67,6 +108,6 @@ export function getGameBySlug(slug: string): GameEntry | undefined {
   return GAMES_REGISTRY.find((g) => g.slug === slug);
 }
 
-export function getGameById(id: string): GameEntry | undefined {
+export function getGameById(id: GameId): GameEntry | undefined {
   return GAMES_REGISTRY.find((g) => g.id === id);
 }

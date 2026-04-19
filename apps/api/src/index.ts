@@ -355,8 +355,8 @@ hangmanNamespace.on("connection", (socket: Socket) => {
     socket,
     hangmanNamespace,
     "hangman",
-    new Map(), // We use the controller's internal map
-    () => null, // No-op logic creator since controller handles init
+    new Map(), // Placeholder map for LobbyEvents compatibility
+    () => ({}), // Truthy placeholder — actual logic lives in HangmanController
     undefined,
     (roomId: string) => {
       const room = roomManager.getRoom(roomId);
@@ -364,6 +364,7 @@ hangmanNamespace.on("connection", (socket: Socket) => {
         hangmanController.initGame(
           roomId,
           room.players.map((p) => p.id),
+          room.config,
         );
       }
     },

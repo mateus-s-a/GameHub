@@ -15,9 +15,18 @@ export interface HangmanPlayerState {
   progress: number; // Percentage or fraction solved
 }
 
+export interface HangmanConfig {
+  timeLimitSec: number;
+  maxRounds: number;
+}
+
 export interface HangmanGameState {
   players: Record<string, HangmanPlayerState>;
   winners: string[]; // Order of completion (for 5-3-1 scoring)
+  currentRound: number;
+  maxRounds: number;
+  timeLimitSec: number;
+  turnEndTime: number | null; // Epoch timestamp for match timer
 }
 
 export interface HangmanGuessAction {
