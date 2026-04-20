@@ -6,7 +6,7 @@ import { TicTacToeLogic } from "@gamehub/tic-tac-toe";
 import { RPSLogic, RPSChoice } from "@gamehub/rock-paper-scissors";
 import { GuessTheFlagLogic, GTFCountry } from "@gamehub/guess-the-flag";
 import { WordService } from "@gamehub/hangman";
-import { HangmanController } from "./controllers/HangmanController";
+import { HangmanController } from "./controllers/HangmanController.js";
 import { GameEvent } from "@gamehub/core";
 
 // Initialize word buffer
@@ -103,9 +103,9 @@ function scheduleNextRound(
   }, delayMs);
 }
 
-import { registerGenericLobbyEvents, handleAutoReturnToLobby, cancelAutoReturnToLobby } from "./LobbyEvents";
-import { roomManager } from "./RoomManager";
-import { renderDashboard } from "./views/dashboard";
+import { registerGenericLobbyEvents, handleAutoReturnToLobby, cancelAutoReturnToLobby } from "./LobbyEvents.js";
+import { roomManager } from "./RoomManager.js";
+import { renderDashboard } from "./views/dashboard.js";
 
 const loggedSessions = new Set<string>();
 function logConnection(socket: Socket, gameName: string) {

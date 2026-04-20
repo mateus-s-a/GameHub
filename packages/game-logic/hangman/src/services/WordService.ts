@@ -1,4 +1,4 @@
-import { DEFAULT_WORDS } from "../word-lists";
+import { DEFAULT_WORDS } from "../word-lists.js";
 
 export class WordService {
   private static buffer: string[] = [];

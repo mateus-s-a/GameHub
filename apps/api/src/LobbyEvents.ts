@@ -1,5 +1,5 @@
 import { Socket, Namespace } from "socket.io";
-import { roomManager } from "./RoomManager";
+import { roomManager } from "./RoomManager.js";
 import { GAME_CONSTANTS } from "@gamehub/core";
  
 const matchReturnTimeouts = new Map<string, NodeJS.Timeout>();

@@ -6,7 +6,7 @@ import {
   HangmanGuessAction,
   HangmanGameState,
 } from "@gamehub/core";
-import { handleAutoReturnToLobby, cancelAutoReturnToLobby } from "../LobbyEvents";
+import { handleAutoReturnToLobby, cancelAutoReturnToLobby } from "../LobbyEvents.js";
 
 export class HangmanController {
   private games: Map<string, HangmanLogic> = new Map();

@@ -3,7 +3,7 @@ import {
   HangmanPlayerState,
   HangmanConfig,
 } from "@gamehub/core";
-import { HangmanEngine } from "./engine";
+import { HangmanEngine } from "./engine.js";
 
 export class HangmanLogic {
   public state: HangmanGameState;
