@@ -9,6 +9,7 @@ const GAME_NAMES: Record<string, string> = {
   ttt: "Tic-Tac-Toe",
   rps: "Rock-Paper-Scissors",
   gtf: "Guess the Flag",
+  hangman: "Hangman",
 };
 
 function getGameDisplayName(key: string): string {
