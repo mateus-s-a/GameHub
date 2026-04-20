@@ -30,6 +30,7 @@ export interface HangmanGameState {
   turnEndTime: number | null; // Epoch timestamp for match timer
   isTransitioning?: boolean; // True during the 5s delay between rounds
   nextRoundStartTime?: number | null; // When the next round will start
+  rematchRequests?: string[]; // Players who have requested a rematch
 }
 
 export interface HangmanGuessAction {

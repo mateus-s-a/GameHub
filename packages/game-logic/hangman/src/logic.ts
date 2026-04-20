@@ -57,7 +57,21 @@ export class HangmanLogic {
       p.progress = 0;
     });
   }
-
+ 
+  public requestRematch(playerId: string): boolean {
+    if (!this.state.players[playerId]) return false;
+    
+    if (!this.state.rematchRequests) {
+      this.state.rematchRequests = [];
+    }
+    
+    if (!this.state.rematchRequests.includes(playerId)) {
+      this.state.rematchRequests.push(playerId);
+    }
+    
+    return this.state.rematchRequests.length === Object.keys(this.state.players).length;
+  }
+ 
   public handleTimeout() {
     Object.keys(this.state.players).forEach((playerId) => {
       const p = this.state.players[playerId]!;

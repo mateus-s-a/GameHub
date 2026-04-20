@@ -67,6 +67,20 @@ export class RoomManager {
     return room;
   }
 
+  public resetRoomToLobby(roomId: string): RoomInfo | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    room.status = "waiting";
+    room.countdown = null;
+    room.players.forEach((p) => {
+      p.isReady = false;
+    });
+
+    this.rooms.set(roomId, room);
+    return room;
+  }
+
   public getRoom(roomId: string): RoomInfo | undefined {
     return this.rooms.get(roomId);
   }

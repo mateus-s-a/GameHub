@@ -6,6 +6,7 @@ import {
   HangmanGuessAction,
   HangmanGameState,
 } from "@gamehub/core";
+import { handleAutoReturnToLobby, cancelAutoReturnToLobby } from "../LobbyEvents";
 
 export class HangmanController {
   private games: Map<string, HangmanLogic> = new Map();
@@ -84,10 +85,8 @@ export class HangmanController {
         .to(roomId)
         .emit(HangmanEvent.MATCH_OVER, game.getPublicState());
 
-      // 10-second delay before returning to lobby
-      setTimeout(() => {
-        this.terminateMatch(roomId);
-      }, 10000);
+      // 10-second delay before returning to lobby (Using project-wide root logic)
+      handleAutoReturnToLobby(this.namespace, roomId, this.games);
     }
   }
 
@@ -120,33 +119,24 @@ export class HangmanController {
   public async handleRematch(socketId: string, roomId: string) {
     const game = this.games.get(roomId);
     if (!game) return;
-
-    // Reset game logic
-    const playerIds = Object.keys(game.state.players);
-    const config = {
-      maxRounds: game.state.maxRounds,
-      timeLimit: game.state.timeLimitSec,
-    };
-    await this.initGame(roomId, playerIds, config);
-    this.namespace.to(roomId).emit("rematchStarted");
-  }
-
-  private terminateMatch(roomId: string) {
-    const game = this.games.get(roomId);
-    if (!game) return;
-
-    // Reset room status via RoomManager
-    const { roomManager } = require("../RoomManager");
-    const room = roomManager.getRoom(roomId);
-    if (room) {
-      room.status = "waiting";
-      room.players.forEach((p: any) => (p.isReady = false));
-      this.namespace.to(roomId).emit("roomLobbyUpdate", room);
+ 
+    if (game.requestRematch(socketId)) {
+      // Consensus reached! Reset game logic
+      cancelAutoReturnToLobby(roomId);
+      const playerIds = Object.keys(game.state.players);
+      const config = {
+        maxRounds: game.state.maxRounds,
+        timeLimit: game.state.timeLimitSec,
+      };
+      await this.initGame(roomId, playerIds, config);
+      this.namespace.to(roomId).emit("rematchStarted");
+    } else {
+      // Just one so far, notify others via state update
+      this.broadcastState(roomId);
     }
-
-    this.removeGame(roomId);
-    this.namespace.to(roomId).emit("matchTerminated");
   }
+
+
 
   private broadcastState(roomId: string) {
     const game = this.games.get(roomId);

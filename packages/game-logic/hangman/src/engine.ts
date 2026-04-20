@@ -34,6 +34,7 @@ export class HangmanEngine {
       maxRounds: config.maxRounds,
       timeLimitSec: config.timeLimitSec,
       turnEndTime: null,
+      rematchRequests: [],
     };
   }
 

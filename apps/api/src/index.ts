@@ -88,6 +88,12 @@ function scheduleNextRound(
     const game = gameMap.get(roomId);
     if (game) {
       game.nextRound();
+      
+      // Auto-return to lobby logic (Project-wide root logic)
+      if (game.state === "game_over") {
+        handleAutoReturnToLobby(namespace, roomId, gameMap);
+      }
+
       if (onNextRound) {
         onNextRound(game);
       } else {
@@ -97,7 +103,7 @@ function scheduleNextRound(
   }, delayMs);
 }
 
-import { registerGenericLobbyEvents } from "./LobbyEvents";
+import { registerGenericLobbyEvents, handleAutoReturnToLobby, cancelAutoReturnToLobby } from "./LobbyEvents";
 import { roomManager } from "./RoomManager";
 import { renderDashboard } from "./views/dashboard";
 
@@ -180,6 +186,8 @@ tttNamespace.on("connection", (socket: Socket) => {
         tttNamespace.to(roomId).emit("gameState", game.getPublicState());
         if (game.state === "round_result") {
           scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
+        } else if (game.state === "game_over") {
+          handleAutoReturnToLobby(tttNamespace, roomId, tttGames);
         }
       }
     },
@@ -191,6 +199,7 @@ tttNamespace.on("connection", (socket: Socket) => {
 
     if (game.requestRematch(socket.id)) {
       // Both want a rematch!
+      cancelAutoReturnToLobby(roomId);
       game.reset();
       tttNamespace.to(roomId).emit("rematchStarted");
       tttNamespace.to(roomId).emit("gameState", {
@@ -266,6 +275,7 @@ rpsNamespace.on("connection", (socket: Socket) => {
     if (!game) return;
 
     if (game.requestRematch(socket.id)) {
+      cancelAutoReturnToLobby(roomId);
       game.reset();
       rpsNamespace.to(roomId).emit("rematchStarted");
       rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
@@ -333,6 +343,7 @@ gtfNamespace.on("connection", (socket: Socket) => {
     if (!game) return;
 
     if (game.requestRematch(socket.id)) {
+      cancelAutoReturnToLobby(roomId);
       game.reset();
       gtfNamespace.to(roomId).emit("rematchStarted");
       startGTFRound(roomId, game); // Start new round automatically
@@ -440,6 +451,8 @@ setInterval(() => {
           tttNamespace.to(roomId).emit("gameState", game.getPublicState());
           if (game.state === "round_result") {
             scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
+          } else if (game.state === "game_over") {
+            handleAutoReturnToLobby(tttNamespace, roomId, tttGames);
           }
         }
       }

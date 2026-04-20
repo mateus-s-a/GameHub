@@ -1,5 +1,20 @@
 import { Socket, Namespace } from "socket.io";
 import { roomManager } from "./RoomManager";
+import { GAME_CONSTANTS } from "@gamehub/core";
+ 
+const matchReturnTimeouts = new Map<string, NodeJS.Timeout>();
+ 
+/**
+ * Cancels a pending auto-return to lobby timeout.
+ * Used when players successfully initiate a rematch.
+ */
+export function cancelAutoReturnToLobby(roomId: string) {
+  const timeout = matchReturnTimeouts.get(roomId);
+  if (timeout) {
+    clearTimeout(timeout);
+    matchReturnTimeouts.delete(roomId);
+  }
+}
 
 function getLogId(socket: Socket): string {
   const playerName = socket.handshake.auth.playerName;
@@ -254,4 +269,42 @@ export function registerGenericLobbyEvents(
       namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
     }
   });
+}
+
+/**
+ * Project-wide utility to automatically return a room to the lobby state
+ * after a match has successfully finished.
+ */
+export function handleAutoReturnToLobby(
+  namespace: Namespace,
+  roomId: string,
+  gameMap: Map<string, any>,
+  delayMs: number = GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC * 1000,
+) {
+  // Clear any existing timeout for this room first
+  cancelAutoReturnToLobby(roomId);
+
+  const timeout = setTimeout(() => {
+    matchReturnTimeouts.delete(roomId);
+    const room = roomManager.getRoom(roomId);
+    if (room) {
+      const gameType = room.gameType;
+      
+      // Completely remove the room instead of resetting it to make it "not visible"
+      roomManager.removeRoom(roomId);
+      gameMap.delete(roomId);
+      
+      namespace.to(roomId).emit("roomDestroyed");
+      namespace.to(roomId).emit("matchTerminated");
+
+      // Update the global room list for all users in the namespace
+      namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
+
+      console.log(
+        `[Match] [${gameType.toUpperCase()}] Room GH-${roomId.substring(0, 5).toUpperCase()} destroyed after auto-return delay.`,
+      );
+    }
+  }, delayMs);
+
+  matchReturnTimeouts.set(roomId, timeout);
 }

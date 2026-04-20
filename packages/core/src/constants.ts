@@ -9,6 +9,7 @@ export type PlayerOption = (typeof PLAYER_OPTIONS)[number];
 
 export const GAME_CONSTANTS = {
   TIC_TAC_TOE_GRID_SIZE: 3,
+  MATCH_AUTO_RETURN_DELAY_SEC: 30,
 } as const;
 
 export const ANIMATION_TOKENS = {

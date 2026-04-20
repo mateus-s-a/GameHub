@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { GAME_CONSTANTS } from "@gamehub/core";
 import {
   getGameBySlug,
   HangmanGameState,
@@ -44,13 +45,17 @@ export default function HangmanPage() {
     matchTerminationCountdown,
     tempNotification,
     setTempNotification,
+    rematchRequested,
     // Actions
     joinRoom,
     leaveRoom,
     toggleReady,
     startMatch,
     makeMove,
+    requestRematch,
     updateRoomConfig,
+    returnToLobbyCountdown,
+    setReturnToLobbyCountdown,
   } = useMatchManager({
     namespace: "hangman",
     playerName,
@@ -58,9 +63,7 @@ export default function HangmanPage() {
 
   const [gameState, setGameState] = useState<HangmanGameState | null>(null);
   const [isMatchOver, setIsMatchOver] = useState(false);
-  const [returnCountdown, setReturnCountdown] = useState<number | null>(null);
   const [setupNeeded, setSetupNeeded] = useState(false);
-  const [rematchRequested, setRematchRequested] = useState(false);
   const rooms = useRoomList(socket);
 
   const myState = gameState?.players[localSocketId || ""];
@@ -87,13 +90,17 @@ export default function HangmanPage() {
     socket.on(HangmanEvent.MATCH_OVER, (state: HangmanGameState) => {
       setGameState(state);
       setIsMatchOver(true);
-      setReturnCountdown(10);
+      setReturnToLobbyCountdown(GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC);
+    });
+
+    socket.on("matchTerminated", () => {
+      setIsMatchOver(false);
+      setReturnToLobbyCountdown(null);
     });
 
     socket.on("rematchStarted", () => {
       setIsMatchOver(false);
-      setRematchRequested(false);
-      setReturnCountdown(null);
+      setReturnToLobbyCountdown(null);
     });
 
     return () => {
@@ -104,19 +111,13 @@ export default function HangmanPage() {
   }, [socket, setTempNotification]);
 
   // Countdown for returning to lobby
-  useEffect(() => {
-    if (returnCountdown === null || returnCountdown <= 0) return;
-    const timer = setInterval(() => {
-      setReturnCountdown((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [returnCountdown]);
+
 
   // Reset states when match is terminated by server
   useEffect(() => {
     if (!roomId) {
       setIsMatchOver(false);
-      setReturnCountdown(null);
+      setReturnToLobbyCountdown(null);
     }
   }, [roomId]);
 
@@ -235,22 +236,20 @@ export default function HangmanPage() {
             gameId="hangman"
           />
 
-          <TimerDisplay turnEndTime={gameState?.turnEndTime || null} />
-
-          {gameState?.isTransitioning && (
-            <div className="absolute inset-0 z-[50] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="flex flex-col items-center gap-4 bg-[#1a1a1a] p-8 rounded-2xl border border-white/10 shadow-2xl">
-                <h3 className="text-3xl font-iosevka-bold text-white tracking-widest uppercase">
-                  ROUND OVER
-                </h3>
-                <div className="flex items-center gap-3 text-lime-400">
-                  <span className="text-sm font-iosevka-medium uppercase tracking-widest">
-                    Next Round in
-                  </span>
-                  <TimerDisplay turnEndTime={gameState?.nextRoundStartTime || null} />
-                </div>
-              </div>
-            </div>
+          {gameState?.isTransitioning && (gameState?.currentRound ?? 0) < (gameState?.maxRounds ?? 0) ? (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="flex flex-col items-center gap-2"
+            >
+              <span className="text-sm font-iosevka-bold text-lime-400 uppercase tracking-[0.25em] animate-pulse">
+                Prepare for Next Round
+              </span>
+              <TimerDisplay turnEndTime={gameState?.nextRoundStartTime || null} />
+            </motion.div>
+          ) : (
+            <TimerDisplay turnEndTime={gameState?.turnEndTime || null} />
           )}
 
           <div className="w-full flex flex-col md:flex-row items-center gap-16 relative z-10">
@@ -326,12 +325,15 @@ export default function HangmanPage() {
             <div className="w-full pt-8 border-t border-white/5 relative z-10">
               <div className="flex flex-col items-center gap-2 mb-4">
                 <span className="text-[10px] text-white/20 font-iosevka-bold uppercase tracking-widest">
-                  Returning to Lobby in {returnCountdown}s
+                  Returning to Lobby in {returnToLobbyCountdown}s
                 </span>
                 <motion.div
                   initial={{ width: "100%" }}
                   animate={{ width: "0%" }}
-                  transition={{ duration: 10, ease: "linear" }}
+                  transition={{
+                    duration: GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC,
+                    ease: "linear",
+                  }}
                   className="w-full h-0.5 bg-lime-500/20"
                 />
               </div>
@@ -339,11 +341,11 @@ export default function HangmanPage() {
               <EndMatchOptions
                 rematchRequested={rematchRequested}
                 opponentLeft={!!disconnectMessage}
-                hasOpponentRequested={false} // Would need back-end update for full accuracy, but consistent with others for now
-                onRequestRematch={() => {
-                  setRematchRequested(true);
-                  socket?.emit("requestRematch", roomId);
-                }}
+                hasOpponentRequested={
+                  gameState?.rematchRequests?.find((id) => id !== localSocketId) !==
+                  undefined
+                }
+                onRequestRematch={requestRematch}
                 onPlayAgain={leaveRoom}
                 primaryColorGradient="from-lime-600 to-lime-900"
                 primaryColorHover="hover:from-lime-500 hover:to-lime-800"

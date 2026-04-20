@@ -24,8 +24,10 @@ import { useMatchManager } from "@/features/match/hooks/useMatchManager";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
-import { useSocket } from "@/(shared)/providers/SocketProvider";
+import { useSocket, getSessionId } from "@/(shared)/providers/SocketProvider";
 import NavButton from "@/(shared)/components/ui/NavButton";
+import { motion } from "framer-motion";
+import { GAME_CONSTANTS } from "@gamehub/core";
 
 interface GameState {
   state: RoundState;
@@ -66,6 +68,8 @@ export default function RPSGame() {
     startMatch,
     requestRematch,
     updateRoomConfig,
+    returnToLobbyCountdown,
+    setReturnToLobbyCountdown,
   } = useMatchManager({
     namespace: "rps",
     playerName,
@@ -94,6 +98,10 @@ export default function RPSGame() {
         !serverState.players.find((p) => p.id === socket.id)?.hasCommitted
       ) {
         setLocalChoice(null);
+      }
+ 
+      if (serverState.state === "game_over" && returnToLobbyCountdown === null) {
+        setReturnToLobbyCountdown(GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC);
       }
     });
 
@@ -377,7 +385,21 @@ export default function RPSGame() {
 
           {/* End Game Options */}
           {gameState.state === "game_over" && (
-            <div className="pt-8 border-t border-white/5">
+            <div className="pt-8 border-t border-white/5 relative z-10">
+              <div className="flex flex-col items-center gap-2 mb-4">
+                <span className="text-[10px] text-white/20 font-iosevka-bold uppercase tracking-widest">
+                  Returning to Lobby in {returnToLobbyCountdown}s
+                </span>
+                <motion.div
+                  initial={{ width: "100%" }}
+                  animate={{ width: "0%" }}
+                  transition={{
+                    duration: GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC,
+                    ease: "linear",
+                  }}
+                  className="h-0.5 bg-purple-500/30 rounded-full"
+                />
+              </div>
               <EndMatchOptions
                 rematchRequested={rematchRequested}
                 opponentLeft={!!disconnectMessage}
