@@ -4,6 +4,7 @@ import { SocketProvider } from "./(shared)/providers/SocketProvider";
 import UserProfile from "./(shared)/components/ui/UserProfile";
 import ThemeController from "./(shared)/components/layout/ThemeController";
 import TransitionProvider from "./(shared)/components/TransitionProvider";
+import VersionTag from "./features/games/components/VersionTag";
 
 export const metadata: Metadata = {
   title: "GameHub",
@@ -23,6 +24,7 @@ export default function RootLayout({
           <div className="bg-atmosphere" />
           <TransitionProvider>{children}</TransitionProvider>
           <UserProfile />
+          <VersionTag />
         </SocketProvider>
       </body>
     </html>
