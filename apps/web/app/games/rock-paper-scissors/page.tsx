@@ -190,24 +190,28 @@ export default function RPSGame() {
 
   if (roomId && !isGameStarted) {
     return (
-      <RoomLobby
-        roomLobby={roomLobby}
-        localPlayerId={localSocketId || ""}
-        onToggleReady={() => socket?.emit("toggleReady", roomId)}
-        onStartMatch={() => socket?.emit("startMatch", roomId)}
-        onLeaveRoom={handleLeaveRoom}
-        onUpdateConfig={handleUpdateConfig}
-        themeColor="purple"
-        tempNotification={tempNotification}
-      />
+      <GameShell playerName={playerName}>
+        <RoomLobby
+          roomLobby={roomLobby}
+          localPlayerId={localSocketId || ""}
+          onToggleReady={() => socket?.emit("toggleReady", roomId)}
+          onStartMatch={() => socket?.emit("startMatch", roomId)}
+          onLeaveRoom={handleLeaveRoom}
+          onUpdateConfig={handleUpdateConfig}
+          themeColor="purple"
+          tempNotification={tempNotification}
+        />
+      </GameShell>
     );
   }
 
   if (!gameState) {
     return (
-      <div className="min-h-screen bg-[#111111] flex items-center justify-center font-iosevka-bold text-xl text-white/40 animate-pulse">
-        Entering Arena...
-      </div>
+      <GameShell playerName={playerName}>
+        <div className="min-h-screen bg-[#111111] flex items-center justify-center font-iosevka-bold text-xl text-white/40 animate-pulse">
+          Entering Arena...
+        </div>
+      </GameShell>
     );
   }
 
@@ -231,17 +235,7 @@ export default function RPSGame() {
         />
       )}
 
-      <AlertModal
-        isOpen={
-          !!disconnectMessage &&
-          (gameState?.state !== "game_over" || rematchRequested) &&
-          matchTerminationCountdown === null
-        }
-        title="Connection Lost"
-        message={disconnectMessage || ""}
-      />
 
-      {/* Temporary Toast Notification */}
       {tempNotification && (
         <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-right duration-500">
           <div className="bg-[#1a1a1a] border-l-4 border-white/20 text-white px-6 py-4 rounded-r-xl shadow-2xl flex items-center gap-3">
@@ -300,8 +294,8 @@ export default function RPSGame() {
             }
             localPlayerId={localSocketId || ""}
             currentRound={gameState?.currentRound || 1}
-            maxRounds={gameState?.maxRounds || 1}
-            themeColor="orange"
+            maxRounds={gameState?.maxRounds || 3}
+            gameId="rps"
           />
 
           {/* State Information */}

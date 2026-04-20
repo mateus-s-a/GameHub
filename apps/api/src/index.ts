@@ -380,6 +380,10 @@ hangmanNamespace.on("connection", (socket: Socket) => {
       hangmanController.handleMove(socket, roomId, action);
     },
   );
+
+  socket.on("requestRematch", (roomId: string) => {
+    hangmanController.handleRematch(socket.id, roomId);
+  });
 });
 
 function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
@@ -496,6 +500,9 @@ setInterval(() => {
       }, 0);
     }
   }
+
+  // Check Hangman
+  hangmanController.checkTimeouts();
 }, 1000);
 
 app.get("/", (req, res) => {

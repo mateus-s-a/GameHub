@@ -6,6 +6,7 @@ interface OpponentProgressProps {
   name: string;
   attemptsLeft: number;
   progress: number;
+  score: number;
   isLocal?: boolean;
   status: HangmanPlayerStatus;
 }
@@ -14,6 +15,7 @@ export default function OpponentProgress({
   name,
   attemptsLeft,
   progress,
+  score,
   isLocal = false,
   status,
 }: OpponentProgressProps) {
@@ -34,11 +36,16 @@ export default function OpponentProgress({
                   : "bg-white/20"
             }`}
           />
-          <span
-            className={`text-xs font-iosevka-bold tracking-wider ${isLocal ? "text-white" : "text-white/60"}`}
-          >
-            {name} {isLocal && "(YOU)"}
-          </span>
+          <div className="flex flex-col">
+            <span
+              className={`text-xs font-iosevka-bold tracking-wider ${isLocal ? "text-white" : "text-white/60"}`}
+            >
+              {name} {isLocal && "(YOU)"}
+            </span>
+            <span className="text-[9px] font-iosevka-bold text-lime-500/60 uppercase">
+              {score} PTS
+            </span>
+          </div>
         </div>
         <span className="text-[10px] font-iosevka-bold text-white/20 uppercase tracking-widest">
           {attemptsLeft} / {maxAttempts}

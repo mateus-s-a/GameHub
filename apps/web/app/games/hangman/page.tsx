@@ -17,12 +17,17 @@ import RoomBrowser from "@/features/lobby/components/RoomBrowser";
 import RoomLobby from "@/features/lobby/components/RoomLobby";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
 import AlertModal from "@/(shared)/components/ui/AlertModal";
+import NavButton from "@/(shared)/components/ui/NavButton";
 import VirtualKeyboard from "@/features/games/components/hangman/VirtualKeyboard";
 import HangmanVisual from "@/features/games/components/hangman/HangmanVisual";
 import OpponentProgress from "@/features/games/components/hangman/OpponentProgress";
 import TimerDisplay from "@/features/match/components/TimerDisplay";
 import GameSetup from "@/features/setup/components/GameSetup";
 import { GameSetupConfig } from "@gamehub/types";
+import Scoreboard from "@/features/match/components/Scoreboard";
+import EndMatchOptions from "@/features/match/components/EndMatchOptions";
+import MatchLayout from "@/features/match/components/MatchLayout";
+import { X } from "lucide-react";
 
 export default function HangmanPage() {
   const { playerName } = useSocket();
@@ -55,6 +60,7 @@ export default function HangmanPage() {
   const [isMatchOver, setIsMatchOver] = useState(false);
   const [returnCountdown, setReturnCountdown] = useState<number | null>(null);
   const [setupNeeded, setSetupNeeded] = useState(false);
+  const [rematchRequested, setRematchRequested] = useState(false);
   const rooms = useRoomList(socket);
 
   const myState = gameState?.players[localSocketId || ""];
@@ -82,6 +88,12 @@ export default function HangmanPage() {
       setGameState(state);
       setIsMatchOver(true);
       setReturnCountdown(10);
+    });
+
+    socket.on("rematchStarted", () => {
+      setIsMatchOver(false);
+      setRematchRequested(false);
+      setReturnCountdown(null);
     });
 
     return () => {
@@ -138,6 +150,11 @@ export default function HangmanPage() {
     return (
       <GameShell playerName={playerName}>
         <div className="w-full max-w-5xl mx-auto flex flex-col items-start pt-12">
+          <NavButton
+            label="BACK TO LIST ROOMS"
+            onClick={() => setSetupNeeded(false)}
+            className="mb-12"
+          />
           <div className="w-full flex justify-center">
             <GameSetup
               onStart={(config: GameSetupConfig) => {
@@ -171,16 +188,18 @@ export default function HangmanPage() {
 
   if (roomId && !isGameStarted) {
     return (
-      <RoomLobby
-        roomLobby={roomLobby}
-        localPlayerId={localSocketId || ""}
-        onToggleReady={toggleReady}
-        onStartMatch={startMatch}
-        onLeaveRoom={leaveRoom}
-        onUpdateConfig={updateRoomConfig}
-        themeColor="lime"
-        tempNotification={tempNotification}
-      />
+      <GameShell playerName={playerName}>
+        <RoomLobby
+          roomLobby={roomLobby}
+          localPlayerId={localSocketId || ""}
+          onToggleReady={toggleReady}
+          onStartMatch={startMatch}
+          onLeaveRoom={leaveRoom}
+          onUpdateConfig={updateRoomConfig}
+          themeColor="lime"
+          tempNotification={tempNotification}
+        />
+      </GameShell>
     );
   }
 
@@ -194,34 +213,49 @@ export default function HangmanPage() {
         />
       )}
 
-      <AlertModal
-        isOpen={!!disconnectMessage && !isGameOver}
-        title="Connection Lost"
-        message={disconnectMessage || ""}
-      />
+      <MatchLayout
+        gameId="hangman"
+        isGameOver={isMatchOver}
+        onLeave={leaveRoom}
+      >
+        <Card className="w-full max-w-3xl p-8 md:p-12 bg-[#121212] border-white/5 flex flex-col items-center gap-8 relative overflow-hidden shadow-2xl">
+          {/* Ambient Background */}
+          <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(circle_at_50%_50%,var(--theme-accent),transparent_70%)]" />
 
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 pt-8 px-4">
-        {/* Main Stage */}
-        <div className="flex flex-col items-center gap-12">
-          <div className="flex flex-col items-center gap-2">
-            <h1 className="text-3xl font-iosevka-bold tracking-widest text-white/90 uppercase">
-              Hangman Versus
-            </h1>
-            <div className="flex items-center gap-4 text-[10px] font-iosevka-medium tracking-widest text-white/30">
-              <span>ROOM: {roomId?.substring(0, 8)}</span>
-              <span className="w-1 h-1 rounded-full bg-white/20" />
-              <span>CATEGORY: {gameMetadata?.category}</span>
-            </div>
-          </div>
+          <Scoreboard
+            players={roomLobby?.players.map((p) => ({
+              id: p.id,
+              name: p.name,
+              score: gameState?.players[p.id]?.score || 0,
+              isConnected: true,
+            })) || []}
+            localPlayerId={localSocketId || ""}
+            currentRound={gameState?.currentRound || 1}
+            maxRounds={gameState?.maxRounds || 3}
+            gameId="hangman"
+          />
 
           <TimerDisplay turnEndTime={gameState?.turnEndTime || null} />
 
-          <Card className="w-full p-8 md:p-12 bg-[#121212] border-white/5 flex flex-col md:flex-row items-center gap-16 relative overflow-hidden shadow-2xl">
-            {/* Ambient Background */}
-            <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(circle_at_50%_50%,var(--theme-accent),transparent_70%)]" />
+          {gameState?.isTransitioning && (
+            <div className="absolute inset-0 z-[50] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="flex flex-col items-center gap-4 bg-[#1a1a1a] p-8 rounded-2xl border border-white/10 shadow-2xl">
+                <h3 className="text-3xl font-iosevka-bold text-white tracking-widest uppercase">
+                  ROUND OVER
+                </h3>
+                <div className="flex items-center gap-3 text-lime-400">
+                  <span className="text-sm font-iosevka-medium uppercase tracking-widest">
+                    Next Round in
+                  </span>
+                  <TimerDisplay turnEndTime={gameState?.nextRoundStartTime || null} />
+                </div>
+              </div>
+            </div>
+          )}
 
+          <div className="w-full flex flex-col md:flex-row items-center gap-16 relative z-10">
             {/* Visual Gallows */}
-            <div className="relative z-10 w-48 h-48 md:w-64 md:h-64 flex items-center justify-center">
+            <div className="w-48 h-48 md:w-64 md:h-64 flex items-center justify-center">
               <HangmanVisual
                 attemptsLeft={myState?.attemptsLeft ?? 6}
                 className="w-full h-full"
@@ -229,7 +263,7 @@ export default function HangmanPage() {
             </div>
 
             {/* Masked Word Stage */}
-            <div className="relative z-10 flex flex-col items-center gap-12 flex-1 w-full">
+            <div className="flex flex-col items-center gap-12 flex-1 w-full">
               <div className="flex flex-wrap justify-center gap-3 md:gap-4">
                 {myState?.maskedWord
                   .split("")
@@ -255,7 +289,12 @@ export default function HangmanPage() {
                 <VirtualKeyboard
                   onKeyPress={handleKeyPress}
                   guessedLetters={myState?.guessedLetters || []}
-                  disabled={!myState || myState.status !== "playing" || isGameOver}
+                  disabled={
+                    !myState || 
+                    myState.status !== "playing" || 
+                    isMatchOver || 
+                    gameState?.isTransitioning
+                  }
                 />
 
                 <div className="flex items-center gap-6">
@@ -281,116 +320,38 @@ export default function HangmanPage() {
                 </div>
               </div>
             </div>
-          </Card>
-        </div>
-
-        {/* Sidebar: Opponents Progress */}
-        <div className="flex flex-col gap-6">
-          <h2 className="text-xs font-iosevka-bold tracking-[0.3em] text-white/30 uppercase pl-2">
-            Competitors
-          </h2>
-          <div className="flex flex-col gap-4">
-            {roomLobby?.players.map((player) => {
-              const pState = gameState?.players[player.id];
-              const isLocal = player.id === localSocketId;
-
-              return (
-                <Card
-                  key={player.id}
-                  className={`p-5 bg-[#141414] border-white/5 transition-all duration-300 ${isLocal ? "ring-1 ring-white/10" : ""}`}
-                >
-                  <OpponentProgress
-                    name={player.name}
-                    attemptsLeft={pState?.attemptsLeft ?? 6}
-                    progress={pState?.progress ?? 0}
-                    isLocal={isLocal}
-                    status={pState?.status ?? "playing"}
-                  />
-                </Card>
-              );
-            })}
           </div>
 
-          {/* Leaderboard Overlay */}
-          <AnimatePresence>
-            {isMatchOver && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mt-8 p-6 bg-lime-500/10 border border-lime-500/20 rounded-2xl flex flex-col gap-4 relative overflow-hidden"
-              >
-                {/* Countdown Progress Bar */}
+          {isMatchOver && (
+            <div className="w-full pt-8 border-t border-white/5 relative z-10">
+              <div className="flex flex-col items-center gap-2 mb-4">
+                <span className="text-[10px] text-white/20 font-iosevka-bold uppercase tracking-widest">
+                  Returning to Lobby in {returnCountdown}s
+                </span>
                 <motion.div
                   initial={{ width: "100%" }}
                   animate={{ width: "0%" }}
                   transition={{ duration: 10, ease: "linear" }}
-                  className="absolute top-0 left-0 h-0.5 bg-lime-500/40"
+                  className="w-full h-0.5 bg-lime-500/20"
                 />
+              </div>
 
-                <h3 className="text-sm font-iosevka-bold text-lime-400 tracking-widest uppercase text-center">
-                  Final Standings
-                </h3>
-                <div className="flex flex-col gap-2">
-                  {gameState?.winners.map((winnerId: string, index: number) => (
-                    <div
-                      key={winnerId}
-                      className="flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-lime-500/40 font-iosevka-bold">
-                          #{index + 1}
-                        </span>
-                        <span className="text-white/80">
-                          {
-                            roomLobby?.players.find((p) => p.id === winnerId)
-                              ?.name
-                          }
-                        </span>
-                      </div>
-                      <span className="font-iosevka-bold text-lime-400">
-                        +{index === 0 ? 5 : index === 1 ? 3 : 1} PTS
-                      </span>
-                    </div>
-                  ))}
-                  {/* Players who failed */}
-                  {Object.entries(gameState?.players || {})
-                    .filter(([, p]) => p.status === "failed")
-                    .map(([id]) => (
-                      <div
-                        key={id}
-                        className="flex items-center justify-between text-xs opacity-40"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-white/40 font-iosevka-bold">
-                            ELIM
-                          </span>
-                          <span className="text-white/80">
-                            {roomLobby?.players.find((p) => p.id === id)?.name}
-                          </span>
-                        </div>
-                        <span className="font-iosevka-bold text-red-500">
-                          0 PTS
-                        </span>
-                      </div>
-                    ))}
-                </div>
-
-                <div className="mt-4 flex flex-col items-center gap-2">
-                  <span className="text-[10px] text-white/20 font-iosevka-bold uppercase tracking-widest">
-                    Returning to Lobby in {returnCountdown}s
-                  </span>
-                  <Button
-                    onClick={leaveRoom}
-                    className="w-full bg-white/5 hover:bg-white/10 text-white/60 text-[10px] font-iosevka-bold uppercase tracking-widest py-2"
-                  >
-                    LEAVE NOW
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+              <EndMatchOptions
+                rematchRequested={rematchRequested}
+                opponentLeft={!!disconnectMessage}
+                hasOpponentRequested={false} // Would need back-end update for full accuracy, but consistent with others for now
+                onRequestRematch={() => {
+                  setRematchRequested(true);
+                  socket?.emit("requestRematch", roomId);
+                }}
+                onPlayAgain={leaveRoom}
+                primaryColorGradient="from-lime-600 to-lime-900"
+                primaryColorHover="hover:from-lime-500 hover:to-lime-800"
+              />
+            </div>
+          )}
+        </Card>
+      </MatchLayout>
     </GameShell>
   );
 }

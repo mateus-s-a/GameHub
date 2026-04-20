@@ -36,6 +36,11 @@ const GAME_THEMES = {
     glow: "shadow-purple-500/50",
     border: "border-purple-400/30",
   },
+  hangman: {
+    gradient: "from-lime-500 to-emerald-600",
+    glow: "shadow-lime-500/50",
+    border: "border-lime-400/30",
+  },
 };
 
 export default function RoomLobby({
@@ -68,7 +73,7 @@ export default function RoomLobby({
   };
 
   return (
-    <GameShell playerName={playerName}>
+    <>
       {/* Notifications */}
       <AnimatePresence>
         {tempNotification && (
@@ -308,6 +313,6 @@ export default function RoomLobby({
           </p>
         </div>
       )}
-    </GameShell>
+    </>
   );
 }

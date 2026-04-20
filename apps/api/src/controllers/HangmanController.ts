@@ -25,9 +25,9 @@ export class HangmanController {
       timeLimitSec: normalizedConfig.timeLimitSec,
     });
 
-    // Set match timer with network buffer (1.5s)
+    // Set match timer with network buffer (3s)
     game.state.turnEndTime =
-      Date.now() + normalizedConfig.timeLimitSec * 1000 + 1500;
+      Date.now() + normalizedConfig.timeLimitSec * 1000 + 3000;
 
     this.games.set(roomId, game);
     this.broadcastState(roomId);
@@ -56,25 +56,86 @@ export class HangmanController {
         socket.emit(HangmanEvent.PLAYER_SOLVED);
       }
 
-      // CHECK FOR MATCH TERMINATION
+      // CHECK FOR ROUND COMPLETION
       if (game.isGameOver()) {
-        this.namespace
-          .to(roomId)
-          .emit(HangmanEvent.MATCH_OVER, game.getPublicState());
-
-        // Automated 10-second delay before returning to lobby
-        setTimeout(() => {
-          this.terminateMatch(roomId);
-        }, 10000);
+        this.handleRoundEnd(roomId);
       }
     }
+  }
+
+  private async handleRoundEnd(roomId: string) {
+    const game = this.games.get(roomId);
+    if (!game || game.state.turnEndTime === null) return;
+
+    // Clear the timer immediately to prevent multiple triggers from checkTimeouts
+    game.state.turnEndTime = null;
+    game.state.isTransitioning = true;
+    game.state.nextRoundStartTime = Date.now() + 5000;
+    this.broadcastState(roomId);
+
+    if (game.state.currentRound < game.state.maxRounds) {
+      // Transition to next round after 5 seconds
+      setTimeout(async () => {
+        await this.startNextRound(roomId);
+      }, 5000);
+    } else {
+      // End of match
+      this.namespace
+        .to(roomId)
+        .emit(HangmanEvent.MATCH_OVER, game.getPublicState());
+
+      // 10-second delay before returning to lobby
+      setTimeout(() => {
+        this.terminateMatch(roomId);
+      }, 10000);
+    }
+  }
+
+  private async startNextRound(roomId: string) {
+    const game = this.games.get(roomId);
+    if (!game) return;
+
+    const newWord = await WordService.getNextWord();
+    game.nextRound(newWord);
+    game.state.isTransitioning = false;
+    game.state.nextRoundStartTime = null;
+
+    // Refresh timer
+    game.state.turnEndTime = Date.now() + game.state.timeLimitSec * 1000 + 3000;
+
+    this.broadcastState(roomId);
+  }
+
+  public async checkTimeouts() {
+    const now = Date.now();
+    for (const [roomId, game] of this.games.entries()) {
+      if (game.state.turnEndTime && now >= game.state.turnEndTime) {
+        game.handleTimeout();
+        this.broadcastState(roomId);
+        this.handleRoundEnd(roomId);
+      }
+    }
+  }
+
+  public async handleRematch(socketId: string, roomId: string) {
+    const game = this.games.get(roomId);
+    if (!game) return;
+
+    // Reset game logic
+    const playerIds = Object.keys(game.state.players);
+    const config = {
+      maxRounds: game.state.maxRounds,
+      timeLimit: game.state.timeLimitSec,
+    };
+    await this.initGame(roomId, playerIds, config);
+    this.namespace.to(roomId).emit("rematchStarted");
   }
 
   private terminateMatch(roomId: string) {
     const game = this.games.get(roomId);
     if (!game) return;
 
-    // Reset room status via RoomManager (imported as singleton or passed)
+    // Reset room status via RoomManager
     const { roomManager } = require("../RoomManager");
     const room = roomManager.getRoom(roomId);
     if (room) {
@@ -87,10 +148,6 @@ export class HangmanController {
     this.namespace.to(roomId).emit("matchTerminated");
   }
 
-  /**
-   * DIFFERENTIAL BROADCASTING:
-   * Prevents progress leakage by sending personalized states to each player.
-   */
   private broadcastState(roomId: string) {
     const game = this.games.get(roomId);
     if (!game) return;
@@ -99,16 +156,13 @@ export class HangmanController {
     const playerIds = Object.keys(fullState.players);
 
     playerIds.forEach((targetPlayerId) => {
-      // Create a masked version for this specific player
       const maskedPlayers: Record<string, any> = {};
 
       playerIds.forEach((pId) => {
         const pState = fullState.players[pId];
         if (pId === targetPlayerId || pState?.status !== "playing") {
-          // Owner sees their own word, or everyone sees solved/failed words
           maskedPlayers[pId] = pState;
         } else {
-          // Mask opponent's revealed letters but show progress
           maskedPlayers[pId] = {
             ...pState,
             maskedWord: "_".repeat(pState.maskedWord.length),

@@ -13,6 +13,7 @@ export interface HangmanPlayerState {
   attemptsLeft: number;
   status: HangmanPlayerStatus;
   progress: number; // Percentage or fraction solved
+  score: number;
 }
 
 export interface HangmanConfig {
@@ -27,6 +28,8 @@ export interface HangmanGameState {
   maxRounds: number;
   timeLimitSec: number;
   turnEndTime: number | null; // Epoch timestamp for match timer
+  isTransitioning?: boolean; // True during the 5s delay between rounds
+  nextRoundStartTime?: number | null; // When the next round will start
 }
 
 export interface HangmanGuessAction {

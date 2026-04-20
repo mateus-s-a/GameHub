@@ -20,14 +20,51 @@ export class HangmanLogic {
 
   public submitGuess(playerId: string, letter: string): boolean {
     const prevState = JSON.stringify(this.state);
+    const wasSolved = this.state.players[playerId]?.status === "solved";
+
     this.state = HangmanEngine.processGuess(
       this.state,
       playerId,
       letter,
       this.secretWord,
     );
+
+    const isSolved = this.state.players[playerId]?.status === "solved";
+
+    // Apply scoring if solved this turn
+    if (isSolved && !wasSolved) {
+      const rank = this.state.winners.indexOf(playerId);
+      const points = HangmanEngine.getScore(rank);
+      this.state.players[playerId]!.score += points;
+    }
+
     // Return true if state changed
     return prevState !== JSON.stringify(this.state);
+  }
+
+  public nextRound(newWord: string) {
+    this.secretWord = newWord.toUpperCase();
+    this.state.currentRound += 1;
+    this.state.winners = [];
+
+    // Reset player round states but KEEP scores
+    Object.keys(this.state.players).forEach((playerId) => {
+      const p = this.state.players[playerId]!;
+      p.maskedWord = "_".repeat(newWord.length);
+      p.guessedLetters = [];
+      p.attemptsLeft = 6;
+      p.status = "playing";
+      p.progress = 0;
+    });
+  }
+
+  public handleTimeout() {
+    Object.keys(this.state.players).forEach((playerId) => {
+      const p = this.state.players[playerId]!;
+      if (p.status === "playing") {
+        p.status = "failed";
+      }
+    });
   }
 
   public getPublicState() {

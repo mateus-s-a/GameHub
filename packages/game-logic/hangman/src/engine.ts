@@ -23,6 +23,7 @@ export class HangmanEngine {
         attemptsLeft: MAX_ATTEMPTS,
         status: "playing",
         progress: 0,
+        score: 0,
       };
     });
 

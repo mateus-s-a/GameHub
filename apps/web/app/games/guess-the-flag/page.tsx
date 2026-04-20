@@ -192,24 +192,28 @@ export default function GuessTheFlagGame() {
 
   if (roomId && !isGameStarted) {
     return (
-      <RoomLobby
-        roomLobby={roomLobby}
-        localPlayerId={localSocketId || ""}
-        onToggleReady={toggleReady}
-        onStartMatch={startMatch}
-        onLeaveRoom={handleLeaveRoom}
-        onUpdateConfig={handleUpdateConfig}
-        themeColor="emerald"
-        tempNotification={tempNotification}
-      />
+      <GameShell playerName={playerName}>
+        <RoomLobby
+          roomLobby={roomLobby}
+          localPlayerId={localSocketId || ""}
+          onToggleReady={toggleReady}
+          onStartMatch={startMatch}
+          onLeaveRoom={handleLeaveRoom}
+          onUpdateConfig={handleUpdateConfig}
+          themeColor="emerald"
+          tempNotification={tempNotification}
+        />
+      </GameShell>
     );
   }
 
   if (!gameState) {
     return (
-      <div className="min-h-screen bg-[#111111] flex items-center justify-center font-iosevka-bold text-xl text-orange-400 animate-pulse">
-        Entering Arena...
-      </div>
+      <GameShell playerName={playerName}>
+        <div className="min-h-screen bg-[#111111] flex items-center justify-center font-iosevka-bold text-xl text-orange-400 animate-pulse">
+          Entering Arena...
+        </div>
+      </GameShell>
     );
   }
 
@@ -231,16 +235,6 @@ export default function GuessTheFlagGame() {
           message={tempNotification}
         />
       )}
-
-      <AlertModal
-        isOpen={
-          !!disconnectMessage &&
-          (gameState?.state !== "game_over" || rematchRequested) &&
-          matchTerminationCountdown === null
-        }
-        title="Connection Lost"
-        message={disconnectMessage || ""}
-      />
 
       {/* Temporary Toast Notification */}
       {tempNotification && (
@@ -298,7 +292,7 @@ export default function GuessTheFlagGame() {
             localPlayerId={localSocketId || ""}
             currentRound={gameState.currentRound}
             maxRounds={gameState.maxRounds}
-            themeColor="orange"
+            gameId="gtf"
           />
 
           {/* State Information */}

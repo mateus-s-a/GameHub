@@ -2,17 +2,19 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { GAME_THEMES, GameId } from "@gamehub/core";
+import { GAME_THEMES, GameId, getGameBySlug } from "@gamehub/core";
 
 export default function ThemeController() {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Derive gameId from path: /games/[id]
+    // Derive slug from path: /games/[slug]
     const match = pathname.match(/\/games\/([^\/]+)/);
-    const gameId = match ? (match[1] as GameId) : null;
+    const slug = match ? match[1] : null;
 
-    const theme = gameId ? GAME_THEMES[gameId] : null;
+    // Resolve slug to GameId
+    const game = slug ? getGameBySlug(slug) : null;
+    const theme = game ? GAME_THEMES[game.id] : null;
     const html = document.documentElement;
 
     if (theme) {

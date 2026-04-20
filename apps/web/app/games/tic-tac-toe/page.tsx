@@ -208,16 +208,18 @@ export default function TicTacToeGame() {
 
   if (roomId && !isGameStarted) {
     return (
-      <RoomLobby
-        roomLobby={roomLobby}
-        localPlayerId={localSocketId || ""}
-        onToggleReady={toggleReady}
-        onStartMatch={startMatch}
-        onLeaveRoom={handleLeaveRoom}
-        onUpdateConfig={handleUpdateConfig}
-        themeColor="cyan"
-        tempNotification={tempNotification}
-      />
+      <GameShell playerName={playerName}>
+        <RoomLobby
+          roomLobby={roomLobby}
+          localPlayerId={localSocketId || ""}
+          onToggleReady={toggleReady}
+          onStartMatch={startMatch}
+          onLeaveRoom={handleLeaveRoom}
+          onUpdateConfig={handleUpdateConfig}
+          themeColor="cyan"
+          tempNotification={tempNotification}
+        />
+      </GameShell>
     );
   }
 
@@ -237,16 +239,6 @@ export default function TicTacToeGame() {
           message={tempNotification}
         />
       )}
-
-      <AlertModal
-        isOpen={
-          !!disconnectMessage &&
-          (roundState !== "game_over" || rematchRequested) &&
-          matchTerminationCountdown === null
-        }
-        title="Connection Lost"
-        message={disconnectMessage || ""}
-      />
 
       {/* Temporary Toast Notification */}
       {tempNotification && (
@@ -322,7 +314,7 @@ export default function TicTacToeGame() {
             localPlayerId={localSocketId || ""}
             currentRound={currentRound}
             maxRounds={maxRounds}
-            themeColor="cyan"
+            gameId="ttt"
           />
 
           <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-[#111111] rounded-xl border border-white/5">
