@@ -29,7 +29,9 @@ export default function StepSlider({
     }
   };
 
-  const currentValueText = formatter((options[safeIndex] ?? options[0]) as number);
+  const currentValueText = formatter(
+    (options[safeIndex] ?? options[0]) as number,
+  );
 
   return (
     <div className="px-2">

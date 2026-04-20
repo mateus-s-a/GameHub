@@ -24,6 +24,9 @@ export function useMatchManager({
   const [matchTerminationCountdown, setMatchTerminationCountdown] = useState<
     number | null
   >(null);
+  const [returnToLobbyCountdown, setReturnToLobbyCountdown] = useState<
+    number | null
+  >(null);
   const [tempNotification, setTempNotification] = useState<string | null>(null);
   const [rematchRequested, setRematchRequested] = useState(false);
   const [roomLobby, setRoomLobby] = useState<RoomInfo | null>(null);
@@ -35,6 +38,7 @@ export function useMatchManager({
   const resetMatchStates = useCallback(() => {
     setDisconnectMessage(null);
     setMatchTerminationCountdown(null);
+    setReturnToLobbyCountdown(null);
     setTempNotification(null);
     setRematchRequested(false);
     setIsGameStarted(false);
@@ -150,6 +154,17 @@ export function useMatchManager({
     setIsLocked(!!roomId);
     return () => setIsLocked(false);
   }, [roomId, setIsLocked]);
+ 
+  // Global Match Loop: Decrement return to lobby countdown
+  useEffect(() => {
+    if (returnToLobbyCountdown === null || returnToLobbyCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setReturnToLobbyCountdown((prev) =>
+        prev !== null && prev > 0 ? prev - 1 : 0,
+      );
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [returnToLobbyCountdown]);
 
   const toggleReady = useCallback(() => {
     if (socket && roomId) {
@@ -174,6 +189,15 @@ export function useMatchManager({
     (config: any) => {
       if (socket && roomId) {
         socket.emit("updateRoomConfig", { roomId, config });
+      }
+    },
+    [socket, roomId],
+  );
+
+  const makeMove = useCallback(
+    (action: any) => {
+      if (socket && roomId) {
+        socket.emit("gameMove", { roomId, action });
       }
     },
     [socket, roomId],
@@ -204,6 +228,9 @@ export function useMatchManager({
     startMatch,
     requestRematch,
     updateRoomConfig,
+    makeMove,
     resetMatchStates,
+    returnToLobbyCountdown,
+    setReturnToLobbyCountdown,
   };
 }

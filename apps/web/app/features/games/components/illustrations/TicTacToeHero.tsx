@@ -13,10 +13,42 @@ export default function TicTacToeHero({
       className={className}
     >
       {/* Grid Lines */}
-      <line x1="130" y1="40" x2="130" y2="240" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinecap="round" />
-      <line x1="200" y1="40" x2="200" y2="240" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinecap="round" />
-      <line x1="70" y1="107" x2="260" y2="107" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinecap="round" />
-      <line x1="70" y1="173" x2="260" y2="173" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinecap="round" />
+      <line
+        x1="130"
+        y1="40"
+        x2="130"
+        y2="240"
+        stroke="rgba(255,255,255,0.15)"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line
+        x1="200"
+        y1="40"
+        x2="200"
+        y2="240"
+        stroke="rgba(255,255,255,0.15)"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line
+        x1="70"
+        y1="107"
+        x2="260"
+        y2="107"
+        stroke="rgba(255,255,255,0.15)"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line
+        x1="70"
+        y1="173"
+        x2="260"
+        y2="173"
+        stroke="rgba(255,255,255,0.15)"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
 
       {/* X marks */}
       <g stroke="rgba(255,255,255,0.7)" strokeWidth="3" strokeLinecap="round">
@@ -43,7 +75,16 @@ export default function TicTacToeHero({
 
       {/* Decorative dice — bottom-left */}
       <g transform="translate(40, 230) rotate(-15)">
-        <rect x="0" y="0" width="28" height="28" rx="5" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+        <rect
+          x="0"
+          y="0"
+          width="28"
+          height="28"
+          rx="5"
+          fill="rgba(255,255,255,0.08)"
+          stroke="rgba(255,255,255,0.15)"
+          strokeWidth="1"
+        />
         <circle cx="8" cy="8" r="2" fill="rgba(255,255,255,0.4)" />
         <circle cx="20" cy="8" r="2" fill="rgba(255,255,255,0.4)" />
         <circle cx="14" cy="14" r="2" fill="rgba(255,255,255,0.4)" />
@@ -53,7 +94,16 @@ export default function TicTacToeHero({
 
       {/* Decorative dice — top-right */}
       <g transform="translate(255, 25) rotate(20)">
-        <rect x="0" y="0" width="22" height="22" rx="4" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+        <rect
+          x="0"
+          y="0"
+          width="22"
+          height="22"
+          rx="4"
+          fill="rgba(255,255,255,0.06)"
+          stroke="rgba(255,255,255,0.12)"
+          strokeWidth="1"
+        />
         <circle cx="7" cy="7" r="1.5" fill="rgba(255,255,255,0.3)" />
         <circle cx="15" cy="15" r="1.5" fill="rgba(255,255,255,0.3)" />
       </g>

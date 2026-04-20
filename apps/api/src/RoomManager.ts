@@ -55,7 +55,6 @@ export class RoomManager {
     return newRoom;
   }
 
-
   public toggleReady(roomId: string, playerId: string): RoomInfo | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
@@ -64,6 +63,20 @@ export class RoomManager {
     if (player) {
       player.isReady = !player.isReady;
     }
+    this.rooms.set(roomId, room);
+    return room;
+  }
+
+  public resetRoomToLobby(roomId: string): RoomInfo | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    room.status = "waiting";
+    room.countdown = null;
+    room.players.forEach((p) => {
+      p.isReady = false;
+    });
+
     this.rooms.set(roomId, room);
     return room;
   }

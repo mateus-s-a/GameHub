@@ -1,15 +1,15 @@
 import React, { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { type GameEntry, ANIMATION_TOKENS } from "@gamehub/core";
-import TicTacToeHero from "./illustrations/TicTacToeHero";
-import GuessTheFlagHero from "./illustrations/GuessTheFlagHero";
-import RockPaperScissorsHero from "./illustrations/RockPaperScissorsHero";
 
-const illustrationMap: Record<GameEntry["illustration"], React.FC<{ className?: string }>> = {
-  ttt: TicTacToeHero,
-  gtf: GuessTheFlagHero,
-  rps: RockPaperScissorsHero,
+// Lazy-load illustrations for optimal bundle size
+const illustrationMap = {
+  ttt: dynamic(() => import("./illustrations/TicTacToeHero")),
+  gtf: dynamic(() => import("./illustrations/GuessTheFlagHero")),
+  rps: dynamic(() => import("./illustrations/RockPaperScissorsHero")),
+  hangman: dynamic(() => import("./illustrations/HangmanHero")),
 };
 
 interface GameCardProps {
@@ -27,8 +27,12 @@ export default function GameCard({ game, isActive }: GameCardProps) {
     <motion.div
       initial={false}
       animate={{
-        backgroundColor: isActive ? "rgba(17, 17, 17, 0.9)" : "rgba(14, 14, 16, 0.6)",
-        borderColor: isActive ? "rgba(255, 255, 255, 0.1)" : "rgba(255, 255, 255, 0.04)",
+        backgroundColor: isActive
+          ? "rgba(17, 17, 17, 0.9)"
+          : "rgba(14, 14, 16, 0.6)",
+        borderColor: isActive
+          ? "rgba(255, 255, 255, 0.1)"
+          : "rgba(255, 255, 255, 0.04)",
         ...gpuHint,
       }}
       transition={ANIMATION_TOKENS.CAROUSEL_SPRING}
@@ -45,20 +49,20 @@ export default function GameCard({ game, isActive }: GameCardProps) {
         Instead of animating 'filter: blur()', we render two layers and cross-fade opacity.
         Firefox handles this on the compositor, avoiding expensive re-paints.
       */}
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none transition-opacity duration-500"
-        style={{ 
+        style={{
           filter: ANIMATION_TOKENS.BLUR_FIXED_AMOUNT,
           opacity: isActive ? 0 : 1,
-          zIndex: 0
+          zIndex: 0,
         }}
       />
-      
-      <div 
+
+      <div
         className="absolute inset-0 pointer-events-none backdrop-blur-sm"
-        style={{ 
+        style={{
           opacity: isActive ? 1 : 0,
-          zIndex: 0
+          zIndex: 0,
         }}
       />
 
@@ -72,7 +76,7 @@ export default function GameCard({ game, isActive }: GameCardProps) {
             className="absolute inset-0 pointer-events-none"
             style={{
               background: `radial-gradient(ellipse 60% 40% at 50% 30%, ${game.accentColor}, transparent 70%)`,
-              zIndex: 1
+              zIndex: 1,
             }}
           />
         )}
@@ -93,7 +97,7 @@ export default function GameCard({ game, isActive }: GameCardProps) {
       </div>
 
       {/* Text Content */}
-      <motion.div 
+      <motion.div
         animate={{ opacity: isActive ? 1 : 0.4 }}
         className="relative z-10 flex flex-col items-center gap-1 px-6 pb-2"
       >
@@ -122,7 +126,10 @@ export default function GameCard({ game, isActive }: GameCardProps) {
           <Link href={`/games/${game.slug}`} tabIndex={0}>
             <motion.button
               className="px-10 py-3 bg-white text-black font-iosevka-bold text-sm tracking-[0.2em] uppercase rounded-full cursor-pointer border-none outline-none"
-              whileHover={{ scale: 1.05, boxShadow: "0 8px 24px rgba(255,255,255,0.15)" }}
+              whileHover={{
+                scale: 1.05,
+                boxShadow: "0 8px 24px rgba(255,255,255,0.15)",
+              }}
               whileTap={{ scale: 0.97 }}
               style={{ boxShadow: "0 4px 16px rgba(255,255,255,0.08)" }}
             >

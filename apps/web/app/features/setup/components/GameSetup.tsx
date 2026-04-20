@@ -7,7 +7,7 @@ import { GameSetupConfig } from "@gamehub/types";
 interface GameSetupProps {
   onStart: (config: GameSetupConfig) => void;
   onCancel?: () => void;
-  gameId: "ttt" | "rps" | "gtf";
+  gameId: "ttt" | "rps" | "gtf" | "hangman";
 }
 
 const GAME_THEMES = {
@@ -25,6 +25,11 @@ const GAME_THEMES = {
     gradient: "from-purple-500 to-indigo-600",
     glow: "shadow-purple-500/50",
     border: "border-purple-400/30",
+  },
+  hangman: {
+    gradient: "from-lime-500 to-emerald-600",
+    glow: "shadow-lime-500/50",
+    border: "border-lime-400/30",
   },
 };
 

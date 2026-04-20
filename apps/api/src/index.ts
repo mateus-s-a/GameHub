@@ -5,6 +5,13 @@ import cors from "cors";
 import { TicTacToeLogic } from "@gamehub/tic-tac-toe";
 import { RPSLogic, RPSChoice } from "@gamehub/rock-paper-scissors";
 import { GuessTheFlagLogic, GTFCountry } from "@gamehub/guess-the-flag";
+import { WordService } from "@gamehub/hangman";
+import { HangmanController } from "./controllers/HangmanController";
+import { GameEvent } from "@gamehub/core";
+
+// Initialize word buffer
+WordService.init();
+
 // Load countries
 let allCountries: GTFCountry[] = [];
 async function loadCountries() {
@@ -81,6 +88,12 @@ function scheduleNextRound(
     const game = gameMap.get(roomId);
     if (game) {
       game.nextRound();
+      
+      // Auto-return to lobby logic (Project-wide root logic)
+      if (game.state === "game_over") {
+        handleAutoReturnToLobby(namespace, roomId, gameMap);
+      }
+
       if (onNextRound) {
         onNextRound(game);
       } else {
@@ -90,7 +103,7 @@ function scheduleNextRound(
   }, delayMs);
 }
 
-import { registerGenericLobbyEvents } from "./LobbyEvents";
+import { registerGenericLobbyEvents, handleAutoReturnToLobby, cancelAutoReturnToLobby } from "./LobbyEvents";
 import { roomManager } from "./RoomManager";
 import { renderDashboard } from "./views/dashboard";
 
@@ -173,6 +186,8 @@ tttNamespace.on("connection", (socket: Socket) => {
         tttNamespace.to(roomId).emit("gameState", game.getPublicState());
         if (game.state === "round_result") {
           scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
+        } else if (game.state === "game_over") {
+          handleAutoReturnToLobby(tttNamespace, roomId, tttGames);
         }
       }
     },
@@ -184,6 +199,7 @@ tttNamespace.on("connection", (socket: Socket) => {
 
     if (game.requestRematch(socket.id)) {
       // Both want a rematch!
+      cancelAutoReturnToLobby(roomId);
       game.reset();
       tttNamespace.to(roomId).emit("rematchStarted");
       tttNamespace.to(roomId).emit("gameState", {
@@ -259,6 +275,7 @@ rpsNamespace.on("connection", (socket: Socket) => {
     if (!game) return;
 
     if (game.requestRematch(socket.id)) {
+      cancelAutoReturnToLobby(roomId);
       game.reset();
       rpsNamespace.to(roomId).emit("rematchStarted");
       rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
@@ -326,6 +343,7 @@ gtfNamespace.on("connection", (socket: Socket) => {
     if (!game) return;
 
     if (game.requestRematch(socket.id)) {
+      cancelAutoReturnToLobby(roomId);
       game.reset();
       gtfNamespace.to(roomId).emit("rematchStarted");
       startGTFRound(roomId, game); // Start new round automatically
@@ -335,6 +353,48 @@ gtfNamespace.on("connection", (socket: Socket) => {
   });
 
   // Rematch and Submit events stay the same
+});
+
+// --- Hangman Namespace ---
+const hangmanNamespace = io.of("/hangman");
+const hangmanController = new HangmanController(hangmanNamespace);
+
+hangmanNamespace.on("connection", (socket: Socket) => {
+  logConnection(socket, "Hangman");
+
+  registerGenericLobbyEvents(
+    socket,
+    hangmanNamespace,
+    "hangman",
+    new Map(), // Placeholder map for LobbyEvents compatibility
+    () => ({}), // Truthy placeholder — actual logic lives in HangmanController
+    undefined,
+    (roomId: string) => {
+      const room = roomManager.getRoom(roomId);
+      if (room) {
+        hangmanController.initGame(
+          roomId,
+          room.players.map((p) => p.id),
+          room.config,
+        );
+      }
+    },
+  );
+
+  socket.on(GameEvent.JOIN_ROOM, (roomId: string) => {
+    socket.join(roomId);
+  });
+
+  socket.on(
+    GameEvent.GAME_MOVE,
+    ({ roomId, action }: { roomId: string; action: any }) => {
+      hangmanController.handleMove(socket, roomId, action);
+    },
+  );
+
+  socket.on("requestRematch", (roomId: string) => {
+    hangmanController.handleRematch(socket.id, roomId);
+  });
 });
 
 function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
@@ -391,6 +451,8 @@ setInterval(() => {
           tttNamespace.to(roomId).emit("gameState", game.getPublicState());
           if (game.state === "round_result") {
             scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
+          } else if (game.state === "game_over") {
+            handleAutoReturnToLobby(tttNamespace, roomId, tttGames);
           }
         }
       }
@@ -451,6 +513,9 @@ setInterval(() => {
       }, 0);
     }
   }
+
+  // Check Hangman
+  hangmanController.checkTimeouts();
 }, 1000);
 
 app.get("/", (req, res) => {

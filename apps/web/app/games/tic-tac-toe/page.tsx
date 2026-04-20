@@ -22,6 +22,7 @@ import { useSocket } from "@/(shared)/providers/SocketProvider";
 import NavButton from "@/(shared)/components/ui/NavButton";
 import Scoreboard from "@/features/match/components/Scoreboard";
 import { motion, AnimatePresence } from "framer-motion";
+import { GAME_CONSTANTS } from "@gamehub/core";
 
 type PlayerMark = "X" | "O" | null;
 type RoundState = "waiting_players" | "playing" | "game_over" | "round_result";
@@ -62,6 +63,8 @@ export default function TicTacToeGame() {
     toggleReady,
     startMatch,
     requestRematch,
+    returnToLobbyCountdown,
+    setReturnToLobbyCountdown,
   } = useMatchManager({
     namespace: "ttt",
     playerName,
@@ -106,6 +109,10 @@ export default function TicTacToeGame() {
       setScores(serverState.scores || { X: 0, O: 0 });
       setRoundState(serverState.state || "waiting_players");
       if (serverState.yourMark !== undefined) setYourMark(serverState.yourMark);
+ 
+      if (serverState.state === "game_over" && returnToLobbyCountdown === null) {
+        setReturnToLobbyCountdown(GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC);
+      }
     });
 
     socket.on("matchFound", () => {
@@ -208,16 +215,18 @@ export default function TicTacToeGame() {
 
   if (roomId && !isGameStarted) {
     return (
-      <RoomLobby
-        roomLobby={roomLobby}
-        localPlayerId={localSocketId || ""}
-        onToggleReady={toggleReady}
-        onStartMatch={startMatch}
-        onLeaveRoom={handleLeaveRoom}
-        onUpdateConfig={handleUpdateConfig}
-        themeColor="cyan"
-        tempNotification={tempNotification}
-      />
+      <GameShell playerName={playerName}>
+        <RoomLobby
+          roomLobby={roomLobby}
+          localPlayerId={localSocketId || ""}
+          onToggleReady={toggleReady}
+          onStartMatch={startMatch}
+          onLeaveRoom={handleLeaveRoom}
+          onUpdateConfig={handleUpdateConfig}
+          themeColor="cyan"
+          tempNotification={tempNotification}
+        />
+      </GameShell>
     );
   }
 
@@ -237,16 +246,6 @@ export default function TicTacToeGame() {
           message={tempNotification}
         />
       )}
-
-      <AlertModal
-        isOpen={
-          !!disconnectMessage &&
-          (roundState !== "game_over" || rematchRequested) &&
-          matchTerminationCountdown === null
-        }
-        title="Connection Lost"
-        message={disconnectMessage || ""}
-      />
 
       {/* Temporary Toast Notification */}
       {tempNotification && (
@@ -322,7 +321,7 @@ export default function TicTacToeGame() {
             localPlayerId={localSocketId || ""}
             currentRound={currentRound}
             maxRounds={maxRounds}
-            themeColor="cyan"
+            gameId="ttt"
           />
 
           <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-[#111111] rounded-xl border border-white/5">
@@ -472,7 +471,21 @@ export default function TicTacToeGame() {
           </div>
 
           {roundState === "game_over" && (
-            <div className="w-full pt-8 border-t border-white/5">
+            <div className="w-full pt-8 border-t border-white/5 relative z-10">
+              <div className="flex flex-col items-center gap-2 mb-4">
+                <span className="text-[10px] text-white/20 font-iosevka-bold uppercase tracking-widest">
+                  Returning to Lobby in {returnToLobbyCountdown}s
+                </span>
+                <motion.div
+                  initial={{ width: "100%" }}
+                  animate={{ width: "0%" }}
+                  transition={{
+                    duration: GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC,
+                    ease: "linear",
+                  }}
+                  className="h-0.5 bg-cyan-500/30 rounded-full"
+                />
+              </div>
               <EndMatchOptions
                 rematchRequested={rematchRequested}
                 opponentLeft={!!disconnectMessage}

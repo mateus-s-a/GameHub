@@ -1,0 +1,10 @@
+export const DEFAULT_WORDS = [
+  "TYPESCRIPT",
+  "CAROUSEL",
+  "STUNNING",
+  "MONOCHROME",
+  "GEOMETRIC",
+  "INTELLIGENT",
+  "FRAMEWORK",
+  "ANIMATION",
+];

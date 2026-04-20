@@ -7,13 +7,15 @@ interface GhostButtonProps extends HTMLMotionProps<"button"> {
   ariaLabel: string;
 }
 
-export const GhostButton = React.forwardRef<HTMLButtonElement, GhostButtonProps>(
-  ({ children, ariaLabel, className = "", ...props }, ref) => {
-    return (
-      <motion.button
-        ref={ref}
-        aria-label={ariaLabel}
-        className={`
+export const GhostButton = React.forwardRef<
+  HTMLButtonElement,
+  GhostButtonProps
+>(({ children, ariaLabel, className = "", ...props }, ref) => {
+  return (
+    <motion.button
+      ref={ref}
+      aria-label={ariaLabel}
+      className={`
           relative flex items-center justify-center
           min-w-[44px] min-h-[44px] rounded-full
           bg-white/5 border border-white/10 backdrop-blur-md
@@ -23,14 +25,13 @@ export const GhostButton = React.forwardRef<HTMLButtonElement, GhostButtonProps>
           disabled:opacity-20 disabled:pointer-events-none
           ${className}
         `}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        {...props}
-      >
-        {children}
-      </motion.button>
-    );
-  }
-);
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      {...props}
+    >
+      {children}
+    </motion.button>
+  );
+});
 
 GhostButton.displayName = "GhostButton";

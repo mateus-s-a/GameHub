@@ -3,6 +3,7 @@
 import { Wifi, WifiOff } from "lucide-react";
 import { motion, useSpring, useTransform } from "framer-motion";
 import { useEffect } from "react";
+import { GAME_THEMES, GameId } from "@gamehub/core";
 
 function AnimatedNumber({ value }: { value: number }) {
   const spring = useSpring(value, {
@@ -31,40 +32,17 @@ interface ScoreboardProps {
   localPlayerId: string;
   currentRound: number;
   maxRounds: number;
-  themeColor?: string;
+  gameId: GameId;
 }
-
-const THEME_STYLES = {
-  emerald: {
-    textAccent: "text-emerald-400",
-    borderAccent: "border-emerald-500/30",
-    bgAccent: "bg-emerald-500/10",
-  },
-  cyan: {
-    textAccent: "text-cyan-400",
-    borderAccent: "border-cyan-500/30",
-    bgAccent: "bg-cyan-500/10",
-  },
-  purple: {
-    textAccent: "text-purple-400",
-    borderAccent: "border-purple-500/30",
-    bgAccent: "bg-purple-500/10",
-  },
-  orange: {
-    textAccent: "text-orange-400",
-    borderAccent: "border-orange-500/30",
-    bgAccent: "bg-orange-500/10",
-  },
-};
 
 function ScoreCard({
   player,
   isLocal,
-  selectedStyle,
+  accentColor,
 }: {
   player: ScoreboardPlayer;
   isLocal: boolean;
-  selectedStyle: any;
+  accentColor: string;
 }) {
   const shortId = player.id.substring(0, 5).toUpperCase();
   const displayName = player.name || `PLAYER-${shortId}`;
@@ -80,19 +58,25 @@ function ScoreCard({
       transition={{ duration: 0.3 }}
       className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-300 ${
         isLocal
-          ? `${selectedStyle.borderAccent} ${selectedStyle.bgAccent} shadow-[0_0_15px_rgba(0,0,0,0.2)]`
+          ? "shadow-[0_0_15px_rgba(0,0,0,0.2)]"
           : "bg-gray-800/40 border-transparent"
       }`}
+      style={{
+        borderColor: isLocal ? `${accentColor}4D` : undefined, // 30% opacity
+        backgroundColor: isLocal ? `${accentColor}1A` : undefined, // 10% opacity
+      }}
     >
       <div className="flex items-center gap-2 mb-1 w-full justify-center text-center">
         <span
-          className={`text-[10px] font-iosevka-bold tracking-widest truncate max-w-[100px] ${isLocal ? selectedStyle.textAccent : "text-gray-400"}`}
+          className={`text-[10px] font-iosevka-bold tracking-widest truncate max-w-[100px] ${isLocal ? "" : "text-gray-400"}`}
+          style={{ color: isLocal ? accentColor : undefined }}
         >
           {label}
         </span>
         {player.isConnected !== false ? (
           <Wifi
-            className={`w-3 h-3 ${isLocal ? "text-emerald-400" : "text-gray-500"}`}
+            className="w-3 h-3"
+            style={{ color: isLocal ? accentColor : "#6b7280" }}
           />
         ) : (
           <WifiOff className="w-3 h-3 text-red-500 animate-pulse" />
@@ -103,7 +87,8 @@ function ScoreCard({
       </div>
       {isLocal && (
         <span
-          className={`text-[8px] font-iosevka-medium mt-1 uppercase ${selectedStyle.textAccent} opacity-80`}
+          className="text-[8px] font-iosevka-medium mt-1 uppercase opacity-80"
+          style={{ color: accentColor }}
         >
           Your Score
         </span>
@@ -117,11 +102,10 @@ export default function Scoreboard({
   localPlayerId,
   currentRound,
   maxRounds,
-  themeColor = "emerald",
+  gameId,
 }: ScoreboardProps) {
-  const selectedStyle =
-    THEME_STYLES[themeColor as keyof typeof THEME_STYLES] ||
-    THEME_STYLES.emerald;
+  const theme = GAME_THEMES[gameId];
+  const accentColor = theme?.colors.accent || "#ffffff";
   const isMultiplayer = players.length > 2;
 
   return (
@@ -138,7 +122,7 @@ export default function Scoreboard({
               key={player.id}
               player={player}
               isLocal={player.id === localPlayerId}
-              selectedStyle={selectedStyle}
+              accentColor={accentColor}
             />
           ))}
         </div>

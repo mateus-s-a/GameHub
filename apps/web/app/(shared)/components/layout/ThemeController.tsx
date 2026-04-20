@@ -2,45 +2,36 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-
-const THEMES: Record<string, { bg: string; glow: string }> = {
-  home: {
-    bg: "#0e0e10",
-    glow: "rgba(255, 255, 255, 0.04)",
-  },
-  ttt: {
-    bg: "#0a1218",
-    glow: "rgba(34, 211, 238, 0.08)",
-  },
-  gtf: {
-    bg: "#0a140e",
-    glow: "rgba(16, 185, 129, 0.08)",
-  },
-  rps: {
-    bg: "#110a18",
-    glow: "rgba(168, 85, 247, 0.08)",
-  },
-};
+import { GAME_THEMES, GameId, getGameBySlug } from "@gamehub/core";
 
 export default function ThemeController() {
   const pathname = usePathname();
 
   useEffect(() => {
-    let themeKey = "home";
+    // Derive slug from path: /games/[slug]
+    const match = pathname.match(/\/games\/([^\/]+)/);
+    const slug = match ? match[1] : null;
 
-    if (pathname.includes("tic-tac-toe")) themeKey = "ttt";
-    else if (pathname.includes("guess-the-flag")) themeKey = "gtf";
-    else if (pathname.includes("rock-paper-scissors")) themeKey = "rps";
-
-    const theme = THEMES[themeKey]!;
+    // Resolve slug to GameId
+    const game = slug ? getGameBySlug(slug) : null;
+    const theme = game ? GAME_THEMES[game.id] : null;
     const html = document.documentElement;
 
-    // Apply directly to <html> — nothing can sit behind this
-    html.style.backgroundColor = theme.bg;
-    html.style.transition = "background-color 2s ease-in-out";
+    if (theme) {
+      // Apply centralized theme properties
+      html.setAttribute("data-theme", theme.id);
+      html.style.backgroundColor = theme.colors.background;
+      html.style.setProperty("--theme-glow", theme.colors.glow);
+      html.style.setProperty("--theme-accent", theme.colors.accent);
+    } else {
+      // Default / Home theme
+      html.removeAttribute("data-theme");
+      html.style.backgroundColor = "#0e0e10";
+      html.style.setProperty("--theme-glow", "rgba(255, 255, 255, 0.04)");
+      html.style.setProperty("--theme-accent", "#ffffff");
+    }
 
-    // Update glow variable for the atmosphere overlay
-    html.style.setProperty("--theme-glow", theme.glow);
+    html.style.transition = "background-color 2s ease-in-out";
   }, [pathname]);
 
   return null;

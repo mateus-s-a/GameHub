@@ -16,9 +16,34 @@
     --secondary: #333333;
     --matchmaking: #3b4a6b;
     
-    /* Theme Variables */
+    /* Theme Variables (Defaults) */
     --theme-bg: #0e0e10;
     --theme-glow: rgba(255, 255, 255, 0.04);
+    --theme-accent: #ffffff;
+  }
+
+  [data-theme="ttt"] {
+    --theme-bg: #0a1218;
+    --theme-glow: rgba(34, 211, 238, 0.08);
+    --theme-accent: #22d3ee;
+  }
+
+  [data-theme="gtf"] {
+    --theme-bg: #0a140e;
+    --theme-glow: rgba(16, 185, 129, 0.08);
+    --theme-accent: #10b981;
+  }
+
+  [data-theme="rps"] {
+    --theme-bg: #110a18;
+    --theme-glow: rgba(168, 85, 247, 0.08);
+    --theme-accent: #a855f7;
+  }
+
+  [data-theme="hangman"] {
+    --theme-bg: #10140a;
+    --theme-glow: rgba(132, 204, 22, 0.08);
+    --theme-accent: #84cc16;
   }
 
   body {

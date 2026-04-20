@@ -24,6 +24,8 @@ import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
 import { useSocket, getSessionId } from "@/(shared)/providers/SocketProvider";
 import NavButton from "@/(shared)/components/ui/NavButton";
+import { motion } from "framer-motion";
+import { GAME_CONSTANTS } from "@gamehub/core";
 
 interface GameState {
   state: GTFRoundState;
@@ -68,6 +70,8 @@ export default function GuessTheFlagGame() {
     startMatch,
     requestRematch,
     updateRoomConfig,
+    returnToLobbyCountdown,
+    setReturnToLobbyCountdown,
   } = useMatchManager({
     namespace: "gtf",
     playerName,
@@ -96,6 +100,10 @@ export default function GuessTheFlagGame() {
         !serverState.players.find((p) => p.id === socket.id)?.hasGuessed
       ) {
         setLocalChoice(null);
+      }
+ 
+      if (serverState.state === "game_over" && returnToLobbyCountdown === null) {
+        setReturnToLobbyCountdown(GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC);
       }
     });
 
@@ -192,24 +200,28 @@ export default function GuessTheFlagGame() {
 
   if (roomId && !isGameStarted) {
     return (
-      <RoomLobby
-        roomLobby={roomLobby}
-        localPlayerId={localSocketId || ""}
-        onToggleReady={toggleReady}
-        onStartMatch={startMatch}
-        onLeaveRoom={handleLeaveRoom}
-        onUpdateConfig={handleUpdateConfig}
-        themeColor="emerald"
-        tempNotification={tempNotification}
-      />
+      <GameShell playerName={playerName}>
+        <RoomLobby
+          roomLobby={roomLobby}
+          localPlayerId={localSocketId || ""}
+          onToggleReady={toggleReady}
+          onStartMatch={startMatch}
+          onLeaveRoom={handleLeaveRoom}
+          onUpdateConfig={handleUpdateConfig}
+          themeColor="emerald"
+          tempNotification={tempNotification}
+        />
+      </GameShell>
     );
   }
 
   if (!gameState) {
     return (
-      <div className="min-h-screen bg-[#111111] flex items-center justify-center font-iosevka-bold text-xl text-orange-400 animate-pulse">
-        Entering Arena...
-      </div>
+      <GameShell playerName={playerName}>
+        <div className="min-h-screen bg-[#111111] flex items-center justify-center font-iosevka-bold text-xl text-orange-400 animate-pulse">
+          Entering Arena...
+        </div>
+      </GameShell>
     );
   }
 
@@ -231,16 +243,6 @@ export default function GuessTheFlagGame() {
           message={tempNotification}
         />
       )}
-
-      <AlertModal
-        isOpen={
-          !!disconnectMessage &&
-          (gameState?.state !== "game_over" || rematchRequested) &&
-          matchTerminationCountdown === null
-        }
-        title="Connection Lost"
-        message={disconnectMessage || ""}
-      />
 
       {/* Temporary Toast Notification */}
       {tempNotification && (
@@ -298,7 +300,7 @@ export default function GuessTheFlagGame() {
             localPlayerId={localSocketId || ""}
             currentRound={gameState.currentRound}
             maxRounds={gameState.maxRounds}
-            themeColor="orange"
+            gameId="gtf"
           />
 
           {/* State Information */}
@@ -389,7 +391,21 @@ export default function GuessTheFlagGame() {
 
           {/* End Game Options */}
           {gameState.state === "game_over" && (
-            <div className="w-full pt-8 border-t border-white/5">
+            <div className="w-full pt-8 border-t border-white/5 relative z-10">
+              <div className="flex flex-col items-center gap-2 mb-4">
+                <span className="text-[10px] text-white/20 font-iosevka-bold uppercase tracking-widest">
+                  Returning to Lobby in {returnToLobbyCountdown}s
+                </span>
+                <motion.div
+                  initial={{ width: "100%" }}
+                  animate={{ width: "0%" }}
+                  transition={{
+                    duration: GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC,
+                    ease: "linear",
+                  }}
+                  className="h-0.5 bg-orange-500/30 rounded-full"
+                />
+              </div>
               <EndMatchOptions
                 rematchRequested={rematchRequested}
                 opponentLeft={!!disconnectMessage}
