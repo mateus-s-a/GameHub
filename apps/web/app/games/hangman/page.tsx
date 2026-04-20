@@ -68,6 +68,14 @@ export default function HangmanPage() {
 
   const myState = gameState?.players[localSocketId || ""];
   const isGameOver = isMatchOver || (myState != null && myState.status !== "playing");
+ 
+  const opponents = Object.entries(gameState?.players || {})
+    .filter(([id]) => id !== localSocketId)
+    .map(([id, state]) => ({
+      id,
+      ...state,
+      name: roomLobby?.players.find((p) => p.id === id)?.name || "Opponent",
+    }));
 
   useEffect(() => {
     if (isGameStarted && socket && roomId) {
@@ -219,7 +227,7 @@ export default function HangmanPage() {
         isGameOver={isMatchOver}
         onLeave={leaveRoom}
       >
-        <Card className="w-full max-w-3xl p-8 md:p-12 bg-[#121212] border-white/5 flex flex-col items-center gap-8 relative overflow-hidden shadow-2xl">
+        <Card className="w-full max-w-6xl p-8 md:p-12 bg-[#121212] border-white/5 flex flex-col items-center gap-8 relative overflow-hidden shadow-2xl">
           {/* Ambient Background */}
           <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(circle_at_50%_50%,var(--theme-accent),transparent_70%)]" />
 
@@ -252,17 +260,10 @@ export default function HangmanPage() {
             <TimerDisplay turnEndTime={gameState?.turnEndTime || null} />
           )}
 
-          <div className="w-full flex flex-col md:flex-row items-center gap-16 relative z-10">
-            {/* Visual Gallows */}
-            <div className="w-48 h-48 md:w-64 md:h-64 flex items-center justify-center">
-              <HangmanVisual
-                attemptsLeft={myState?.attemptsLeft ?? 6}
-                className="w-full h-full"
-              />
-            </div>
-
-            {/* Masked Word Stage */}
-            <div className="flex flex-col items-center gap-12 flex-1 w-full">
+          <div className="w-full grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-12 relative z-10">
+            {/* Arena: Word Stage & Keyboard */}
+            <div className="flex flex-col items-center gap-12 w-full order-2 lg:order-1">
+              {/* Masked Word Stage */}
               <div className="flex flex-wrap justify-center gap-3 md:gap-4">
                 {myState?.maskedWord
                   .split("")
@@ -289,9 +290,9 @@ export default function HangmanPage() {
                   onKeyPress={handleKeyPress}
                   guessedLetters={myState?.guessedLetters || []}
                   disabled={
-                    !myState || 
-                    myState.status !== "playing" || 
-                    isMatchOver || 
+                    !myState ||
+                    myState.status !== "playing" ||
+                    isMatchOver ||
                     gameState?.isTransitioning
                   }
                 />
@@ -318,6 +319,46 @@ export default function HangmanPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Sidebar: Personal Visual & Live Arena */}
+            <div className="flex flex-col gap-8 lg:border-l border-white/5 lg:pl-12 order-1 lg:order-2 sticky top-8 self-start">
+              <div className="flex flex-col items-center gap-4">
+                <span className="text-[10px] text-white/20 font-iosevka-bold uppercase tracking-widest">
+                  Your Status
+                </span>
+                <div className="w-48 h-48 flex items-center justify-center bg-white/[0.02] rounded-3xl border border-white/5 p-4 shadow-inner">
+                  <HangmanVisual
+                    attemptsLeft={myState?.attemptsLeft ?? 6}
+                    className="w-full h-full opacity-80"
+                  />
+                </div>
+              </div>
+
+              {/* Live Arena List */}
+              {opponents.length > 0 && (
+                <div className="flex flex-col gap-6 pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-lime-500 animate-pulse shadow-[0_0_8px_#84cc16]" />
+                    <h3 className="text-[10px] font-iosevka-bold text-white/40 uppercase tracking-[0.3em]">
+                      Live Arena
+                    </h3>
+                  </div>
+
+                  <div className="flex flex-col gap-8">
+                    {opponents.map((opp) => (
+                      <OpponentProgress
+                        key={opp.id}
+                        name={opp.name}
+                        attemptsLeft={opp.attemptsLeft}
+                        progress={opp.progress}
+                        score={opp.score}
+                        status={opp.status}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

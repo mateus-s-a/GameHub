@@ -23,7 +23,7 @@ export default function MatchLayout({
   const game = getGameById(gameId);
 
   return (
-    <div className="w-full max-w-4xl flex flex-col items-center pt-8 px-4 mx-auto pb-24 relative min-h-[calc(100vh-80px)]">
+    <div className="w-full max-w-6xl flex flex-col items-center pt-8 px-4 mx-auto pb-24 relative min-h-[calc(100vh-80px)]">
       <h1 className="text-4xl font-iosevka-bold mb-8 text-white tracking-widest uppercase text-center">
         {game?.title || "Match"}
       </h1>

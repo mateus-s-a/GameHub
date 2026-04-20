@@ -11,14 +11,14 @@ interface OpponentProgressProps {
   status: HangmanPlayerStatus;
 }
 
-export default function OpponentProgress({
+const OpponentProgress = React.memo(({
   name,
   attemptsLeft,
   progress,
   score,
   isLocal = false,
   status,
-}: OpponentProgressProps) {
+}: OpponentProgressProps) => {
   const maxAttempts = 6;
   const mistakes = maxAttempts - attemptsLeft;
 
@@ -99,4 +99,6 @@ export default function OpponentProgress({
       </div>
     </div>
   );
-}
+});
+
+export default OpponentProgress;
