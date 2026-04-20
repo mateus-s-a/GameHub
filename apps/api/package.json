@@ -16,7 +16,7 @@
     "@gamehub/rock-paper-scissors": "*",
     "@gamehub/tic-tac-toe": "*",
     "@gamehub/types": "*",
-    "@prisma/client": "^7.4.2",
+    "@prisma/client": "^6.19.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.0",
