@@ -14,6 +14,8 @@ WordService.init();
 
 // Load countries
 let allCountries: GTFCountry[] = [];
+const countriesByRegionMap = new Map<string, GTFCountry[]>();
+
 async function loadCountries() {
   try {
     const res = await fetch(
@@ -26,6 +28,12 @@ async function loadCountries() {
       flagUrl: c.flags.svg || c.flags.png,
       region: c.region || "Unknown",
     }));
+    countriesByRegionMap.clear();
+    for (const country of allCountries) {
+      const regionList = countriesByRegionMap.get(country.region) || [];
+      regionList.push(country);
+      countriesByRegionMap.set(country.region, regionList);
+    }
     console.log(`Loaded ${allCountries.length} countries for Guess the Flag`);
   } catch (error) {
     console.error("Failed to load countries:", error);
@@ -404,7 +412,7 @@ hangmanNamespace.on("connection", (socket: Socket) => {
 function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
   let pool = allCountries;
   if (game.region && game.region !== "All") {
-    pool = allCountries.filter((c) => c.region === game.region);
+    pool = countriesByRegionMap.get(game.region) || allCountries;
   }
 
   if (pool.length < 4) {
@@ -412,12 +420,13 @@ function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
     pool = allCountries;
   }
 
-  // Pick 4 random distinct countries
+  // Pick 4 random distinct countries using Set for O(1) deduplication
   const options: GTFCountry[] = [];
+  const selectedNames = new Set<string>();
   while (options.length < 4) {
     const pick = pool[Math.floor(Math.random() * pool.length)];
-    if (!pick) continue;
-    if (!options.find((o) => o.name === pick.name)) {
+    if (pick && !selectedNames.has(pick.name)) {
+      selectedNames.add(pick.name);
       options.push(pick);
     }
   }
@@ -440,16 +449,23 @@ setInterval(() => {
   // Check TicTacToe
   for (const [roomId, game] of tttGames.entries()) {
     if (game.turnEndTime && now >= game.turnEndTime && !game.winner) {
-      const emptyIndices = game.board
-        .map((v, i) => (v === null ? i : -1))
-        .filter((i) => i !== -1);
+      const emptyIndices: number[] = [];
+      for (let i = 0; i < game.board.length; i++) {
+        if (game.board[i] === null) {
+          emptyIndices.push(i);
+        }
+      }
       if (emptyIndices.length > 0) {
         const randomObj = emptyIndices[
           Math.floor(Math.random() * emptyIndices.length)
         ] as number;
-        const currentPlayerId = Array.from(game.players.entries()).find(
-          ([, mark]) => mark === game.currentPlayer,
-        )?.[0];
+        let currentPlayerId: string | undefined;
+        for (const [id, mark] of game.players.entries()) {
+          if (mark === game.currentPlayer) {
+            currentPlayerId = id;
+            break;
+          }
+        }
         if (currentPlayerId) {
           game.makeMove(currentPlayerId, randomObj);
           tttNamespace.to(roomId).emit("gameState", game.getPublicState());

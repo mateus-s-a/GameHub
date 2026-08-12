@@ -38,12 +38,17 @@ export function registerGenericLobbyEvents(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onGameStarted?: (roomId: string, game: any) => void,
 ) {
+  // By default, joining sockets are lobby viewers until they enter a specific room
+  socket.join("lobby_viewers");
+
   socket.on("getRooms", () => {
+    socket.join("lobby_viewers");
     socket.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   socket.on("createRoom", (config?: any) => {
+    socket.leave("lobby_viewers");
     const hostName =
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
@@ -62,10 +67,13 @@ export function registerGenericLobbyEvents(
 
     socket.join(room.id);
     socket.emit("matchFound", { roomId: room.id, isHost: true });
-    namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
+    namespace
+      .to("lobby_viewers")
+      .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
   });
 
   socket.on("joinSpecificRoom", (roomId: string) => {
+    socket.leave("lobby_viewers");
     const playerName =
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
@@ -80,7 +88,9 @@ export function registerGenericLobbyEvents(
     console.log(
       `[Lobby] [${gameType.toUpperCase()}] ${getLogId(socket)} joined Room GH-${roomId.substring(0, 5).toUpperCase()} (${room.playerCount}/${room.maxPlayers} players)`,
     );
-    namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
+    namespace
+      .to("lobby_viewers")
+      .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
     namespace.to(roomId).emit("roomLobbyUpdate", room);
   });
 
@@ -106,7 +116,9 @@ export function registerGenericLobbyEvents(
       `[Match] [${gameType.toUpperCase()}] Match starting in Room GH-${roomId.substring(0, 5).toUpperCase()} (Countdown: 5s)`,
     );
     namespace.to(roomId).emit("roomLobbyUpdate", room);
-    namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
+    namespace
+      .to("lobby_viewers")
+      .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
 
     const interval = setInterval(() => {
       countdown -= 1;
@@ -125,10 +137,9 @@ export function registerGenericLobbyEvents(
         console.log(
           `[Match] [${gameType.toUpperCase()}] Game started in Room GH-${roomId.substring(0, 5).toUpperCase()} with ${currentRoom.playerCount} players`,
         );
-        namespace.emit(
-          "roomListUpdate",
-          roomManager.getAvailableRooms(gameType),
-        );
+        namespace
+          .to("lobby_viewers")
+          .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
         namespace.to(roomId).emit("gameStarted");
 
         if (onGameStarted) {
@@ -207,10 +218,9 @@ export function registerGenericLobbyEvents(
               gameMap.delete(roomId);
               namespace.to(roomId).emit("roomDestroyed");
               namespace.to(roomId).emit("matchTerminated");
-              namespace.emit(
-                "roomListUpdate",
-                roomManager.getAvailableRooms(gameType),
-              );
+              namespace
+                .to("lobby_viewers")
+                .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
             }
           }, 1000);
         } else {
@@ -227,11 +237,14 @@ export function registerGenericLobbyEvents(
         namespace.to(roomId).emit("playerLeft", message);
       }
     }
-    namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
+    namespace
+      .to("lobby_viewers")
+      .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
   };
 
   socket.on("leaveRoom", (roomId: string) => {
     socket.leave(roomId);
+    socket.join("lobby_viewers");
     if (onLeaveExtra) onLeaveExtra(socket.id);
     handleLeaveOrDisconnect(roomId);
   });
@@ -246,6 +259,7 @@ export function registerGenericLobbyEvents(
   });
 
   socket.on("syncLobby", (roomId: string) => {
+    socket.leave("lobby_viewers");
     socket.join(roomId);
     const room = roomManager.getRoom(roomId);
     if (room) {
@@ -297,8 +311,10 @@ export function handleAutoReturnToLobby(
       namespace.to(roomId).emit("roomDestroyed");
       namespace.to(roomId).emit("matchTerminated");
 
-      // Update the global room list for all users in the namespace
-      namespace.emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
+      // Update the room list only for lobby viewers
+      namespace
+        .to("lobby_viewers")
+        .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
 
       console.log(
         `[Match] [${gameType.toUpperCase()}] Room GH-${roomId.substring(0, 5).toUpperCase()} destroyed after auto-return delay.`,
@@ -308,3 +324,4 @@ export function handleAutoReturnToLobby(
 
   matchReturnTimeouts.set(roomId, timeout);
 }
+
