@@ -1,9 +1,9 @@
 import { Socket, Namespace } from "socket.io";
 import { roomManager } from "./RoomManager.js";
 import { GAME_CONSTANTS } from "@gamehub/core";
- 
+
 const matchReturnTimeouts = new Map<string, NodeJS.Timeout>();
- 
+
 /**
  * Cancels a pending auto-return to lobby timeout.
  * Used when players successfully initiate a rematch.
@@ -289,11 +289,11 @@ export function handleAutoReturnToLobby(
     const room = roomManager.getRoom(roomId);
     if (room) {
       const gameType = room.gameType;
-      
+
       // Completely remove the room instead of resetting it to make it "not visible"
       roomManager.removeRoom(roomId);
       gameMap.delete(roomId);
-      
+
       namespace.to(roomId).emit("roomDestroyed");
       namespace.to(roomId).emit("matchTerminated");
 

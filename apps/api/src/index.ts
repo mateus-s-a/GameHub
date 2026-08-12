@@ -88,7 +88,7 @@ function scheduleNextRound(
     const game = gameMap.get(roomId);
     if (game) {
       game.nextRound();
-      
+
       // Auto-return to lobby logic (Project-wide root logic)
       if (game.state === "game_over") {
         handleAutoReturnToLobby(namespace, roomId, gameMap);
@@ -103,7 +103,11 @@ function scheduleNextRound(
   }, delayMs);
 }
 
-import { registerGenericLobbyEvents, handleAutoReturnToLobby, cancelAutoReturnToLobby } from "./LobbyEvents.js";
+import {
+  registerGenericLobbyEvents,
+  handleAutoReturnToLobby,
+  cancelAutoReturnToLobby,
+} from "./LobbyEvents.js";
 import { roomManager } from "./RoomManager.js";
 import { renderDashboard } from "./views/dashboard.js";
 

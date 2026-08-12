@@ -6,18 +6,17 @@ import {
   HangmanGuessAction,
   HangmanGameState,
 } from "@gamehub/core";
-import { handleAutoReturnToLobby, cancelAutoReturnToLobby } from "../LobbyEvents.js";
+import {
+  handleAutoReturnToLobby,
+  cancelAutoReturnToLobby,
+} from "../LobbyEvents.js";
 
 export class HangmanController {
   private games: Map<string, HangmanLogic> = new Map();
 
   constructor(private namespace: Namespace) {}
 
-  public async initGame(
-    roomId: string,
-    playerIds: string[],
-    config: any,
-  ) {
+  public async initGame(roomId: string, playerIds: string[], config: any) {
     const normalizedConfig = this.normalizeHangmanConfig(config);
     // Eager word fetch - already initialized by WordService.init() on server start
     const word = await WordService.getNextWord();
@@ -119,7 +118,7 @@ export class HangmanController {
   public async handleRematch(socketId: string, roomId: string) {
     const game = this.games.get(roomId);
     if (!game) return;
- 
+
     if (game.requestRematch(socketId)) {
       // Consensus reached! Reset game logic
       cancelAutoReturnToLobby(roomId);
@@ -135,8 +134,6 @@ export class HangmanController {
       this.broadcastState(roomId);
     }
   }
-
-
 
   private broadcastState(roomId: string) {
     const game = this.games.get(roomId);
