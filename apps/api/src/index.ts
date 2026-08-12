@@ -6,7 +6,7 @@ import { TicTacToeLogic } from "@gamehub/tic-tac-toe";
 import { RPSLogic, RPSChoice } from "@gamehub/rock-paper-scissors";
 import { GuessTheFlagLogic, GTFCountry } from "@gamehub/guess-the-flag";
 import { WordService } from "@gamehub/hangman";
-import { HangmanController } from "./controllers/HangmanController.js";
+import { HangmanController } from "./controllers/HangmanController";
 import { GameEvent } from "@gamehub/core";
 
 // Initialize word buffer
@@ -22,19 +22,23 @@ async function loadCountries() {
       "https://restcountries.com/v3.1/all?fields=name,flags,region",
     );
     const data = await res.json();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    allCountries = data.map((c: any) => ({
-      name: c.name.common,
-      flagUrl: c.flags.png || c.flags.svg,
-      region: c.region || "Unknown",
-    }));
-    countriesByRegionMap.clear();
-    for (const country of allCountries) {
-      const regionList = countriesByRegionMap.get(country.region) || [];
-      regionList.push(country);
-      countriesByRegionMap.set(country.region, regionList);
+    if (Array.isArray(data)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      allCountries = data.map((c: any) => ({
+        name: c.name.common,
+        flagUrl: c.flags.png || c.flags.svg,
+        region: c.region || "Unknown",
+      }));
+      countriesByRegionMap.clear();
+      for (const country of allCountries) {
+        const regionList = countriesByRegionMap.get(country.region) || [];
+        regionList.push(country);
+        countriesByRegionMap.set(country.region, regionList);
+      }
+      console.log(`Loaded ${allCountries.length} countries for Guess the Flag`);
+    } else {
+      console.warn("RestCountries API returned non-array payload. Using fallback countries.");
     }
-    console.log(`Loaded ${allCountries.length} countries for Guess the Flag`);
   } catch (error) {
     console.error("Failed to load countries:", error);
   }
@@ -115,9 +119,9 @@ import {
   registerGenericLobbyEvents,
   handleAutoReturnToLobby,
   cancelAutoReturnToLobby,
-} from "./LobbyEvents.js";
-import { roomManager } from "./RoomManager.js";
-import { renderDashboard } from "./views/dashboard.js";
+} from "./LobbyEvents";
+import { roomManager } from "./RoomManager";
+import { renderDashboard } from "./views/dashboard";
 
 const loggedSessions = new Set<string>();
 function logConnection(socket: Socket, gameName: string) {

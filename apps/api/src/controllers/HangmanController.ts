@@ -9,7 +9,7 @@ import {
 import {
   handleAutoReturnToLobby,
   cancelAutoReturnToLobby,
-} from "../LobbyEvents.js";
+} from "../LobbyEvents";
 
 export class HangmanController {
   private games: Map<string, HangmanLogic> = new Map();
