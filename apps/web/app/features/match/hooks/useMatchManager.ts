@@ -155,16 +155,8 @@ export function useMatchManager({
     return () => setIsLocked(false);
   }, [roomId, setIsLocked]);
 
-  // Global Match Loop: Decrement return to lobby countdown
-  useEffect(() => {
-    if (returnToLobbyCountdown === null || returnToLobbyCountdown <= 0) return;
-    const timer = setInterval(() => {
-      setReturnToLobbyCountdown((prev) =>
-        prev !== null && prev > 0 ? prev - 1 : 0,
-      );
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [returnToLobbyCountdown]);
+  // The countdown ticking is delegated to isolated components (e.g. ReturnToLobbyBadge)
+  // to avoid triggering full page re-renders every 1000ms.
 
   const toggleReady = useCallback(() => {
     if (socket && roomId) {

@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 interface Shape {
@@ -222,7 +223,38 @@ function renderShape(type: Shape["type"], size: number) {
   }
 }
 
-export default function FloatingBackground() {
+function FloatingBackgroundComponent() {
+  const [isLowPower, setIsLowPower] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkPerformanceTier = () => {
+      const isMobileScreen = window.innerWidth < 768;
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      setIsLowPower(isMobileScreen || prefersReducedMotion);
+    };
+
+    checkPerformanceTier();
+
+    let timeoutId: NodeJS.Timeout;
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(checkPerformanceTier, 200);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  // Filter shapes: limit to 3 crisp foreground shapes on mobile/low-power hardware
+  const activeShapes = isLowPower ? shapes.slice(6, 9) : shapes;
+
   return (
     <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
       {/* Subtle center glow */}
@@ -234,36 +266,50 @@ export default function FloatingBackground() {
         }}
       />
 
-      {shapes.map((shape) => (
-        <motion.div
-          key={shape.id}
-          className="absolute"
-          style={{
-            left: shape.x,
-            top: shape.y,
-            filter: `blur(${shape.blur}px)`,
-            opacity: shape.opacity,
-          }}
-          initial={{ rotate: shape.rotation, y: 0 }}
-          animate={{
-            y: [0, -15, 0, 10, 0],
-            rotate: [
-              shape.rotation,
-              shape.rotation + 5,
-              shape.rotation - 3,
-              shape.rotation,
-            ],
-          }}
-          transition={{
-            duration: 8 + shape.delay * 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: shape.delay,
-          }}
-        >
-          {renderShape(shape.type, shape.size)}
-        </motion.div>
-      ))}
+      {activeShapes.map((shape) => {
+        // Disable blur filter on mobile/low-power to prevent expensive GPU composition repaints
+        const effectiveBlur = isLowPower ? 0 : shape.blur;
+
+        return (
+          <motion.div
+            key={shape.id}
+            className="absolute"
+            style={{
+              left: shape.x,
+              top: shape.y,
+              filter: effectiveBlur > 0 ? `blur(${effectiveBlur}px)` : undefined,
+              opacity: shape.opacity,
+              willChange: "transform",
+              transform: "translateZ(0)",
+            }}
+            initial={{ rotate: shape.rotation, y: 0 }}
+            animate={
+              isLowPower
+                ? { y: [0, -8, 0] }
+                : {
+                    y: [0, -15, 0, 10, 0],
+                    rotate: [
+                      shape.rotation,
+                      shape.rotation + 5,
+                      shape.rotation - 3,
+                      shape.rotation,
+                    ],
+                  }
+            }
+            transition={{
+              duration: isLowPower ? 12 : 8 + shape.delay * 2,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: shape.delay,
+            }}
+          >
+            {renderShape(shape.type, shape.size)}
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
+
+export default React.memo(FloatingBackgroundComponent);
+

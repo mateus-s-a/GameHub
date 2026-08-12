@@ -16,6 +16,7 @@ import ConfirmModal from "@/(shared)/components/ui/ConfirmModal";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
 import Scoreboard from "@/features/match/components/Scoreboard";
 import EndMatchOptions from "@/features/match/components/EndMatchOptions";
+import ReturnToLobbyBadge from "@/features/match/components/ReturnToLobbyBadge";
 import { Mountain, FileText, Scissors, HelpCircle, X } from "lucide-react";
 import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import RoomBrowser from "@/features/lobby/components/RoomBrowser";
@@ -388,20 +389,13 @@ export default function RPSGame() {
           {/* End Game Options */}
           {gameState.state === "game_over" && (
             <div className="pt-8 border-t border-white/5 relative z-10">
-              <div className="flex flex-col items-center gap-2 mb-4">
-                <span className="text-[10px] text-white/20 font-iosevka-bold uppercase tracking-widest">
-                  Returning to Lobby in {returnToLobbyCountdown}s
-                </span>
-                <motion.div
-                  initial={{ width: "100%" }}
-                  animate={{ width: "0%" }}
-                  transition={{
-                    duration: GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC,
-                    ease: "linear",
-                  }}
-                  className="h-0.5 bg-purple-500/30 rounded-full"
-                />
-              </div>
+              <ReturnToLobbyBadge
+                initialSeconds={
+                  returnToLobbyCountdown ||
+                  GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
+                }
+                barColorClass="bg-purple-500/30"
+              />
               <EndMatchOptions
                 rematchRequested={rematchRequested}
                 opponentLeft={!!disconnectMessage}

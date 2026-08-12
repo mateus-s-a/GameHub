@@ -11,6 +11,7 @@ import TimerDisplay from "@/features/match/components/TimerDisplay";
 import AlertModal from "@/\(shared\)/components/ui/AlertModal";
 import ConfirmModal from "@/\(shared\)/components/ui/ConfirmModal";
 import EndMatchOptions from "@/features/match/components/EndMatchOptions";
+import ReturnToLobbyBadge from "@/features/match/components/ReturnToLobbyBadge";
 import { X } from "lucide-react";
 import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import RoundResults from "@/features/match/components/RoundResults";
@@ -395,20 +396,13 @@ export default function GuessTheFlagGame() {
           {/* End Game Options */}
           {gameState.state === "game_over" && (
             <div className="w-full pt-8 border-t border-white/5 relative z-10">
-              <div className="flex flex-col items-center gap-2 mb-4">
-                <span className="text-[10px] text-white/20 font-iosevka-bold uppercase tracking-widest">
-                  Returning to Lobby in {returnToLobbyCountdown}s
-                </span>
-                <motion.div
-                  initial={{ width: "100%" }}
-                  animate={{ width: "0%" }}
-                  transition={{
-                    duration: GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC,
-                    ease: "linear",
-                  }}
-                  className="h-0.5 bg-orange-500/30 rounded-full"
-                />
-              </div>
+              <ReturnToLobbyBadge
+                initialSeconds={
+                  returnToLobbyCountdown ||
+                  GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
+                }
+                barColorClass="bg-orange-500/30"
+              />
               <EndMatchOptions
                 rematchRequested={rematchRequested}
                 opponentLeft={!!disconnectMessage}

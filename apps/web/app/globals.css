@@ -64,6 +64,8 @@
       transparent 70%
     );
     transition: background 2s ease-in-out;
+    will-change: background;
+    transform: translateZ(0);
   }
 }
 

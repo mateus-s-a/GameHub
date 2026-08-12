@@ -15,6 +15,7 @@ import RoomLobby from "@/features/lobby/components/RoomLobby";
 import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import { useMatchManager } from "@/features/match/hooks/useMatchManager";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
+import ReturnToLobbyBadge from "@/features/match/components/ReturnToLobbyBadge";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
@@ -475,20 +476,13 @@ export default function TicTacToeGame() {
 
           {roundState === "game_over" && (
             <div className="w-full pt-8 border-t border-white/5 relative z-10">
-              <div className="flex flex-col items-center gap-2 mb-4">
-                <span className="text-[10px] text-white/20 font-iosevka-bold uppercase tracking-widest">
-                  Returning to Lobby in {returnToLobbyCountdown}s
-                </span>
-                <motion.div
-                  initial={{ width: "100%" }}
-                  animate={{ width: "0%" }}
-                  transition={{
-                    duration: GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC,
-                    ease: "linear",
-                  }}
-                  className="h-0.5 bg-cyan-500/30 rounded-full"
-                />
-              </div>
+              <ReturnToLobbyBadge
+                initialSeconds={
+                  returnToLobbyCountdown ||
+                  GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
+                }
+                barColorClass="bg-cyan-500/30"
+              />
               <EndMatchOptions
                 rematchRequested={rematchRequested}
                 opponentLeft={!!disconnectMessage}
