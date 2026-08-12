@@ -25,7 +25,7 @@ async function loadCountries() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     allCountries = data.map((c: any) => ({
       name: c.name.common,
-      flagUrl: c.flags.svg || c.flags.png,
+      flagUrl: c.flags.png || c.flags.svg,
       region: c.region || "Unknown",
     }));
     countriesByRegionMap.clear();

@@ -82,6 +82,13 @@ export default function GuessTheFlagGame() {
   const [localChoice, setLocalChoice] = useState<string | null>(null);
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  const [isFlagLoading, setIsFlagLoading] = useState(true);
+
+  useEffect(() => {
+    if (gameState?.flagUrl) {
+      setIsFlagLoading(true);
+    }
+  }, [gameState?.flagUrl]);
 
   const rooms = useRoomList(socket);
 
@@ -338,10 +345,22 @@ export default function GuessTheFlagGame() {
             {/* Flag Display */}
             {gameState.flagUrl && (
               <div className="w-full max-w-md aspect-video bg-[#000000] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 relative flex items-center justify-center p-4">
+                {isFlagLoading && (
+                  <div className="absolute inset-0 bg-white/5 animate-pulse flex items-center justify-center rounded-2xl">
+                    <span className="text-xs font-iosevka-medium text-white/30 uppercase tracking-widest">
+                      Loading Flag...
+                    </span>
+                  </div>
+                )}
                 <img
                   src={gameState.flagUrl}
                   alt="Guess the Flag"
-                  className="object-contain w-full h-full drop-shadow-xl"
+                  decoding="async"
+                  fetchPriority="high"
+                  onLoad={() => setIsFlagLoading(false)}
+                  className={`object-contain w-full h-full drop-shadow-xl transition-opacity duration-300 ${
+                    isFlagLoading ? "opacity-0" : "opacity-100"
+                  }`}
                 />
               </div>
             )}
