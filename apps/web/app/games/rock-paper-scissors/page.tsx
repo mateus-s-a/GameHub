@@ -99,8 +99,11 @@ export default function RPSGame() {
       ) {
         setLocalChoice(null);
       }
- 
-      if (serverState.state === "game_over" && returnToLobbyCountdown === null) {
+
+      if (
+        serverState.state === "game_over" &&
+        returnToLobbyCountdown === null
+      ) {
         setReturnToLobbyCountdown(GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC);
       }
     });
@@ -242,7 +245,6 @@ export default function RPSGame() {
           message={tempNotification}
         />
       )}
-
 
       {tempNotification && (
         <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-right duration-500">

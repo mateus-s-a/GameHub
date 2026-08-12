@@ -154,7 +154,7 @@ export function useMatchManager({
     setIsLocked(!!roomId);
     return () => setIsLocked(false);
   }, [roomId, setIsLocked]);
- 
+
   // Global Match Loop: Decrement return to lobby countdown
   useEffect(() => {
     if (returnToLobbyCountdown === null || returnToLobbyCountdown <= 0) return;

@@ -101,8 +101,11 @@ export default function GuessTheFlagGame() {
       ) {
         setLocalChoice(null);
       }
- 
-      if (serverState.state === "game_over" && returnToLobbyCountdown === null) {
+
+      if (
+        serverState.state === "game_over" &&
+        returnToLobbyCountdown === null
+      ) {
         setReturnToLobbyCountdown(GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC);
       }
     });

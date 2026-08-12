@@ -109,8 +109,11 @@ export default function TicTacToeGame() {
       setScores(serverState.scores || { X: 0, O: 0 });
       setRoundState(serverState.state || "waiting_players");
       if (serverState.yourMark !== undefined) setYourMark(serverState.yourMark);
- 
-      if (serverState.state === "game_over" && returnToLobbyCountdown === null) {
+
+      if (
+        serverState.state === "game_over" &&
+        returnToLobbyCountdown === null
+      ) {
         setReturnToLobbyCountdown(GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC);
       }
     });

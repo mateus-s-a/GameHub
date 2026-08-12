@@ -3,11 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GAME_CONSTANTS } from "@gamehub/core";
-import {
-  getGameBySlug,
-  HangmanGameState,
-  HangmanEvent,
-} from "@gamehub/core";
+import { getGameBySlug, HangmanGameState, HangmanEvent } from "@gamehub/core";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
@@ -67,8 +63,9 @@ export default function HangmanPage() {
   const rooms = useRoomList(socket);
 
   const myState = gameState?.players[localSocketId || ""];
-  const isGameOver = isMatchOver || (myState != null && myState.status !== "playing");
- 
+  const isGameOver =
+    isMatchOver || (myState != null && myState.status !== "playing");
+
   const opponents = Object.entries(gameState?.players || {})
     .filter(([id]) => id !== localSocketId)
     .map(([id, state]) => ({
@@ -119,7 +116,6 @@ export default function HangmanPage() {
   }, [socket, setTempNotification]);
 
   // Countdown for returning to lobby
-
 
   // Reset states when match is terminated by server
   useEffect(() => {
@@ -232,19 +228,22 @@ export default function HangmanPage() {
           <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(circle_at_50%_50%,var(--theme-accent),transparent_70%)]" />
 
           <Scoreboard
-            players={roomLobby?.players.map((p) => ({
-              id: p.id,
-              name: p.name,
-              score: gameState?.players[p.id]?.score || 0,
-              isConnected: true,
-            })) || []}
+            players={
+              roomLobby?.players.map((p) => ({
+                id: p.id,
+                name: p.name,
+                score: gameState?.players[p.id]?.score || 0,
+                isConnected: true,
+              })) || []
+            }
             localPlayerId={localSocketId || ""}
             currentRound={gameState?.currentRound || 1}
             maxRounds={gameState?.maxRounds || 3}
             gameId="hangman"
           />
 
-          {gameState?.isTransitioning && (gameState?.currentRound ?? 0) < (gameState?.maxRounds ?? 0) ? (
+          {gameState?.isTransitioning &&
+          (gameState?.currentRound ?? 0) < (gameState?.maxRounds ?? 0) ? (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -254,7 +253,9 @@ export default function HangmanPage() {
               <span className="text-sm font-iosevka-bold text-lime-400 uppercase tracking-[0.25em] animate-pulse">
                 Prepare for Next Round
               </span>
-              <TimerDisplay turnEndTime={gameState?.nextRoundStartTime || null} />
+              <TimerDisplay
+                turnEndTime={gameState?.nextRoundStartTime || null}
+              />
             </motion.div>
           ) : (
             <TimerDisplay turnEndTime={gameState?.turnEndTime || null} />
@@ -383,8 +384,9 @@ export default function HangmanPage() {
                 rematchRequested={rematchRequested}
                 opponentLeft={!!disconnectMessage}
                 hasOpponentRequested={
-                  gameState?.rematchRequests?.find((id) => id !== localSocketId) !==
-                  undefined
+                  gameState?.rematchRequests?.find(
+                    (id) => id !== localSocketId,
+                  ) !== undefined
                 }
                 onRequestRematch={requestRematch}
                 onPlayAgain={leaveRoom}
