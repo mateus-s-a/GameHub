@@ -50,52 +50,139 @@ function applyFallbackCountries() {
   console.log(`Using ${allCountries.length} fallback countries for Guess the Flag`);
 }
 
+/**
+ * REST Countries API v5 — loadCountries()
+ *
+ * Schema v5 key differences from legacy v3.1:
+ *   - Response:    { data: [...], "data.meta": { total, count, more, offset } }
+ *   - Name field:  c.names.common  (NOT c.name.common as in v3.1)
+ *   - Flag field:  c.flags.png     (unchanged)
+ *   - Auth:        Authorization: Bearer <API_KEY>  (mandatory)
+ *   - Pagination:  limit (max 100 free / 500 paid) + offset; iterate via data.meta.more
+ *
+ * Strategy:
+ *   1. Paginate with limit=100 until data.meta.more === false (handles ~250 countries).
+ *   2. Map v5 field names to GTFCountry interface.
+ *   3. Filter out countries with no usable flag URL (unplayable in GTF).
+ *   4. On HTTP errors (401/403/429/5xx) or network failures → applyFallbackCountries().
+ */
 async function loadCountries() {
-  const apiUrl =
+  const baseUrl =
     process.env.REST_COUNTRIES_API_URL ||
     "https://api.restcountries.com/countries/v5";
   const apiKey = process.env.REST_COUNTRIES_API_KEY || "rc_live_demo";
 
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    Authorization: `Bearer ${apiKey}`,
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const accumulated: any[] = [];
+  const PAGE_LIMIT = 100; // max per page on free plan
+  let offset = 0;
+  let hasMore = true;
+  let pagesFetched = 0;
+
   try {
-    const headers: Record<string, string> = {
-      Accept: "application/json",
-    };
-    if (apiKey) {
-      headers["Authorization"] = `Bearer ${apiKey}`;
+    while (hasMore) {
+      const url = `${baseUrl}?limit=${PAGE_LIMIT}&offset=${offset}`;
+      const res = await fetch(url, { headers });
+
+      if (!res.ok) {
+        const statusCode = res.status;
+        if (statusCode === 401) {
+          console.error(
+            "[GTF] REST Countries v5: 401 Unauthorized — API key is missing, expired or incorrect.",
+          );
+        } else if (statusCode === 403) {
+          console.error(
+            "[GTF] REST Countries v5: 403 Forbidden — Monthly quota exceeded or restricted access.",
+          );
+        } else if (statusCode === 429) {
+          console.warn(
+            "[GTF] REST Countries v5: 429 Too Many Requests — Cloudflare rate limit reached. Applying fallback.",
+          );
+        } else {
+          console.error(
+            `[GTF] REST Countries v5: HTTP ${statusCode} error. Applying fallback.`,
+          );
+        }
+        applyFallbackCountries();
+        return;
+      }
+
+      const json = await res.json();
+
+      // v5 response shape: { data: [...], "data.meta": { total, count, more, offset } }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const page: any[] = Array.isArray(json?.data) ? json.data : [];
+      const meta = json?.["data.meta"] ?? null;
+
+      accumulated.push(...page);
+      pagesFetched++;
+
+      // Paginate only if explicitly told more pages exist and we got a full page
+      hasMore = meta?.more === true && page.length === PAGE_LIMIT;
+      offset += page.length;
+
+      // Safety cap: stop after 10 pages (1000 countries max) to prevent runaway loops
+      if (pagesFetched >= 10) {
+        if (hasMore) {
+          console.warn("[GTF] REST Countries v5: Reached 10-page safety cap. Stopping pagination.");
+        }
+        hasMore = false;
+      }
     }
 
-    const res = await fetch(apiUrl, { headers });
-    const json = await res.json();
-    const list = Array.isArray(json)
-      ? json
-      : Array.isArray(json?.data)
-        ? json.data
-        : null;
-
-    if (list && list.length >= 10) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      allCountries = list.map((c: any) => ({
-        name: c.name?.common || c.name,
-        flagUrl: c.flags?.png || c.flags?.svg || c.flagUrl || c.flag,
-        region: c.region || "Unknown",
-      }));
-      countriesByRegionMap.clear();
-      for (const country of allCountries) {
-        const regionList = countriesByRegionMap.get(country.region) || [];
-        regionList.push(country);
-        countriesByRegionMap.set(country.region, regionList);
-      }
-      console.log(`Loaded ${allCountries.length} countries for Guess the Flag`);
-      return;
-    } else {
+    if (accumulated.length < 10) {
       console.warn(
-        "RestCountries API returned non-array or inadequate payload. Applying fallback countries.",
+        `[GTF] REST Countries v5: Only ${accumulated.length} countries received (minimum 10 needed). Applying fallback.`,
       );
       applyFallbackCountries();
+      return;
     }
+
+    // Map v5 schema to GTFCountry.
+    // v5 name field: c.names.common (v3.1 was c.name.common)
+    // Flag CDN fallback via codes.alpha_2 if flags.png is missing
+    const mapped: GTFCountry[] = accumulated
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((c: any) => ({
+        name: c.names?.common || c.name?.common || String(c.name ?? ""),
+        flagUrl:
+          c.flags?.png ||
+          c.flags?.svg ||
+          (c.codes?.alpha_2
+            ? `https://flagcdn.com/w320/${(c.codes.alpha_2 as string).toLowerCase()}.png`
+            : ""),
+        region: c.region || "Unknown",
+      }))
+      // Exclude countries unplayable in GTF (missing name or flag)
+      .filter((c) => c.name.trim().length > 0 && c.flagUrl.trim().length > 0);
+
+    if (mapped.length < 10) {
+      console.warn(
+        `[GTF] REST Countries v5: Only ${mapped.length} valid GTF-playable countries after filtering. Applying fallback.`,
+      );
+      applyFallbackCountries();
+      return;
+    }
+
+    allCountries = mapped;
+    countriesByRegionMap.clear();
+    for (const country of allCountries) {
+      const regionList = countriesByRegionMap.get(country.region) || [];
+      regionList.push(country);
+      countriesByRegionMap.set(country.region, regionList);
+    }
+
+    console.log(
+      `[GTF] Loaded ${allCountries.length} playable countries in ${pagesFetched} page(s) from REST Countries API v5.`,
+    );
   } catch (error) {
     console.error(
-      "Failed to load countries from RestCountries API, applying fallback:",
+      "[GTF] Failed to fetch from REST Countries API v5. Applying fallback:",
       error,
     );
     applyFallbackCountries();
