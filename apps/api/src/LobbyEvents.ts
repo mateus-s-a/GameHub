@@ -63,7 +63,11 @@ export function registerGenericLobbyEvents(
     console.log(
       `[Lobby] [${gameType.toUpperCase()}] Room GH-${room.id.substring(0, 5).toUpperCase()} created by ${getLogId(socket)} (Host)`,
     );
-    gameMap.set(room.id, createGameLogic(config || {}));
+    const gameLogic = createGameLogic(config || {});
+    if (gameLogic && typeof gameLogic.addPlayer === "function") {
+      gameLogic.addPlayer(socket.id);
+    }
+    gameMap.set(room.id, gameLogic);
 
     socket.join(room.id);
     socket.emit("matchFound", { roomId: room.id, isHost: true });
@@ -81,6 +85,11 @@ export function registerGenericLobbyEvents(
     if (!room) {
       socket.emit("roomError", "Room is full or doesn't exist.");
       return;
+    }
+
+    const game = gameMap.get(roomId);
+    if (game && typeof game.addPlayer === "function") {
+      game.addPlayer(socket.id);
     }
 
     socket.join(roomId);
@@ -127,23 +136,33 @@ export function registerGenericLobbyEvents(
         clearInterval(interval);
         return;
       }
-      currentRoom.countdown = countdown;
-      namespace.to(roomId).emit("roomLobbyUpdate", currentRoom);
 
-      if (countdown <= 0) {
+      if (countdown > 0) {
+        currentRoom.countdown = countdown;
+        namespace.to(roomId).emit("roomLobbyUpdate", currentRoom);
+      } else {
         clearInterval(interval);
         currentRoom.status = "in_progress";
         currentRoom.countdown = null;
         console.log(
           `[Match] [${gameType.toUpperCase()}] Game started in Room GH-${roomId.substring(0, 5).toUpperCase()} with ${currentRoom.playerCount} players`,
         );
+
+        // Ensure all lobby players are registered in the game logic instance before onGameStarted
+        const game = gameMap.get(roomId);
+        if (game && typeof game.addPlayer === "function") {
+          for (const p of currentRoom.players) {
+            game.addPlayer(p.id);
+          }
+        }
+
+        namespace.to(roomId).emit("roomLobbyUpdate", currentRoom);
         namespace
           .to("lobby_viewers")
           .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
         namespace.to(roomId).emit("gameStarted");
 
         if (onGameStarted) {
-          const game = gameMap.get(roomId);
           if (game) onGameStarted(roomId, game);
         }
       }
