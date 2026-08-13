@@ -51,16 +51,32 @@ function applyFallbackCountries() {
 }
 
 async function loadCountries() {
+  const apiUrl =
+    process.env.REST_COUNTRIES_API_URL ||
+    "https://api.restcountries.com/countries/v5";
+  const apiKey = process.env.REST_COUNTRIES_API_KEY || "rc_live_demo";
+
   try {
-    const res = await fetch(
-      "https://restcountries.com/v3.1/all?fields=name,flags,region",
-    );
-    const data = await res.json();
-    if (Array.isArray(data) && data.length >= 10) {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
+    const res = await fetch(apiUrl, { headers });
+    const json = await res.json();
+    const list = Array.isArray(json)
+      ? json
+      : Array.isArray(json?.data)
+        ? json.data
+        : null;
+
+    if (list && list.length >= 10) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      allCountries = data.map((c: any) => ({
-        name: c.name.common,
-        flagUrl: c.flags.png || c.flags.svg,
+      allCountries = list.map((c: any) => ({
+        name: c.name?.common || c.name,
+        flagUrl: c.flags?.png || c.flags?.svg || c.flagUrl || c.flag,
         region: c.region || "Unknown",
       }));
       countriesByRegionMap.clear();
@@ -72,11 +88,16 @@ async function loadCountries() {
       console.log(`Loaded ${allCountries.length} countries for Guess the Flag`);
       return;
     } else {
-      console.warn("RestCountries API returned inadequate payload. Applying fallback countries.");
+      console.warn(
+        "RestCountries API returned non-array or inadequate payload. Applying fallback countries.",
+      );
       applyFallbackCountries();
     }
   } catch (error) {
-    console.error("Failed to load countries from RestCountries API, applying fallback:", error);
+    console.error(
+      "Failed to load countries from RestCountries API, applying fallback:",
+      error,
+    );
     applyFallbackCountries();
   }
 }
