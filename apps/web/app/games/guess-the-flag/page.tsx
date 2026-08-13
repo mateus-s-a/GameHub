@@ -99,6 +99,12 @@ export default function GuessTheFlagGame() {
   }, [isGameStarted, socket, roomId]);
 
   useEffect(() => {
+    if (roomLobby?.status === "in_progress" && !isGameStarted) {
+      setIsGameStarted(true);
+    }
+  }, [roomLobby?.status, isGameStarted, setIsGameStarted]);
+
+  useEffect(() => {
     if (!socket) return;
 
     socket.on("gameState", (serverState: GameState) => {

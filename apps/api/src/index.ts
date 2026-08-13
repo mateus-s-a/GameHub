@@ -12,9 +12,43 @@ import { GameEvent } from "@gamehub/core";
 // Initialize word buffer
 WordService.init();
 
+const FALLBACK_COUNTRIES: GTFCountry[] = [
+  { name: "Brazil", flagUrl: "https://flagcdn.com/w320/br.png", region: "Americas" },
+  { name: "France", flagUrl: "https://flagcdn.com/w320/fr.png", region: "Europe" },
+  { name: "Japan", flagUrl: "https://flagcdn.com/w320/jp.png", region: "Asia" },
+  { name: "Germany", flagUrl: "https://flagcdn.com/w320/de.png", region: "Europe" },
+  { name: "Canada", flagUrl: "https://flagcdn.com/w320/ca.png", region: "Americas" },
+  { name: "Australia", flagUrl: "https://flagcdn.com/w320/au.png", region: "Oceania" },
+  { name: "Argentina", flagUrl: "https://flagcdn.com/w320/ar.png", region: "Americas" },
+  { name: "Italy", flagUrl: "https://flagcdn.com/w320/it.png", region: "Europe" },
+  { name: "Spain", flagUrl: "https://flagcdn.com/w320/es.png", region: "Europe" },
+  { name: "United Kingdom", flagUrl: "https://flagcdn.com/w320/gb.png", region: "Europe" },
+  { name: "United States", flagUrl: "https://flagcdn.com/w320/us.png", region: "Americas" },
+  { name: "South Korea", flagUrl: "https://flagcdn.com/w320/kr.png", region: "Asia" },
+  { name: "Mexico", flagUrl: "https://flagcdn.com/w320/mx.png", region: "Americas" },
+  { name: "South Africa", flagUrl: "https://flagcdn.com/w320/za.png", region: "Africa" },
+  { name: "Egypt", flagUrl: "https://flagcdn.com/w320/eg.png", region: "Africa" },
+  { name: "India", flagUrl: "https://flagcdn.com/w320/in.png", region: "Asia" },
+  { name: "China", flagUrl: "https://flagcdn.com/w320/cn.png", region: "Asia" },
+  { name: "Portugal", flagUrl: "https://flagcdn.com/w320/pt.png", region: "Europe" },
+  { name: "Netherlands", flagUrl: "https://flagcdn.com/w320/nl.png", region: "Europe" },
+  { name: "Greece", flagUrl: "https://flagcdn.com/w320/gr.png", region: "Europe" },
+];
+
 // Load countries
 let allCountries: GTFCountry[] = [];
 const countriesByRegionMap = new Map<string, GTFCountry[]>();
+
+function applyFallbackCountries() {
+  allCountries = [...FALLBACK_COUNTRIES];
+  countriesByRegionMap.clear();
+  for (const country of allCountries) {
+    const regionList = countriesByRegionMap.get(country.region) || [];
+    regionList.push(country);
+    countriesByRegionMap.set(country.region, regionList);
+  }
+  console.log(`Using ${allCountries.length} fallback countries for Guess the Flag`);
+}
 
 async function loadCountries() {
   try {
@@ -22,7 +56,7 @@ async function loadCountries() {
       "https://restcountries.com/v3.1/all?fields=name,flags,region",
     );
     const data = await res.json();
-    if (Array.isArray(data)) {
+    if (Array.isArray(data) && data.length >= 10) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       allCountries = data.map((c: any) => ({
         name: c.name.common,
@@ -36,11 +70,14 @@ async function loadCountries() {
         countriesByRegionMap.set(country.region, regionList);
       }
       console.log(`Loaded ${allCountries.length} countries for Guess the Flag`);
+      return;
     } else {
-      console.warn("RestCountries API returned non-array payload. Using fallback countries.");
+      console.warn("RestCountries API returned inadequate payload. Applying fallback countries.");
+      applyFallbackCountries();
     }
   } catch (error) {
-    console.error("Failed to load countries:", error);
+    console.error("Failed to load countries from RestCountries API, applying fallback:", error);
+    applyFallbackCountries();
   }
 }
 loadCountries();
@@ -416,22 +453,38 @@ hangmanNamespace.on("connection", (socket: Socket) => {
 function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
   let pool = allCountries;
   if (game.region && game.region !== "All") {
-    pool = countriesByRegionMap.get(game.region) || allCountries;
+    const regional = countriesByRegionMap.get(game.region);
+    if (regional && regional.length >= 4) {
+      pool = regional;
+    }
   }
 
-  if (pool.length < 4) {
-    // Fallback if region is too small
-    pool = allCountries;
+  if (!pool || pool.length < 4) {
+    pool = allCountries.length >= 4 ? allCountries : FALLBACK_COUNTRIES;
   }
 
-  // Pick 4 random distinct countries using Set for O(1) deduplication
+  // Pick 4 random distinct countries with safety limit on attempts
   const options: GTFCountry[] = [];
   const selectedNames = new Set<string>();
-  while (options.length < 4) {
+  let attempts = 0;
+  const maxAttempts = 100;
+
+  while (options.length < 4 && attempts < maxAttempts) {
+    attempts++;
     const pick = pool[Math.floor(Math.random() * pool.length)];
     if (pick && !selectedNames.has(pick.name)) {
       selectedNames.add(pick.name);
       options.push(pick);
+    }
+  }
+
+  // Emergency fallback if options could not reach 4
+  while (options.length < 4) {
+    const fallbackPick =
+      FALLBACK_COUNTRIES[options.length % FALLBACK_COUNTRIES.length]!;
+    if (!selectedNames.has(fallbackPick.name)) {
+      selectedNames.add(fallbackPick.name);
+      options.push(fallbackPick);
     }
   }
 
