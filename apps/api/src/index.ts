@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
@@ -53,18 +54,13 @@ function applyFallbackCountries() {
 /**
  * REST Countries API v5 — loadCountries()
  *
- * Schema v5 key differences from legacy v3.1:
- *   - Response:    { data: [...], "data.meta": { total, count, more, offset } }
- *   - Name field:  c.names.common  (NOT c.name.common as in v3.1)
- *   - Flag field:  c.flags.png     (unchanged)
- *   - Auth:        Authorization: Bearer <API_KEY>  (mandatory)
- *   - Pagination:  limit (max 100 free / 500 paid) + offset; iterate via data.meta.more
- *
- * Strategy:
- *   1. Paginate with limit=100 until data.meta.more === false (handles ~250 countries).
- *   2. Map v5 field names to GTFCountry interface.
- *   3. Filter out countries with no usable flag URL (unplayable in GTF).
- *   4. On HTTP errors (401/403/429/5xx) or network failures → applyFallbackCountries().
+ * Schema v5 key differences:
+ *   - Response:    { data: { objects: [...], meta: { total, count, limit, offset, more } } }
+ *                  (or legacy array format { data: [...] })
+ *   - Name field:  c.names.common (primary) | c.name.common (secondary)
+ *   - Flag field:  c.flag.url_png | c.flags.png | c.flag.url_svg | flagcdn fallback
+ *   - Auth:        Authorization: Bearer <API_KEY> (mandatory)
+ *   - Pagination:  limit (max 100 free) + offset; iterate via meta.more
  */
 async function loadCountries() {
   const baseUrl =
@@ -79,7 +75,7 @@ async function loadCountries() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const accumulated: any[] = [];
-  const PAGE_LIMIT = 100; // max per page on free plan
+  const PAGE_LIMIT = 100;
   let offset = 0;
   let hasMore = true;
   let pagesFetched = 0;
@@ -105,7 +101,7 @@ async function loadCountries() {
           );
         } else {
           console.error(
-            `[GTF] REST Countries v5: HTTP ${statusCode} error. Applying fallback.`,
+            `[GTF] REST Countries v5: HTTP ${statusCode} error (${res.statusText}). Applying fallback.`,
           );
         }
         applyFallbackCountries();
@@ -114,19 +110,39 @@ async function loadCountries() {
 
       const json = await res.json();
 
-      // v5 response shape: { data: [...], "data.meta": { total, count, more, offset } }
+      // Flexible extraction supporting both object-wrapped and array-wrapped v5 payloads:
+      // Structure A: { data: { objects: [...], meta: { total, count, limit, offset, more } } }
+      // Structure B: { data: [...], meta: {...} }
+      // Structure C: [...]
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const page: any[] = Array.isArray(json?.data) ? json.data : [];
-      const meta = json?.["data.meta"] ?? null;
+      let page: any[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let meta: any = null;
+
+      const dataField = json?.data;
+      if (Array.isArray(dataField)) {
+        page = dataField;
+        meta = json?.meta ?? json?.["data.meta"] ?? null;
+      } else if (dataField && typeof dataField === "object") {
+        page = Array.isArray(dataField.objects) ? dataField.objects : [];
+        meta = dataField.meta ?? json?.meta ?? null;
+      } else if (Array.isArray(json)) {
+        page = json;
+      }
+
+      if (page.length === 0) {
+        hasMore = false;
+        break;
+      }
 
       accumulated.push(...page);
       pagesFetched++;
 
-      // Paginate only if explicitly told more pages exist and we got a full page
+      // Continue pagination if more is true and page had full PAGE_LIMIT items
       hasMore = meta?.more === true && page.length === PAGE_LIMIT;
       offset += page.length;
 
-      // Safety cap: stop after 10 pages (1000 countries max) to prevent runaway loops
+      // Safety cap: stop after 10 pages to avoid runaway loops
       if (pagesFetched >= 10) {
         if (hasMore) {
           console.warn("[GTF] REST Countries v5: Reached 10-page safety cap. Stopping pagination.");
@@ -143,22 +159,25 @@ async function loadCountries() {
       return;
     }
 
-    // Map v5 schema to GTFCountry.
-    // v5 name field: c.names.common (v3.1 was c.name.common)
-    // Flag CDN fallback via codes.alpha_2 if flags.png is missing
+    // Map v5 schema properties to GTFCountry:
+    // Name:  c.names.common -> c.name.common -> c.name
+    // Flag:  c.flag.url_png -> c.flags.png -> c.flag.url_svg -> c.flags.svg -> flagcdn fallback
     const mapped: GTFCountry[] = accumulated
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((c: any) => ({
-        name: c.names?.common || c.name?.common || String(c.name ?? ""),
-        flagUrl:
+      .map((c: any) => {
+        const name = c.names?.common || c.name?.common || (typeof c.name === "string" ? c.name : "");
+        const flagUrl =
+          c.flag?.url_png ||
           c.flags?.png ||
+          c.flag?.url_svg ||
           c.flags?.svg ||
           (c.codes?.alpha_2
-            ? `https://flagcdn.com/w320/${(c.codes.alpha_2 as string).toLowerCase()}.png`
-            : ""),
-        region: c.region || "Unknown",
-      }))
-      // Exclude countries unplayable in GTF (missing name or flag)
+            ? `https://flagcdn.com/w320/${String(c.codes.alpha_2).toLowerCase()}.png`
+            : "");
+        const region = c.region || "Unknown";
+        return { name, flagUrl, region };
+      })
+      // Filter out invalid or incomplete country entries
       .filter((c) => c.name.trim().length > 0 && c.flagUrl.trim().length > 0);
 
     if (mapped.length < 10) {
