@@ -13,6 +13,8 @@ interface SocketContextType {
   isConnected: boolean;
   isProfileExpanded: boolean;
   setIsProfileExpanded: (expanded: boolean) => void;
+  isFirstVisit: boolean;
+  dismissFirstVisitNotice: () => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -25,6 +27,8 @@ const SocketContext = createContext<SocketContextType>({
   isConnected: false,
   isProfileExpanded: true,
   setIsProfileExpanded: () => {},
+  isFirstVisit: false,
+  dismissFirstVisitNotice: () => {},
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -46,11 +50,20 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLocked, setIsLocked] = useState(false);
   const [isProfileExpanded, setIsProfileExpandedState] = useState(true);
 
+  // Onboarding first-time visit state
+  const [isFirstVisit, setIsFirstVisit] = useState<boolean>(false);
+
   // Player state
   const [playerName, setPlayerName] = useState<string>("GUEST");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    // Check first-time interaction state
+    const hasInteracted = localStorage.getItem("gh_has_interacted_name");
+    if (!hasInteracted) {
+      setIsFirstVisit(true);
+    }
 
     const sessionId = getSessionId();
 
@@ -104,6 +117,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem("gh_profile_expanded", expanded.toString());
   };
 
+  const dismissFirstVisitNotice = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gh_has_interacted_name", "true");
+    }
+    setIsFirstVisit(false);
+  };
+
   return (
     <SocketContext.Provider
       value={{
@@ -116,6 +136,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         isConnected,
         isProfileExpanded,
         setIsProfileExpanded,
+        isFirstVisit,
+        dismissFirstVisitNotice,
       }}
     >
       {children}

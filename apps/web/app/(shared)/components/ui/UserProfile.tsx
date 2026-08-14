@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Check, X, ChevronLeft } from "lucide-react";
+import { User, Check, X, ChevronLeft, Edit } from "lucide-react";
 import { useSocket } from "../../providers/SocketProvider";
 
 export default function UserProfile() {
@@ -12,6 +12,8 @@ export default function UserProfile() {
     isLocked,
     isProfileExpanded,
     setIsProfileExpanded,
+    isFirstVisit,
+    dismissFirstVisitNotice,
   } = useSocket();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(playerName);
@@ -24,6 +26,11 @@ export default function UserProfile() {
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isLocked || !isProfileExpanded) return;
+
+    if (isFirstVisit) {
+      dismissFirstVisitNotice();
+    }
+
     setIsEditing(true);
     // Focus after animation
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -52,6 +59,29 @@ export default function UserProfile() {
 
   return (
     <div className="fixed bottom-8 right-8 z-50 flex items-center gap-2">
+      {/* First-Time User Onboarding Tooltip Banner */}
+      <AnimatePresence>
+        {isFirstVisit && isProfileExpanded && !isLocked && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: [0, -4, 0], scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{
+              y: { repeat: Infinity, duration: 2, ease: "easeInOut" },
+              opacity: { duration: 0.3 },
+              scale: { duration: 0.3 },
+            }}
+            onClick={handleStartEdit}
+            className="absolute bottom-full mb-3 right-0 cursor-pointer bg-[#1a1a1a]/95 backdrop-blur-md border border-orange-500/50 text-orange-200 text-xs px-3.5 py-2 rounded-xl shadow-[0_0_20px_rgba(249,115,22,0.25)] font-iosevka-medium flex items-center gap-2 whitespace-nowrap select-none z-10"
+          >
+            <Edit className="w-4 h-4 text-orange-400 shrink-0 animate-pulse" />
+            <span>Change your nickname here.</span>
+            {/* Arrow pointing down */}
+            <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-[#1a1a1a] border-r border-b border-orange-500/50 rotate-45" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div
         layout
         initial={false}
@@ -141,7 +171,7 @@ export default function UserProfile() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute -top-10 right-0 whitespace-nowrap bg-black/60 text-gray-400 text-[10px] px-3 py-1 rounded-full font-iosevka-medium border border-white/5"
+            className="absolute bottom-full mb-3 right-0 whitespace-nowrap bg-black/60 text-gray-400 text-[10px] px-3 py-1 rounded-full font-iosevka-medium border border-white/5"
           >
             NAME LOCKED DURING MATCH
           </motion.div>
