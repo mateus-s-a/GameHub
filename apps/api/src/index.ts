@@ -308,6 +308,12 @@ io.on("connection", (socket: Socket) => {
     `[GameHub-API] Transport connection established: ${socket.id.substring(0, 5)} (Session: ${sessionId?.substring(0, 5) || "N/A"})`,
   );
 
+  socket.on("latencyPing", (_clientTimestamp: number, callback: () => void) => {
+    if (typeof callback === "function") {
+      callback();
+    }
+  });
+
   socket.on("disconnect", (reason) => {
     console.log(
       `[GameHub-API] Transport disconnected: ${socket.id.substring(0, 5)} (${reason})`,

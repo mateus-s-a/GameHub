@@ -15,6 +15,7 @@ interface SocketContextType {
   setIsProfileExpanded: (expanded: boolean) => void;
   isFirstVisit: boolean;
   dismissFirstVisitNotice: () => void;
+  latency: number | null;
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -29,6 +30,7 @@ const SocketContext = createContext<SocketContextType>({
   setIsProfileExpanded: () => {},
   isFirstVisit: false,
   dismissFirstVisitNotice: () => {},
+  latency: null,
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -52,6 +54,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Onboarding first-time visit state
   const [isFirstVisit, setIsFirstVisit] = useState<boolean>(false);
+
+  // Latency monitoring state
+  const [latency, setLatency] = useState<number | null>(null);
 
   // Player state
   const [playerName, setPlayerName] = useState<string>("GUEST");
@@ -107,6 +112,33 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
+  // Latency monitoring polling effect (every 3 seconds)
+  useEffect(() => {
+    if (!socket || !isConnected) {
+      setLatency(null);
+      return;
+    }
+
+    const measureLatency = () => {
+      const start = Date.now();
+      socket.emit("latencyPing", start, () => {
+        const rawRtt = Math.max(1, Date.now() - start);
+        setLatency((prev) => {
+          if (prev === null) return rawRtt;
+          // Exponential Moving Average (EMA) for smooth UI transitions
+          return Math.round(prev * 0.7 + rawRtt * 0.3);
+        });
+      });
+    };
+
+    // Measure immediately on connect
+    measureLatency();
+
+    const interval = setInterval(measureLatency, 3000);
+
+    return () => clearInterval(interval);
+  }, [socket, isConnected]);
+
   const updatePlayerName = (newName: string) => {
     setPlayerName(newName);
     localStorage.setItem("gh_player_name", newName);
@@ -138,6 +170,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         setIsProfileExpanded,
         isFirstVisit,
         dismissFirstVisitNotice,
+        latency,
       }}
     >
       {children}

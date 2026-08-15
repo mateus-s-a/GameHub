@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Check, X, ChevronLeft, Edit } from "lucide-react";
 import { useSocket } from "../../providers/SocketProvider";
+import LatencyIndicator from "./LatencyIndicator";
 
 export default function UserProfile() {
   const {
@@ -59,6 +60,7 @@ export default function UserProfile() {
 
   return (
     <div className="fixed bottom-8 right-8 z-50 flex items-center gap-2">
+      <LatencyIndicator />
       {/* First-Time User Onboarding Tooltip Banner */}
       <AnimatePresence>
         {isFirstVisit && isProfileExpanded && !isLocked && (
