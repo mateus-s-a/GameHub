@@ -4,17 +4,27 @@ import { motion } from "framer-motion";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { GameSetupConfig } from "@gamehub/types";
 
+import { GameId } from "@gamehub/core";
+
 interface GameSetupProps {
   onStart: (config: GameSetupConfig) => void;
   onCancel?: () => void;
-  gameId: "ttt" | "rps" | "gtf" | "hangman";
+  gameId: GameId;
 }
 
-const GAME_THEMES = {
+const GAME_THEMES: Record<
+  GameId,
+  { gradient: string; glow: string; border: string }
+> = {
   ttt: {
     gradient: "from-cyan-500 to-blue-600",
     glow: "shadow-cyan-500/50",
     border: "border-cyan-400/30",
+  },
+  c4: {
+    gradient: "from-red-500 to-rose-600",
+    glow: "shadow-red-500/50",
+    border: "border-red-400/30",
   },
   gtf: {
     gradient: "from-emerald-500 to-teal-600",

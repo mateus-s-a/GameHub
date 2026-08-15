@@ -73,7 +73,7 @@ export function compareConfigs(
 // GAME REGISTRY & THEMES
 // ==========================================
 
-export type GameId = "ttt" | "rps" | "gtf" | "hangman";
+export type GameId = "ttt" | "rps" | "gtf" | "hangman" | "c4";
 
 export interface GameEntry {
   id: GameId;
@@ -83,7 +83,7 @@ export interface GameEntry {
   description: string;
   status: "active" | "coming_soon";
   accentColor: string;
-  illustration: "ttt" | "rps" | "gtf" | "hangman";
+  illustration: "ttt" | "rps" | "gtf" | "hangman" | "c4";
   maxPlayers: number;
 }
 
@@ -124,6 +124,15 @@ export const GAME_THEMES = {
       accent: "#84cc16",
     },
   },
+  c4: {
+    id: "c4",
+    name: "Connect 4",
+    colors: {
+      background: "#0a0e18",
+      glow: "rgba(239, 68, 68, 0.08)",
+      accent: "#ef4444",
+    },
+  },
 } as const;
 
 export const GAMES_REGISTRY: readonly GameEntry[] = [
@@ -136,6 +145,17 @@ export const GAMES_REGISTRY: readonly GameEntry[] = [
     status: "active",
     accentColor: "rgba(255, 255, 255, 0.06)",
     illustration: "ttt",
+    maxPlayers: 2,
+  },
+  {
+    id: "c4",
+    slug: "connect-four",
+    title: "CONNECT 4",
+    category: "STRATEGY",
+    description: "Drop your colored discs and connect 4 in a row to win.",
+    status: "active",
+    accentColor: "rgba(239, 68, 68, 0.06)",
+    illustration: "c4",
     maxPlayers: 2,
   },
   {

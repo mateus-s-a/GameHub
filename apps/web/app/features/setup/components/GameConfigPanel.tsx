@@ -5,6 +5,7 @@ import {
   ROUND_OPTIONS,
   TIME_OPTIONS,
   PLAYER_OPTIONS,
+  GameId,
 } from "@gamehub/core";
 import { Button } from "@repo/ui/button";
 import { Lock, RefreshCw, Check } from "lucide-react";
@@ -55,7 +56,7 @@ function LockedFieldWrapper({
 }
 
 interface GameConfigPanelProps {
-  gameId: "ttt" | "rps" | "gtf" | "hangman";
+  gameId: GameId;
   config: GameSetupConfig;
   onApply: (config: GameSetupConfig) => void;
   isHost: boolean;
