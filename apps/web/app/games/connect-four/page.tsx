@@ -433,7 +433,7 @@ export default function ConnectFourGame() {
                           initial={{ y: -6, opacity: 0, scale: 0.6 }}
                           animate={{ y: 0, opacity: 1, scale: 1 }}
                           exit={{ y: -6, opacity: 0, scale: 0.6 }}
-                          className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center shadow-lg ${
+                          className={`w-6 h-6 md:w-8 md:h-8 aspect-square shrink-0 rounded-full flex items-center justify-center shadow-lg ${
                             yourColor === "RED"
                               ? "bg-gradient-to-br from-red-500 to-rose-600 shadow-red-500/50"
                               : "bg-gradient-to-br from-amber-400 to-yellow-500 shadow-amber-500/50"
@@ -467,7 +467,7 @@ export default function ConnectFourGame() {
                           onMouseEnter={() => setHoveredCol(c)}
                           onMouseLeave={() => setHoveredCol(null)}
                           className={`
-                            relative w-9 h-9 md:w-13 md:h-13 rounded-full flex items-center justify-center
+                            relative w-10 h-10 md:w-14 md:h-14 aspect-square rounded-full flex items-center justify-center shrink-0
                             bg-[#080203] border border-white/10 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)]
                             ${canClickColumn ? "cursor-pointer hover:border-white/30" : "cursor-default"}
                           `}
@@ -502,7 +502,7 @@ export default function ConnectFourGame() {
                                       }
                                 }
                                 className={`
-                                  w-7 h-7 md:w-11 md:h-11 rounded-full relative flex items-center justify-center
+                                  w-[82%] h-[82%] aspect-square rounded-full shrink-0 relative flex items-center justify-center
                                   ${
                                     cell === "RED"
                                       ? "bg-gradient-to-br from-red-400 via-red-500 to-rose-700 shadow-[0_0_12px_rgba(239,68,68,0.7)]"
@@ -515,7 +515,7 @@ export default function ConnectFourGame() {
                                   }
                                 `}
                               >
-                                <div className="absolute top-1 left-1.5 w-2.5 h-1 bg-white/40 rounded-full blur-[0.3px]" />
+                                <div className="absolute top-1 left-1.5 w-[30%] h-[15%] bg-white/40 rounded-full blur-[0.3px]" />
                               </motion.div>
                             )}
                           </AnimatePresence>
