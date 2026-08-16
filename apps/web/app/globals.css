@@ -52,6 +52,12 @@
     --theme-accent: #84cc16;
   }
 
+  [data-theme="mc"] {
+    --theme-bg: #180d0a;
+    --theme-glow: rgba(249, 115, 22, 0.08);
+    --theme-accent: #f97316;
+  }
+
   body {
     @apply text-[var(--foreground)] min-h-screen overflow-x-hidden;
     font-family: 'Iosevka Charon Mono', monospace;

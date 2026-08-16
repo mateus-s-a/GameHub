@@ -16,7 +16,9 @@ export interface GameSetupConfig {
   maxRounds: number;
   timeLimit: number;
   region?: string; // Only for GTF
-  maxPlayers?: number; // Only for GTF currently mapped
+  maxPlayers?: number; // For GTF, Hangman, and Memory Card
+  mode?: "standard" | "custom"; // For Memory Card
+  boardSize?: string; // For Memory Card (e.g. "4x4", "6x4", "6x5", "6x6", "8x5", "8x6")
 }
 
 export interface RoomInfo {

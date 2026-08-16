@@ -9,6 +9,7 @@ import { RPSLogic, RPSChoice } from "@gamehub/rock-paper-scissors";
 import { GuessTheFlagLogic, GTFCountry } from "@gamehub/guess-the-flag";
 import { WordService } from "@gamehub/hangman";
 import { HangmanController } from "./controllers/HangmanController";
+import { MemoryCardController } from "./controllers/MemoryCardController";
 import { GameEvent } from "@gamehub/core";
 
 // Initialize word buffer
@@ -682,6 +683,49 @@ hangmanNamespace.on("connection", (socket: Socket) => {
   });
 });
 
+// --- Memory Card Namespace ---
+const mcNamespace = io.of("/mc");
+const memoryCardController = new MemoryCardController(mcNamespace);
+
+mcNamespace.on("connection", (socket: Socket) => {
+  logConnection(socket, "Memory Card");
+
+  registerGenericLobbyEvents(
+    socket,
+    mcNamespace,
+    "mc",
+    memoryCardController.getGamesMap(),
+    () => ({}), // Truthy placeholder for MemoryCardController
+    undefined,
+    (roomId: string) => {
+      const room = roomManager.getRoom(roomId);
+      if (room) {
+        memoryCardController.initGame(
+          roomId,
+          room.players.map((p) => p.id),
+          room.config,
+        );
+      }
+    },
+  );
+
+  socket.on("joinRoom", (roomId: string) => {
+    socket.join(roomId);
+    memoryCardController.broadcastState(roomId);
+  });
+
+  socket.on(
+    "flipCard",
+    ({ roomId, cardId }: { roomId: string; cardId: number }) => {
+      memoryCardController.handleFlipCard(socket, roomId, { cardId });
+    },
+  );
+
+  socket.on("requestRematch", (roomId: string) => {
+    memoryCardController.handleRematch(socket, roomId);
+  });
+});
+
 function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
   let pool = allCountries;
   if (game.region && game.region !== "All") {
@@ -858,6 +902,9 @@ setInterval(() => {
 
   // Check Hangman
   hangmanController.checkTimeouts();
+
+  // Check Memory Card
+  memoryCardController.checkTimeouts();
 }, 1000);
 
 app.get("/", (req, res) => {

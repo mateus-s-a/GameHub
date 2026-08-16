@@ -65,6 +65,8 @@ export function compareConfigs(
   // Check game-specific optional properties
   if (a.region !== b.region) return false;
   if (a.maxPlayers !== b.maxPlayers) return false;
+  if (a.mode !== b.mode) return false;
+  if (a.boardSize !== b.boardSize) return false;
 
   return true;
 }
@@ -73,7 +75,7 @@ export function compareConfigs(
 // GAME REGISTRY & THEMES
 // ==========================================
 
-export type GameId = "ttt" | "rps" | "gtf" | "hangman" | "c4";
+export type GameId = "ttt" | "rps" | "gtf" | "hangman" | "c4" | "mc";
 
 export interface GameEntry {
   id: GameId;
@@ -83,7 +85,7 @@ export interface GameEntry {
   description: string;
   status: "active" | "coming_soon";
   accentColor: string;
-  illustration: "ttt" | "rps" | "gtf" | "hangman" | "c4";
+  illustration: "ttt" | "rps" | "gtf" | "hangman" | "c4" | "mc";
   maxPlayers: number;
 }
 
@@ -133,6 +135,15 @@ export const GAME_THEMES = {
       accent: "#ef4444",
     },
   },
+  mc: {
+    id: "mc",
+    name: "Memory Card",
+    colors: {
+      background: "#180d0a",
+      glow: "rgba(249, 115, 22, 0.08)",
+      accent: "#f97316",
+    },
+  },
 } as const;
 
 export const GAMES_REGISTRY: readonly GameEntry[] = [
@@ -157,6 +168,17 @@ export const GAMES_REGISTRY: readonly GameEntry[] = [
     accentColor: "rgba(239, 68, 68, 0.06)",
     illustration: "c4",
     maxPlayers: 2,
+  },
+  {
+    id: "mc",
+    slug: "memory-card",
+    title: "MEMORY CARD",
+    category: "MEMORY",
+    description: "Test your spatial memory and flip matching pairs in real-time.",
+    status: "active",
+    accentColor: "rgba(249, 115, 22, 0.06)",
+    illustration: "mc",
+    maxPlayers: 4,
   },
   {
     id: "gtf",

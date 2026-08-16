@@ -1,0 +1,10 @@
+{
+  "name": "@gamehub/memory-card",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "typescript": "^5.9.2"
+  }
+}
