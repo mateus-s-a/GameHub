@@ -28,6 +28,12 @@
     --theme-accent: #22d3ee;
   }
 
+  [data-theme="c4"] {
+    --theme-bg: #180a0a;
+    --theme-glow: rgba(239, 68, 68, 0.08);
+    --theme-accent: #ef4444;
+  }
+
   [data-theme="gtf"] {
     --theme-bg: #0a140e;
     --theme-glow: rgba(16, 185, 129, 0.08);

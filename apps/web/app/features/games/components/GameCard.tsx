@@ -7,6 +7,7 @@ import { type GameEntry, ANIMATION_TOKENS } from "@gamehub/core";
 // Lazy-load illustrations for optimal bundle size
 const illustrationMap = {
   ttt: dynamic(() => import("./illustrations/TicTacToeHero")),
+  c4: dynamic(() => import("./illustrations/ConnectFourHero")),
   gtf: dynamic(() => import("./illustrations/GuessTheFlagHero")),
   rps: dynamic(() => import("./illustrations/RockPaperScissorsHero")),
   hangman: dynamic(() => import("./illustrations/HangmanHero")),

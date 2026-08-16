@@ -4,6 +4,7 @@ import http from "http";
 import { Server, Socket } from "socket.io";
 import cors from "cors";
 import { TicTacToeLogic } from "@gamehub/tic-tac-toe";
+import { ConnectFourLogic } from "@gamehub/connect-four";
 import { RPSLogic, RPSChoice } from "@gamehub/rock-paper-scissors";
 import { GuessTheFlagLogic, GTFCountry } from "@gamehub/guess-the-flag";
 import { WordService } from "@gamehub/hangman";
@@ -414,6 +415,91 @@ tttNamespace.on("connection", (socket: Socket) => {
   // Rematch and Move events stay the same.
 });
 
+// --- Connect 4 Namespace ---
+const c4Namespace = io.of("/c4");
+const c4Games = new Map<string, ConnectFourLogic>();
+const c4SocketRooms = new Map<string, string>();
+
+c4Namespace.on("connection", (socket: Socket) => {
+  logConnection(socket, "Connect 4");
+
+  registerGenericLobbyEvents(
+    socket,
+    c4Namespace,
+    "c4",
+    c4Games,
+    (config) => new ConnectFourLogic(config || {}),
+    (socketId) => c4SocketRooms.delete(socketId),
+  );
+
+  socket.on("joinRoom", (roomId: string) => {
+    socket.join(roomId);
+    const game = c4Games.get(roomId);
+    if (!game) return;
+
+    c4SocketRooms.set(socket.id, roomId);
+    game.addPlayer(socket.id);
+
+    const roomClients = c4Namespace.adapter.rooms.get(roomId);
+    if (roomClients?.size === 1) {
+      socket.emit("waitingForOpponent");
+    } else if (roomClients?.size === 2) {
+      // Both players are connected, send state with individual assigned color
+      for (const clientId of roomClients) {
+        const clientSocket = c4Namespace.sockets.get(clientId);
+        if (clientSocket) {
+          clientSocket.emit("gameState", {
+            ...game.getPublicState(),
+            yourColor: game.players.get(clientId),
+          });
+        }
+      }
+    }
+  });
+
+  socket.on(
+    "makeMove",
+    ({ roomId, col }: { roomId: string; col: number }) => {
+      const game = c4Games.get(roomId);
+      if (!game) return;
+
+      if (game.makeMove(socket.id, col)) {
+        c4Namespace.to(roomId).emit("gameState", game.getPublicState());
+        if (game.state === "round_result") {
+          scheduleNextRound(c4Games, roomId, c4Namespace, 3000);
+        } else if (game.state === "game_over") {
+          handleAutoReturnToLobby(c4Namespace, roomId, c4Games);
+        }
+      }
+    },
+  );
+
+  socket.on("requestRematch", (roomId: string) => {
+    const game = c4Games.get(roomId);
+    if (!game) return;
+
+    if (game.requestRematch(socket.id)) {
+      cancelAutoReturnToLobby(roomId);
+      game.reset();
+      c4Namespace.to(roomId).emit("rematchStarted");
+      const roomClients = c4Namespace.adapter.rooms.get(roomId);
+      if (roomClients) {
+        for (const clientId of roomClients) {
+          const clientSocket = c4Namespace.sockets.get(clientId);
+          if (clientSocket) {
+            clientSocket.emit("gameState", {
+              ...game.getPublicState(),
+              yourColor: game.players.get(clientId),
+            });
+          }
+        }
+      }
+    } else {
+      c4Namespace.to(roomId).emit("gameState", game.getPublicState());
+    }
+  });
+});
+
 // --- Rock-Paper-Scissors Namespace ---
 const rpsNamespace = io.of("/rps");
 const rpsGames = new Map<string, RPSLogic>();
@@ -663,6 +749,39 @@ setInterval(() => {
             scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
           } else if (game.state === "game_over") {
             handleAutoReturnToLobby(tttNamespace, roomId, tttGames);
+          }
+        }
+      }
+    }
+  }
+
+  // Check Connect 4
+  for (const [roomId, game] of c4Games.entries()) {
+    if (game.turnEndTime && now >= game.turnEndTime && !game.winner) {
+      const validCols: number[] = [];
+      for (let c = 0; c < 7; c++) {
+        if (game.board[5]?.[c] === null) {
+          validCols.push(c);
+        }
+      }
+      if (validCols.length > 0) {
+        const randomCol = validCols[
+          Math.floor(Math.random() * validCols.length)
+        ] as number;
+        let currentPlayerId: string | undefined;
+        for (const [id, color] of game.players.entries()) {
+          if (color === game.currentPlayer) {
+            currentPlayerId = id;
+            break;
+          }
+        }
+        if (currentPlayerId) {
+          game.makeMove(currentPlayerId, randomCol);
+          c4Namespace.to(roomId).emit("gameState", game.getPublicState());
+          if (game.state === "round_result") {
+            scheduleNextRound(c4Games, roomId, c4Namespace, 3000);
+          } else if (game.state === "game_over") {
+            handleAutoReturnToLobby(c4Namespace, roomId, c4Games);
           }
         }
       }
