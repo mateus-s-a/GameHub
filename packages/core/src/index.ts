@@ -128,7 +128,7 @@ export const GAME_THEMES = {
     id: "c4",
     name: "Connect 4",
     colors: {
-      background: "#0a0e18",
+      background: "#180a0a",
       glow: "rgba(239, 68, 68, 0.08)",
       accent: "#ef4444",
     },

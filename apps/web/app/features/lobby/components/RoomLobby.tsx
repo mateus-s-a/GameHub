@@ -26,6 +26,11 @@ const GAME_THEMES = {
     glow: "shadow-cyan-500/50",
     border: "border-cyan-400/30",
   },
+  c4: {
+    gradient: "from-red-500 to-rose-600",
+    glow: "shadow-red-500/50",
+    border: "border-red-400/30",
+  },
   gtf: {
     gradient: "from-emerald-500 to-teal-600",
     glow: "shadow-emerald-500/50",

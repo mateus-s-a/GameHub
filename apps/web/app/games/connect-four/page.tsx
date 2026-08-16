@@ -332,7 +332,7 @@ export default function ConnectFourGame() {
           themeColor="red"
         />
 
-        <Card className="w-full max-w-2xl p-6 md:p-8 flex flex-col items-center gap-6 bg-[#121622] border border-white/10 shadow-2xl">
+        <Card className="w-full max-w-2xl p-6 md:p-8 flex flex-col items-center gap-6 bg-[#161214] border border-white/10 shadow-2xl">
           {/* Header Info: Status and Assigned Color */}
           <div className="flex justify-between w-full text-xs font-iosevka-bold tracking-widest uppercase text-[var(--muted)]">
             <span
@@ -373,7 +373,7 @@ export default function ConnectFourGame() {
           />
 
           {/* Turn Banner */}
-          <div className="text-center text-lg md:text-xl h-12 flex items-center justify-center w-full bg-[#0a0e18] rounded-xl border border-white/5 px-4">
+          <div className="text-center text-lg md:text-xl h-12 flex items-center justify-center w-full bg-[#140a0c] rounded-xl border border-white/5 px-4">
             {roundState === "playing" && (
               <span
                 className={`font-iosevka-bold uppercase tracking-widest flex items-center gap-2 ${
@@ -412,7 +412,7 @@ export default function ConnectFourGame() {
           )}
 
           {/* Connect 4 Matrix Board Frame */}
-          <div className="relative p-3 md:p-5 rounded-2xl bg-[#090e1a] border border-cyan-500/20 shadow-2xl flex flex-col items-center w-full">
+          <div className="relative p-3 md:p-5 rounded-2xl bg-[#1a0a0c] border border-red-500/20 shadow-2xl flex flex-col items-center w-full">
             {/* Hover Column Disc Drops */}
             <div className="grid grid-cols-7 gap-1.5 md:gap-2.5 mb-1.5 w-full max-w-[340px] md:max-w-[450px]">
               {Array.from({ length: COLS }).map((_, c) => {
@@ -449,7 +449,7 @@ export default function ConnectFourGame() {
             </div>
 
             {/* Matrix Cells */}
-            <div className="grid grid-cols-7 gap-1.5 md:gap-2.5 bg-[#050811] p-3 md:p-4 rounded-xl border border-white/5 shadow-inner">
+            <div className="grid grid-cols-7 gap-1.5 md:gap-2.5 bg-[#110507] p-3 md:p-4 rounded-xl border border-white/5 shadow-inner">
               {Array.from({ length: ROWS }).map((_, rIndex) => {
                 const r = ROWS - 1 - rIndex;
 
@@ -468,7 +468,7 @@ export default function ConnectFourGame() {
                           onMouseLeave={() => setHoveredCol(null)}
                           className={`
                             relative w-9 h-9 md:w-13 md:h-13 rounded-full flex items-center justify-center
-                            bg-[#020408] border border-white/10 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)]
+                            bg-[#080203] border border-white/10 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)]
                             ${canClickColumn ? "cursor-pointer hover:border-white/30" : "cursor-default"}
                           `}
                         >
