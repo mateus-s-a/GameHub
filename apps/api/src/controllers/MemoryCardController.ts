@@ -75,6 +75,8 @@ export class MemoryCardController {
   public checkTimeouts() {
     const now = Date.now();
     for (const [roomId, game] of this.games.entries()) {
+      if (!game || !game.state) continue;
+
       if (
         game.state.status === "playing" &&
         game.state.turnEndTime &&
@@ -94,7 +96,7 @@ export class MemoryCardController {
 
   public broadcastState(roomId: string) {
     const game = this.games.get(roomId);
-    if (!game) return;
+    if (!game || !game.state) return;
     this.namespace.to(roomId).emit("gameState", game.state);
   }
 

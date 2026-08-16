@@ -41,6 +41,7 @@ import TimerDisplay from "@/features/match/components/TimerDisplay";
 import ConfirmModal from "@/(shared)/components/ui/ConfirmModal";
 import { ReturnToLobbyBadge } from "@/features/match/components/ReturnToLobbyBadge";
 import EndMatchOptions from "@/features/match/components/EndMatchOptions";
+import NavButton from "@/(shared)/components/ui/NavButton";
 import { GameShell } from "@repo/ui/game-shell";
 import { GAME_CONSTANTS } from "@gamehub/core";
 
@@ -198,22 +199,35 @@ export default function MemoryCardPage() {
     }
   };
 
+  // View 1: Setup Modal with BACK TO LIST ROOMS button
+  if (setupNeeded && !roomId) {
+    return (
+      <GameShell playerName={playerName}>
+        <div className="w-full max-w-5xl mx-auto flex flex-col items-start pt-12">
+          <NavButton
+            label="BACK TO LIST ROOMS"
+            onClick={() => setSetupNeeded(false)}
+            className="mb-12"
+          />
+          <div className="w-full flex justify-center">
+            <GameSetup
+              gameId="mc"
+              onStart={(config) => {
+                setSetupNeeded(false);
+                createRoom(config);
+              }}
+              onCancel={() => setSetupNeeded(false)}
+            />
+          </div>
+        </div>
+      </GameShell>
+    );
+  }
+
   return (
     <GameShell playerName={playerName}>
-      {/* 1. ROOM SETUP CONFIGURATION */}
-      {setupNeeded && (
-        <GameSetup
-          gameId="mc"
-          onStart={(config) => {
-            setSetupNeeded(false);
-            createRoom(config);
-          }}
-          onCancel={() => setSetupNeeded(false)}
-        />
-      )}
-
       {/* 2. ROOM LOBBY WAITING AREA */}
-      {!setupNeeded && roomLobby && roomLobby.status === "waiting" && (
+      {roomLobby && roomLobby.status === "waiting" && (
         <RoomLobby
           roomLobby={roomLobby}
           localPlayerId={localSocketId || ""}
@@ -228,7 +242,7 @@ export default function MemoryCardPage() {
       {/* 3. ROOM BROWSER & CREATION SELECTION */}
       {!setupNeeded && !roomLobby && (
         <RoomBrowser
-          gameLabel="MEMORY CARD"
+          gameLabel="Memory Card"
           rooms={rooms}
           onCreateRoom={handleCreateRoomClick}
           onJoinRoom={(id) => joinRoom(id)}
