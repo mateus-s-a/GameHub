@@ -19,8 +19,8 @@ GameHub is a high-performance, real-time gaming platform designed with a **Modul
 
 ### Key Features
 
-- **Real-Time Multiplayer**: Powered by Socket.io for low-latency gameplay and instant state synchronization.
-- **Premium Aesthetics**: Dynamic game-aware themes, glassmorphism UI, and animated shimmer buttons using **Framer Motion**.
+- **Real-Time Multiplayer**: Powered by Socket.io for low-latency gameplay, real-time EMA-smoothed latency monitoring (RTT in ms), and instant state synchronization.
+- **Premium Design System**: Dynamic game-aware themes (`[data-theme]`), glassmorphism UI, monochrome translucent vector hero illustrations, strict $1:1$ `aspect-square` circular geometry, and animated shimmer buttons using **Framer Motion**.
 - **Modular Architecture**: Isolated game logic packages ensuring server-authoritative rules and easy extensibility.
 - **Lobby System**: Robust match-making with room codes, host controls, and player readiness states.
 - **Unified Tech Stack**: Full-stack TypeScript for end-to-end type safety across the monorepo.
@@ -29,11 +29,13 @@ GameHub is a high-performance, real-time gaming platform designed with a **Modul
 
 ## Games Library
 
-| Game                    | Number of Players |
-| :---------------------- | :---------------- |
-| **Tic Tac Toe**         | 2 Players         |
-| **Rock Paper Scissors** | 2 Players         |
-| **Guess the Flag**      | 2-4 Players       |
+| Game                    | Number of Players | Theme Accent / Status |
+| :---------------------- | :---------------- | :-------------------- |
+| **Tic Tac Toe**         | 2 Players         | Cyan (`#22d3ee`)      |
+| **Connect 4**           | 2 Players         | Red (`#ef4444`)       |
+| **Rock Paper Scissors** | 2 Players         | Purple (`#a855f7`)    |
+| **Guess the Flag**      | 2-4 Players       | Emerald (`#10b981`)   |
+| **Hangman**             | 2 Players         | Lime (`#84cc16`)      |
 
 ---
 
@@ -62,8 +64,8 @@ GameHub/
 │   ├── web/          # Next.js frontend application
 │   └── api/          # Express & Socket.io backend server
 ├── packages/
-│   ├── core/         # Shared constants & business logic
-│   ├── game-logic/   # Isolated game engines (ttt, rps, gtf)
+│   ├── core/         # Shared constants, themes & business logic
+│   ├── game-logic/   # Isolated game engines (ttt, connect-four, rps, gtf, hangman)
 │   ├── types/        # Unified TypeScript interfaces
 │   ├── ui/           # Shared high-end UI component library
 │   └── config/       # Shared ESLint, Tailwind, and TS configs
