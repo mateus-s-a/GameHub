@@ -187,7 +187,7 @@ export const GAMES_REGISTRY: readonly GameEntry[] = [
     category: "WORD",
     description:
       "A race against time and limited chances to solve the mystery word.",
-    status: "active",
+    status: "coming_soon",
     accentColor: "rgba(200, 255, 130, 0.06)",
     illustration: "hangman",
     maxPlayers: 4,
