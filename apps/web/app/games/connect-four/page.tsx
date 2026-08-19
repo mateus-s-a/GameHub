@@ -302,257 +302,251 @@ export default function ConnectFourGame() {
         </div>
       )}
 
-      <div className="w-full max-w-4xl flex flex-col items-center">
-        <h1 className="text-4xl font-iosevka-bold mb-6 text-white tracking-widest uppercase">
-          Connect 4
-        </h1>
+      <div className="w-full max-w-6xl mx-auto flex flex-col items-center">
+        {/* Responsive Grid Shell: Column on Mobile, 2-Column Split on Desktop */}
+        <div className="w-full flex flex-col lg:flex-row gap-6 lg:gap-8 items-center lg:items-start justify-center">
+          
+          {/* Left Column: HUD & Information Panel */}
+          <Card className="w-full lg:w-80 p-5 md:p-6 flex flex-col items-center gap-5 bg-[#161214] border border-red-500/20 shadow-2xl shrink-0">
+            <h1 className="text-2xl md:text-3xl font-iosevka-bold text-white tracking-widest uppercase text-center drop-shadow-[0_0_12px_rgba(239,68,68,0.3)]">
+              Connect 4
+            </h1>
 
-        {isGameStarted && !winner && (
-          <Button
-            variant="ghost"
-            onClick={() => setIsExitModalOpen(true)}
-            className="mb-6 border-red-500/20 text-red-500 hover:bg-red-500/10"
-          >
-            <X className="w-3 h-3" />
-            <span>LEAVE MATCH</span>
-          </Button>
-        )}
-
-        <ConfirmModal
-          isOpen={isExitModalOpen}
-          title="Leave Match?"
-          message="Are you sure you want to leave the current match? Your progress will be lost."
-          onConfirm={() => {
-            handleLeaveRoom();
-            setIsExitModalOpen(false);
-          }}
-          onCancel={() => setIsExitModalOpen(false)}
-          confirmText="Leave"
-          cancelText="Stay"
-          themeColor="red"
-        />
-
-        <Card className="w-full max-w-2xl p-6 md:p-8 flex flex-col items-center gap-6 bg-[#161214] border border-white/10 shadow-2xl">
-          {/* Header Info: Status and Assigned Color */}
-          <div className="flex justify-between w-full text-xs font-iosevka-bold tracking-widest uppercase text-[var(--muted)]">
-            <span
-              className={`px-4 py-2 rounded-lg border ${localSocketId ? "bg-white/5 border-white/10" : "bg-red-500/10 border-red-500/20"}`}
-            >
-              {localSocketId ? "CONNECTED" : "OFFLINE"}
-            </span>
-            {yourColor && (
+            {/* Connection Status & Color Badge */}
+            <div className="flex items-center justify-between w-full text-xs font-iosevka-bold tracking-widest uppercase gap-2">
               <span
-                className={`px-4 py-2 rounded-lg border flex items-center gap-2 ${
-                  yourColor === "RED"
-                    ? "bg-red-500/10 border-red-500/30 text-red-400"
-                    : "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                }`}
+                className={`px-3 py-1.5 rounded-lg border ${localSocketId ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-red-500/10 border-red-500/20 text-red-400"}`}
               >
-                <div
-                  className={`w-2.5 h-2.5 rounded-full ${yourColor === "RED" ? "bg-red-500" : "bg-amber-400"}`}
-                />
-                YOU ARE: {yourColor}
+                {localSocketId ? "CONNECTED" : "OFFLINE"}
               </span>
-            )}
-          </div>
-
-          {/* Scoreboard */}
-          <Scoreboard
-            players={
-              gameStateData?.players.map((p) => ({
-                id: p.id,
-                name: roomLobby?.players.find((rp) => rp.id === p.id)?.name,
-                score: scores[p.color as string] || 0,
-                isConnected: true,
-              })) || []
-            }
-            localPlayerId={localSocketId || ""}
-            currentRound={currentRound}
-            maxRounds={maxRounds}
-            gameId="c4"
-          />
-
-          {/* Turn Banner */}
-          <div className="text-center text-lg md:text-xl h-12 flex items-center justify-center w-full bg-[#140a0c] rounded-xl border border-white/5 px-4">
-            {roundState === "playing" && (
-              <span
-                className={`font-iosevka-bold uppercase tracking-widest flex items-center gap-2 ${
-                  isMyTurn ? "text-white animate-pulse" : "text-gray-400"
-                }`}
-              >
+              {yourColor && (
                 <span
-                  className={`w-2.5 h-2.5 rounded-full ${currentPlayer === "RED" ? "bg-red-500" : "bg-amber-400"}`}
-                />
-                {isMyTurn
-                  ? "YOUR TURN — DROP A DISC"
-                  : `OPPONENT'S TURN (${currentPlayer})`}
-              </span>
-            )}
-            {roundState === "round_result" && (
-              <span className="text-white font-iosevka-bold uppercase tracking-widest">
-                {winner === "Draw"
-                  ? "IT'S A DRAW!"
-                  : `${winner} WINS THE ROUND!`}
-              </span>
-            )}
-            {roundState === "game_over" && (
-              <span className="text-white font-iosevka-bold uppercase tracking-widest">
-                {winner === "Draw"
-                  ? "MATCH TIED!"
-                  : `${winner} WON THE MATCH!`}
-              </span>
-            )}
-          </div>
-
-          {/* Timer Display */}
-          {roundState === "playing" && gameStateData?.turnEndTime && (
-            <div className="scale-125 py-2">
-              <TimerDisplay turnEndTime={gameStateData.turnEndTime} />
-            </div>
-          )}
-
-          {/* Connect 4 Matrix Board Frame */}
-          <div className="relative p-3 md:p-5 rounded-2xl bg-[#1a0a0c] border border-red-500/20 shadow-2xl flex flex-col items-center w-full">
-            {/* Hover Column Disc Drops */}
-            <div className="grid grid-cols-7 gap-1.5 md:gap-2.5 mb-1.5 w-full max-w-[340px] md:max-w-[450px]">
-              {Array.from({ length: COLS }).map((_, c) => {
-                const isHovered = hoveredCol === c;
-                const canDrop = isMyTurn && !isColFull(c);
-
-                return (
+                  className={`px-3 py-1.5 rounded-lg border flex items-center gap-1.5 ${
+                    yourColor === "RED"
+                      ? "bg-red-500/10 border-red-500/30 text-red-400"
+                      : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                  }`}
+                >
                   <div
-                    key={`preview-${c}`}
-                    className="h-6 md:h-8 flex items-center justify-center cursor-pointer"
-                    onClick={() => canDrop && handleColumnClick(c)}
-                    onMouseEnter={() => setHoveredCol(c)}
-                    onMouseLeave={() => setHoveredCol(null)}
-                  >
-                    <AnimatePresence>
-                      {isHovered && canDrop && (
-                        <motion.div
-                          initial={{ y: -6, opacity: 0, scale: 0.6 }}
-                          animate={{ y: 0, opacity: 1, scale: 1 }}
-                          exit={{ y: -6, opacity: 0, scale: 0.6 }}
-                          className={`w-6 h-6 md:w-8 md:h-8 aspect-square shrink-0 rounded-full flex items-center justify-center shadow-lg ${
-                            yourColor === "RED"
-                              ? "bg-gradient-to-br from-red-500 to-rose-600 shadow-red-500/50"
-                              : "bg-gradient-to-br from-amber-400 to-yellow-500 shadow-amber-500/50"
-                          }`}
-                        >
-                          <ArrowDown className="w-3.5 h-3.5 text-white animate-bounce" />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })}
+                    className={`w-2 h-2 rounded-full ${yourColor === "RED" ? "bg-red-500" : "bg-amber-400"}`}
+                  />
+                  YOU ARE: {yourColor}
+                </span>
+              )}
             </div>
 
-            {/* Matrix Cells */}
-            <div className="grid grid-cols-7 gap-1.5 md:gap-2.5 bg-[#110507] p-3 md:p-4 rounded-xl border border-white/5 shadow-inner">
-              {Array.from({ length: ROWS }).map((_, rIndex) => {
-                const r = ROWS - 1 - rIndex;
+            {/* Scoreboard */}
+            <Scoreboard
+              players={
+                gameStateData?.players.map((p) => ({
+                  id: p.id,
+                  name: roomLobby?.players.find((rp) => rp.id === p.id)?.name,
+                  score: scores[p.color as string] || 0,
+                  isConnected: true,
+                })) || []
+              }
+              localPlayerId={localSocketId || ""}
+              currentRound={currentRound}
+              maxRounds={maxRounds}
+              gameId="c4"
+            />
 
-                return (
-                  <React.Fragment key={`row-${r}`}>
-                    {Array.from({ length: COLS }).map((_, c) => {
-                      const cell = board[r]?.[c];
-                      const isWinning = isWinningCell(r, c);
-                      const canClickColumn = isMyTurn && !isColFull(c);
+            {/* Turn Banner Status */}
+            <div className="text-center text-sm md:text-base py-3 px-4 flex items-center justify-center w-full bg-[#140a0c] rounded-xl border border-white/5 shadow-inner">
+              {roundState === "playing" && (
+                <span
+                  className={`font-iosevka-bold uppercase tracking-wider flex items-center gap-2 ${
+                    isMyTurn ? "text-white animate-pulse" : "text-gray-400"
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${currentPlayer === "RED" ? "bg-red-500" : "bg-amber-400"}`}
+                  />
+                  {isMyTurn
+                    ? "YOUR TURN"
+                    : `OPPONENT'S TURN (${currentPlayer})`}
+                </span>
+              )}
+              {roundState === "round_result" && (
+                <span className="text-white font-iosevka-bold uppercase tracking-wider">
+                  {winner === "Draw"
+                    ? "IT'S A DRAW!"
+                    : `${winner} WINS ROUND!`}
+                </span>
+              )}
+              {roundState === "game_over" && (
+                <span className="text-white font-iosevka-bold uppercase tracking-wider">
+                  {winner === "Draw"
+                    ? "MATCH TIED!"
+                    : `${winner} WON MATCH!`}
+                </span>
+              )}
+            </div>
 
-                      return (
-                        <div
-                          key={`cell-${r}-${c}`}
-                          onClick={() => canClickColumn && handleColumnClick(c)}
-                          onMouseEnter={() => setHoveredCol(c)}
-                          onMouseLeave={() => setHoveredCol(null)}
-                          className={`
-                            relative w-10 h-10 md:w-14 md:h-14 aspect-square rounded-full flex items-center justify-center shrink-0
-                            bg-[#080203] border border-white/10 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)]
-                            ${canClickColumn ? "cursor-pointer hover:border-white/30" : "cursor-default"}
-                          `}
-                        >
-                          <AnimatePresence>
-                            {cell && (
-                              <motion.div
-                                initial={{ y: -180, opacity: 0.6 }}
-                                animate={{
-                                  y: 0,
-                                  opacity: 1,
-                                  scale: isWinning ? [1, 1.15, 1] : 1,
-                                }}
-                                transition={
-                                  isWinning
-                                    ? {
-                                        scale: {
-                                          repeat: Infinity,
-                                          duration: 1.2,
-                                          ease: "easeInOut",
-                                        },
-                                        y: {
+            {/* Timer Display */}
+            {roundState === "playing" && gameStateData?.turnEndTime && (
+              <div className="w-full flex justify-center py-1">
+                <TimerDisplay turnEndTime={gameStateData.turnEndTime} size="lg" />
+              </div>
+            )}
+
+            {/* Leave Match Button */}
+            {isGameStarted && !winner && (
+              <Button
+                variant="ghost"
+                onClick={() => setIsExitModalOpen(true)}
+                className="w-full border-red-500/20 text-red-500 hover:bg-red-500/10 mt-2"
+              >
+                <X className="w-4 h-4 mr-2" />
+                <span>LEAVE MATCH</span>
+              </Button>
+            )}
+          </Card>
+
+          {/* Right Column: Connect 4 Matrix Arena */}
+          <Card className="w-full max-w-[min(95vw,560px)] lg:max-w-xl p-4 sm:p-6 flex flex-col items-center gap-5 bg-[#161214] border border-red-500/20 shadow-2xl shrink-0">
+            <div className="relative p-2.5 sm:p-4 rounded-2xl bg-[#1a0a0c] border border-red-500/20 shadow-2xl flex flex-col items-center w-full">
+              {/* Hover Column Disc Drops Preview */}
+              <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-1 w-full">
+                {Array.from({ length: COLS }).map((_, c) => {
+                  const isHovered = hoveredCol === c;
+                  const canDrop = isMyTurn && !isColFull(c);
+
+                  return (
+                    <div
+                      key={`preview-${c}`}
+                      className="h-6 sm:h-8 flex items-center justify-center cursor-pointer"
+                      onClick={() => canDrop && handleColumnClick(c)}
+                      onMouseEnter={() => setHoveredCol(c)}
+                      onMouseLeave={() => setHoveredCol(null)}
+                    >
+                      <AnimatePresence>
+                        {isHovered && canDrop && (
+                          <motion.div
+                            initial={{ y: -6, opacity: 0, scale: 0.6 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            exit={{ y: -6, opacity: 0, scale: 0.6 }}
+                            className={`w-5 h-5 sm:w-7 sm:h-7 aspect-square shrink-0 rounded-full flex items-center justify-center shadow-lg ${
+                              yourColor === "RED"
+                                ? "bg-gradient-to-br from-red-500 to-rose-600 shadow-red-500/50"
+                                : "bg-gradient-to-br from-amber-400 to-yellow-500 shadow-amber-500/50"
+                            }`}
+                          >
+                            <ArrowDown className="w-3 h-3 text-white animate-bounce" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Matrix Cells */}
+              <div className="grid grid-cols-7 gap-1 sm:gap-2 bg-[#110507] p-2 sm:p-3.5 rounded-xl border border-white/5 shadow-inner w-full justify-items-center">
+                {Array.from({ length: ROWS }).map((_, rIndex) => {
+                  const r = ROWS - 1 - rIndex;
+
+                  return (
+                    <React.Fragment key={`row-${r}`}>
+                      {Array.from({ length: COLS }).map((_, c) => {
+                        const cell = board[r]?.[c];
+                        const isWinning = isWinningCell(r, c);
+                        const canClickColumn = isMyTurn && !isColFull(c);
+
+                        return (
+                          <div
+                            key={`cell-${r}-${c}`}
+                            onClick={() => canClickColumn && handleColumnClick(c)}
+                            onMouseEnter={() => setHoveredCol(c)}
+                            onMouseLeave={() => setHoveredCol(null)}
+                            className={`
+                              relative w-[min(11vw,48px)] h-[min(11vw,48px)] sm:w-14 sm:h-14 aspect-square rounded-full flex items-center justify-center shrink-0
+                              bg-[#080203] border border-white/10 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)]
+                              ${canClickColumn ? "cursor-pointer hover:border-white/30" : "cursor-default"}
+                            `}
+                          >
+                            <AnimatePresence>
+                              {cell && (
+                                <motion.div
+                                  initial={{ y: -180, opacity: 0.6 }}
+                                  animate={{
+                                    y: 0,
+                                    opacity: 1,
+                                    scale: isWinning ? [1, 1.15, 1] : 1,
+                                  }}
+                                  transition={
+                                    isWinning
+                                      ? {
+                                          scale: {
+                                            repeat: Infinity,
+                                            duration: 1.2,
+                                            ease: "easeInOut",
+                                          },
+                                          y: {
+                                            type: "spring",
+                                            stiffness: 350,
+                                            damping: 24,
+                                          },
+                                        }
+                                      : {
                                           type: "spring",
                                           stiffness: 350,
                                           damping: 24,
-                                        },
-                                      }
-                                    : {
-                                        type: "spring",
-                                        stiffness: 350,
-                                        damping: 24,
-                                      }
-                                }
-                                className={`
-                                  w-[82%] h-[82%] aspect-square rounded-full shrink-0 relative flex items-center justify-center
-                                  ${
-                                    cell === "RED"
-                                      ? "bg-gradient-to-br from-red-400 via-red-500 to-rose-700 shadow-[0_0_12px_rgba(239,68,68,0.7)]"
-                                      : "bg-gradient-to-br from-yellow-300 via-amber-400 to-yellow-600 shadow-[0_0_12px_rgba(245,158,11,0.7)]"
+                                        }
                                   }
-                                  ${
-                                    isWinning
-                                      ? "ring-4 ring-white shadow-[0_0_25px_rgba(255,255,255,0.9)] z-20"
-                                      : ""
-                                  }
-                                `}
-                              >
-                                <div className="absolute top-1 left-1.5 w-[30%] h-[15%] bg-white/40 rounded-full blur-[0.3px]" />
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    })}
-                  </React.Fragment>
-                );
-              })}
+                                  className={`
+                                    w-[82%] h-[82%] aspect-square rounded-full shrink-0 relative flex items-center justify-center
+                                    ${
+                                      cell === "RED"
+                                        ? "bg-gradient-to-br from-red-400 via-red-500 to-rose-700 shadow-[0_0_12px_rgba(239,68,68,0.7)]"
+                                        : "bg-gradient-to-br from-yellow-300 via-amber-400 to-yellow-600 shadow-[0_0_12px_rgba(245,158,11,0.7)]"
+                                    }
+                                    ${
+                                      isWinning
+                                        ? "ring-4 ring-white shadow-[0_0_25px_rgba(255,255,255,0.9)] z-20"
+                                        : ""
+                                    }
+                                  `}
+                                >
+                                  <div className="absolute top-1 left-1.5 w-[30%] h-[15%] bg-white/40 rounded-full blur-[0.3px]" />
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          {/* Game Over / Rematch Action Box */}
-          {roundState === "game_over" && (
-            <div className="w-full pt-6 border-t border-white/5 relative z-10">
-              <ReturnToLobbyBadge
-                initialSeconds={
-                  returnToLobbyCountdown ||
-                  GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
-                }
-                barColorClass="bg-red-500/30"
-              />
-              <EndMatchOptions
-                rematchRequested={rematchRequested}
-                opponentLeft={!!disconnectMessage}
-                hasOpponentRequested={
-                  rematchRequests.find((id) => id !== localSocketId) !==
-                  undefined
-                }
-                onRequestRematch={requestRematch}
-                onPlayAgain={playAgain}
-                primaryColorGradient="from-red-600 to-rose-900"
-                primaryColorHover="hover:from-red-500 hover:to-rose-800"
-              />
-            </div>
-          )}
-        </Card>
+            {/* Game Over / Rematch Action Box */}
+            {roundState === "game_over" && (
+              <div className="w-full pt-4 border-t border-white/5 relative z-10">
+                <ReturnToLobbyBadge
+                  initialSeconds={
+                    returnToLobbyCountdown ||
+                    GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
+                  }
+                  barColorClass="bg-red-500/30"
+                />
+                <EndMatchOptions
+                  rematchRequested={rematchRequested}
+                  opponentLeft={!!disconnectMessage}
+                  hasOpponentRequested={
+                    rematchRequests.find((id) => id !== localSocketId) !==
+                    undefined
+                  }
+                  onRequestRematch={requestRematch}
+                  onPlayAgain={playAgain}
+                  primaryColorGradient="from-red-600 to-rose-900"
+                  primaryColorHover="hover:from-red-500 hover:to-rose-800"
+                />
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
     </GameShell>
   );
