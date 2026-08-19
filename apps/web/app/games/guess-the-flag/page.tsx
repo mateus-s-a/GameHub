@@ -279,78 +279,86 @@ export default function GuessTheFlagGame() {
         </div>
       )}
 
-      <div className="w-full max-w-4xl flex flex-col items-center">
-        <h1 className="text-4xl font-iosevka-bold mb-8 text-white tracking-widest uppercase text-center">
-          Guess the Flag
-        </h1>
+      <div className="w-full max-w-6xl mx-auto flex flex-col items-center">
+        {/* Responsive Grid Shell: Column on Mobile, 2-Column Split on Desktop */}
+        <div className="w-full flex flex-col lg:flex-row gap-6 lg:gap-8 items-center lg:items-start justify-center">
+          
+          {/* Left Column: HUD & Information Panel */}
+          <Card className="w-full lg:w-80 p-5 md:p-6 flex flex-col items-center gap-5 bg-[#161616] border border-orange-500/20 shadow-2xl shrink-0">
+            <h1 className="text-2xl md:text-3xl font-iosevka-bold text-white tracking-widest uppercase text-center drop-shadow-[0_0_12px_rgba(249,115,22,0.3)]">
+              Guess the Flag
+            </h1>
 
-        {isGameStarted && gameState.state !== "game_over" && (
-          <Button
-            variant="ghost"
-            onClick={() => setIsExitModalOpen(true)}
-            className="mb-8 border-red-500/20 text-red-500 hover:bg-red-500/10"
-          >
-            <X size={16} /> LEAVE MATCH
-          </Button>
-        )}
-
-        <ConfirmModal
-          isOpen={isExitModalOpen}
-          title="Leave Match?"
-          message="Are you sure you want to leave the current match? Your progress will be lost."
-          onConfirm={() => {
-            handleLeaveRoom();
-            setIsExitModalOpen(false);
-          }}
-          onCancel={() => setIsExitModalOpen(false)}
-          confirmText="Leave"
-          cancelText="Stay"
-          themeColor="red"
-        />
-
-        <Card className="w-full max-w-3xl p-10 flex flex-col items-center gap-8 bg-[#161616]">
-          <Scoreboard
-            players={gameState.players.map((p) => ({
-              ...p,
-              name: roomLobby?.players.find((rp) => rp.id === p.id)?.name,
-            }))}
-            localPlayerId={localSocketId || ""}
-            currentRound={gameState.currentRound}
-            maxRounds={gameState.maxRounds}
-            gameId="gtf"
-          />
-
-          {/* State Information */}
-          <div className="text-center text-xl h-12 flex items-center justify-center w-full bg-[#111111] rounded-xl border border-white/5">
-            {gameState.state === "guessing_phase" && !me?.hasGuessed && (
-              <span className="text-white animate-pulse font-iosevka-bold">
-                WHICH COUNTRY?
+            {/* Connection Status Badge */}
+            <div className="flex items-center justify-between w-full text-xs font-iosevka-bold tracking-widest uppercase">
+              <span
+                className={`px-3 py-1.5 rounded-lg border ${localSocketId ? "bg-orange-500/10 border-orange-500/30 text-orange-400" : "bg-red-500/10 border-red-500/20 text-red-400"}`}
+              >
+                {localSocketId ? "CONNECTED" : "OFFLINE"}
               </span>
-            )}
-            {gameState.state === "guessing_phase" && me?.hasGuessed && (
-              <span className="text-[var(--muted)] italic">
-                WAITING FOR OPPONENT...
-              </span>
-            )}
-            {gameState.state === "round_result" && (
-              <span className="text-white font-iosevka-bold">ROUND OVER!</span>
-            )}
-            {gameState.state === "game_over" && (
-              <span className="text-white font-iosevka-bold">GAME OVER!</span>
-            )}
-          </div>
-
-          {!me?.hasGuessed && gameState.state === "guessing_phase" && (
-            <div className="scale-150 py-4">
-              <TimerDisplay turnEndTime={gameState.turnEndTime || null} />
             </div>
-          )}
 
-          {/* Battle Arena */}
-          <div className="flex flex-col items-center justify-center w-full gap-8">
+            {/* Scoreboard */}
+            <Scoreboard
+              players={gameState.players.map((p) => ({
+                ...p,
+                name: roomLobby?.players.find((rp) => rp.id === p.id)?.name,
+              }))}
+              localPlayerId={localSocketId || ""}
+              currentRound={gameState.currentRound}
+              maxRounds={gameState.maxRounds}
+              gameId="gtf"
+            />
+
+            {/* Turn Banner Status */}
+            <div className="text-center text-sm md:text-base py-3 px-4 flex items-center justify-center w-full bg-[#111111] rounded-xl border border-white/5 shadow-inner">
+              {gameState.state === "guessing_phase" && !me?.hasGuessed && (
+                <span className="text-orange-400 animate-pulse font-iosevka-bold uppercase tracking-wider">
+                  WHICH COUNTRY?
+                </span>
+              )}
+              {gameState.state === "guessing_phase" && me?.hasGuessed && (
+                <span className="text-gray-400 italic font-iosevka-medium">
+                  WAITING FOR OPPONENT...
+                </span>
+              )}
+              {gameState.state === "round_result" && (
+                <span className="text-white font-iosevka-bold uppercase tracking-wider">
+                  ROUND OVER!
+                </span>
+              )}
+              {gameState.state === "game_over" && (
+                <span className="text-white font-iosevka-bold uppercase tracking-wider">
+                  GAME OVER!
+                </span>
+              )}
+            </div>
+
+            {/* Timer Display */}
+            {!me?.hasGuessed && gameState.state === "guessing_phase" && (
+              <div className="w-full flex justify-center py-1">
+                <TimerDisplay turnEndTime={gameState.turnEndTime || null} size="lg" />
+              </div>
+            )}
+
+            {/* Leave Match Button */}
+            {isGameStarted && gameState.state !== "game_over" && (
+              <Button
+                variant="ghost"
+                onClick={() => setIsExitModalOpen(true)}
+                className="w-full border-red-500/20 text-red-500 hover:bg-red-500/10 mt-2"
+              >
+                <X className="w-4 h-4 mr-2" />
+                <span>LEAVE MATCH</span>
+              </Button>
+            )}
+          </Card>
+
+          {/* Right Column: Flag Battle Arena */}
+          <Card className="w-full max-w-xl lg:max-w-2xl p-5 md:p-8 flex flex-col items-center gap-6 bg-[#161616] border border-orange-500/20 shadow-2xl shrink-0">
             {/* Flag Display */}
             {gameState.flagUrl && (
-              <div className="w-full max-w-md aspect-video bg-[#000000] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 relative flex items-center justify-center p-4">
+              <div className="w-full max-w-lg aspect-video bg-[#000000] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 relative flex items-center justify-center p-3 sm:p-4">
                 {isFlagLoading && (
                   <div className="absolute inset-0 bg-white/5 animate-pulse flex items-center justify-center rounded-2xl">
                     <span className="text-xs font-iosevka-medium text-white/30 uppercase tracking-widest">
@@ -374,12 +382,12 @@ export default function GuessTheFlagGame() {
             {/* Results or Choices */}
             {gameState.state === "round_result" ||
             gameState.state === "game_over" ? (
-              <div className="w-full flex flex-col items-center gap-8">
-                <div className="w-full bg-[#111111] rounded-2xl p-8 text-center border border-white/5 shadow-inner">
-                  <p className="text-[var(--muted)] text-xs mb-3 uppercase tracking-[0.2em]">
+              <div className="w-full flex flex-col items-center gap-6">
+                <div className="w-full bg-[#111111] rounded-2xl p-6 text-center border border-white/5 shadow-inner">
+                  <p className="text-[var(--muted)] text-xs mb-2 uppercase tracking-[0.2em]">
                     The Answer Was
                   </p>
-                  <p className="text-4xl font-iosevka-bold text-white tracking-widest uppercase">
+                  <p className="text-2xl sm:text-3xl font-iosevka-bold text-white tracking-widest uppercase">
                     {gameState.correctCountry}
                   </p>
                 </div>
@@ -399,15 +407,15 @@ export default function GuessTheFlagGame() {
                 />
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4 w-full mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full mt-2">
                 {gameState.options.map((option) => (
                   <button
                     key={option}
                     disabled={me?.hasGuessed}
                     onClick={() => submitGuess(option)}
-                    className={`py-8 px-6 text-lg rounded-2xl transition-all font-iosevka-bold tracking-wider uppercase border ${
+                    className={`py-4 sm:py-5 px-4 text-base sm:text-lg rounded-xl transition-all font-iosevka-bold tracking-wider uppercase border ${
                       localChoice === option
-                        ? "bg-[#2a2a2a] border-white/40 shadow-2xl scale-[1.02]"
+                        ? "bg-[#2a2a2a] border-orange-500/60 shadow-2xl scale-[1.02] text-orange-300"
                         : "bg-[#1a1a1a] hover:bg-[#222222] border-white/5 text-[var(--muted)] hover:text-white"
                     } ${me?.hasGuessed && localChoice !== option ? "opacity-20 grayscale" : ""}`}
                   >
@@ -416,34 +424,34 @@ export default function GuessTheFlagGame() {
                 ))}
               </div>
             )}
-          </div>
 
-          {/* End Game Options */}
-          {gameState.state === "game_over" && (
-            <div className="w-full pt-8 border-t border-white/5 relative z-10">
-              <ReturnToLobbyBadge
-                initialSeconds={
-                  returnToLobbyCountdown ||
-                  GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
-                }
-                barColorClass="bg-orange-500/30"
-              />
-              <EndMatchOptions
-                rematchRequested={rematchRequested}
-                opponentLeft={!!disconnectMessage}
-                hasOpponentRequested={
-                  gameState.rematchRequests?.find(
-                    (id) => id !== localSocketId,
-                  ) !== undefined
-                }
-                onRequestRematch={requestRematch}
-                onPlayAgain={playAgain}
-                primaryColorGradient="from-[#333333] to-[#1a1a1a]"
-                primaryColorHover="hover:from-[#444444] hover:to-[#222222]"
-              />
-            </div>
-          )}
-        </Card>
+            {/* End Game Options */}
+            {gameState.state === "game_over" && (
+              <div className="w-full pt-6 border-t border-white/5 relative z-10">
+                <ReturnToLobbyBadge
+                  initialSeconds={
+                    returnToLobbyCountdown ||
+                    GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
+                  }
+                  barColorClass="bg-orange-500/30"
+                />
+                <EndMatchOptions
+                  rematchRequested={rematchRequested}
+                  opponentLeft={!!disconnectMessage}
+                  hasOpponentRequested={
+                    gameState.rematchRequests?.find(
+                      (id) => id !== localSocketId,
+                    ) !== undefined
+                  }
+                  onRequestRematch={requestRematch}
+                  onPlayAgain={playAgain}
+                  primaryColorGradient="from-orange-600 to-amber-900"
+                  primaryColorHover="hover:from-orange-500 hover:to-amber-800"
+                />
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
     </GameShell>
   );
