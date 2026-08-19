@@ -336,6 +336,10 @@ tttNamespace.on("connection", (socket: Socket) => {
     tttGames,
     (config) => new TicTacToeLogic(config || {}),
     (socketId) => tttSocketRooms.delete(socketId),
+    (roomId, game) => {
+      game.startGame();
+      tttNamespace.to(roomId).emit("gameState", game.getPublicState());
+    },
   );
 
   socket.on("joinRoom", (roomId: string) => {
@@ -430,6 +434,10 @@ c4Namespace.on("connection", (socket: Socket) => {
     c4Games,
     (config) => new ConnectFourLogic(config || {}),
     (socketId) => c4SocketRooms.delete(socketId),
+    (roomId, game) => {
+      game.startGame();
+      c4Namespace.to(roomId).emit("gameState", game.getPublicState());
+    },
   );
 
   socket.on("joinRoom", (roomId: string) => {
@@ -513,6 +521,11 @@ rpsNamespace.on("connection", (socket: Socket) => {
     "rps",
     rpsGames,
     (config) => new RPSLogic(config?.maxRounds || 3, config),
+    undefined,
+    (roomId, game) => {
+      game.startGame();
+      rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
+    },
   );
 
   socket.on("joinRoom", (roomId: string) => {

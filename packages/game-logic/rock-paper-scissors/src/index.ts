@@ -42,11 +42,11 @@ export class RPSLogic {
   addPlayer(id: string): boolean {
     if (this.players.size >= 2 || this.players.has(id)) return false;
     this.players.set(id, { id, hasCommitted: false, score: 0 });
-
-    if (this.players.size === 2) {
-      this.beginCommitPhase();
-    }
     return true;
+  }
+
+  startGame() {
+    this.beginCommitPhase();
   }
 
   removePlayer(id: string) {
