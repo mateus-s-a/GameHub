@@ -279,6 +279,20 @@ export default function GuessTheFlagGame() {
         </div>
       )}
 
+      <ConfirmModal
+        isOpen={isExitModalOpen}
+        title="Leave Match?"
+        message="Are you sure you want to leave the current match? Your progress will be lost."
+        onConfirm={() => {
+          handleLeaveRoom();
+          setIsExitModalOpen(false);
+        }}
+        onCancel={() => setIsExitModalOpen(false)}
+        confirmText="Leave"
+        cancelText="Stay"
+        themeColor="red"
+      />
+
       <div className="w-full max-w-6xl mx-auto flex flex-col items-center">
         {/* Responsive Grid Shell: Column on Mobile, 2-Column Split on Desktop */}
         <div className="w-full flex flex-col lg:flex-row gap-6 lg:gap-8 items-center lg:items-start justify-center">
