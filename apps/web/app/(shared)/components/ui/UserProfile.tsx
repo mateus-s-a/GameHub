@@ -59,7 +59,7 @@ export default function UserProfile() {
   };
 
   return (
-    <div className="fixed bottom-8 right-8 z-50 flex items-center gap-2">
+    <div className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-50 flex items-center gap-2">
       <LatencyIndicator />
       {/* First-Time User Onboarding Tooltip Banner */}
       <AnimatePresence>

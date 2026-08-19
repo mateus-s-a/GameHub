@@ -193,8 +193,8 @@ export default function RoomLobby({
                       }}
                       className={`flex items-center justify-between p-3.5 md:p-4 rounded-xl border border-[#333333] bg-[#1a1a1a] transition-colors ${!p ? "opacity-40 grayscale" : ""}`}
                     >
-                      <div className="flex items-center gap-3 md:gap-4">
-                        <div className="relative">
+                      <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                        <div className="relative shrink-0">
                           <div className="w-12 h-12 md:w-14 md:h-14 bg-[#222222] rounded-full flex items-center justify-center text-white/50 border border-white/10 overflow-hidden">
                             <User size={26} />
                           </div>
@@ -203,11 +203,11 @@ export default function RoomLobby({
                           </div>
                         </div>
 
-                        <div className="flex flex-col">
-                          <span className="text-base md:text-lg font-iosevka-bold text-white">
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="text-base md:text-lg font-iosevka-bold text-white truncate max-w-[110px] sm:max-w-[180px] md:max-w-[240px] lg:max-w-none block">
                             {p ? p.name : "Waiting..."}
                             {p?.isHost && (
-                              <span className="ml-2 text-xs text-blue-400 font-iosevka-regular">
+                              <span className="ml-2 text-xs text-blue-400 font-iosevka-regular shrink-0 inline-block">
                                 (Host)
                               </span>
                             )}
@@ -217,6 +217,7 @@ export default function RoomLobby({
 
                       {p && (
                         <motion.div
+                          className="shrink-0 ml-2"
                           whileHover={{
                             scale: p.id === localPlayerId ? 1.05 : 1,
                           }}
@@ -227,7 +228,7 @@ export default function RoomLobby({
                             onClick={
                               p.id === localPlayerId ? onToggleReady : undefined
                             }
-                            className={`px-4 md:px-6 py-2 rounded-full text-xs font-iosevka-bold tracking-widest border-white/10 disabled:opacity-80 ${p.id === localPlayerId && !p.isReady ? "animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.1)]" : ""}`}
+                            className={`px-3 md:px-6 py-2 rounded-full text-xs font-iosevka-bold tracking-widest border-white/10 disabled:opacity-80 ${p.id === localPlayerId && !p.isReady ? "animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.1)]" : ""}`}
                             disabled={p.id !== localPlayerId}
                           >
                             {p.isReady ? "READY" : "WAITING"}
