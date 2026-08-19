@@ -264,154 +264,180 @@ export default function RPSGame() {
         </div>
       )}
 
-      <div className="w-full max-w-4xl flex flex-col items-center">
-        <h1 className="text-4xl font-iosevka-bold mb-8 text-white tracking-widest uppercase text-center">
-          Rock-Paper-Scissors
-        </h1>
+      <ConfirmModal
+        isOpen={isExitModalOpen}
+        title="Leave Match?"
+        message="Are you sure you want to leave the current match? Your progress will be lost."
+        onConfirm={() => {
+          handleLeaveRoom();
+          setIsExitModalOpen(false);
+        }}
+        onCancel={() => setIsExitModalOpen(false)}
+        confirmText="Leave"
+        cancelText="Stay"
+        themeColor="red"
+      />
 
-        {isGameStarted && gameState.state !== "game_over" && (
-          <Button
-            variant="ghost"
-            onClick={() => setIsExitModalOpen(true)}
-            className="mb-8 border-red-500/20 text-red-500 hover:bg-red-500/10"
-          >
-            <X size={16} /> LEAVE MATCH
-          </Button>
-        )}
+      <div className="w-full max-w-6xl mx-auto flex flex-col items-center">
+        {/* Responsive Grid Shell: Column on Mobile, 2-Column Split on Desktop */}
+        <div className="w-full flex flex-col lg:flex-row gap-6 lg:gap-8 items-center lg:items-start justify-center">
+          
+          {/* Left Column: HUD & Information Panel */}
+          <Card className="w-full lg:w-80 p-5 md:p-6 flex flex-col items-center gap-5 bg-[#161616] border border-purple-500/20 shadow-2xl shrink-0">
+            <h1 className="text-2xl md:text-3xl font-iosevka-bold text-white tracking-widest uppercase text-center drop-shadow-[0_0_12px_rgba(168,85,247,0.3)]">
+              Rock Paper Scissors
+            </h1>
 
-        <ConfirmModal
-          isOpen={isExitModalOpen}
-          title="Leave Match?"
-          message="Are you sure you want to leave the current match? Your progress will be lost."
-          onConfirm={() => {
-            handleLeaveRoom();
-            setIsExitModalOpen(false);
-          }}
-          onCancel={() => setIsExitModalOpen(false)}
-          confirmText="Leave"
-          cancelText="Stay"
-          themeColor="red"
-        />
+            {/* Connection Status Badge */}
+            <div className="flex items-center justify-between w-full text-xs font-iosevka-bold tracking-widest uppercase">
+              <span
+                className={`px-3 py-1.5 rounded-lg border ${localSocketId ? "bg-purple-500/10 border-purple-500/30 text-purple-400" : "bg-red-500/10 border-red-500/20 text-red-400"}`}
+              >
+                {localSocketId ? "CONNECTED" : "OFFLINE"}
+              </span>
+            </div>
 
-        <Card className="w-full max-w-3xl p-10 flex flex-col gap-8 bg-[#161616]">
-          <Scoreboard
-            players={
-              (gameState?.players.map((p) => ({
-                id: p.id,
-                name: roomLobby?.players.find((rp) => rp.id === p.id)?.name,
-                score: p.score,
-                isConnected: true,
-              })) as any) || []
-            }
-            localPlayerId={localSocketId || ""}
-            currentRound={gameState?.currentRound || 1}
-            maxRounds={gameState?.maxRounds || 3}
-            gameId="rps"
-          />
+            {/* Scoreboard */}
+            <Scoreboard
+              players={
+                (gameState?.players.map((p) => ({
+                  id: p.id,
+                  name: roomLobby?.players.find((rp) => rp.id === p.id)?.name,
+                  score: p.score,
+                  isConnected: true,
+                })) as any) || []
+              }
+              localPlayerId={localSocketId || ""}
+              currentRound={gameState?.currentRound || 1}
+              maxRounds={gameState?.maxRounds || 3}
+              gameId="rps"
+            />
 
-          {/* State Information */}
-          <div className="text-center text-xl h-16 flex items-center justify-center bg-[#222222] rounded-xl border border-white/5">
+            {/* Turn Banner Status */}
+            <div className="text-center text-sm md:text-base py-3 px-4 flex items-center justify-center w-full bg-[#111111] rounded-xl border border-white/5 shadow-inner">
+              {gameState.state === "commit_phase" && !me?.hasCommitted && (
+                <span className="text-purple-400 animate-pulse font-iosevka-bold uppercase tracking-wider">
+                  MAKE YOUR CHOICE!
+                </span>
+              )}
+              {gameState.state === "commit_phase" && me?.hasCommitted && (
+                <span className="text-gray-400 italic font-iosevka-medium">
+                  WAITING FOR OPPONENT...
+                </span>
+              )}
+              {gameState.state === "reveal_phase" && (
+                <span className="text-white font-iosevka-bold uppercase tracking-wider">
+                  REVEALING CHOICES...
+                </span>
+              )}
+              {gameState.state === "game_over" && (
+                <span className="text-white font-iosevka-bold uppercase tracking-wider">
+                  GAME OVER!
+                </span>
+              )}
+            </div>
+
+            {/* Timer Display */}
             {gameState.state === "commit_phase" && !me?.hasCommitted && (
-              <span className="text-white animate-pulse font-iosevka-bold">
-                MAKE YOUR CHOICE!
-              </span>
-            )}
-            {gameState.state === "commit_phase" && me?.hasCommitted && (
-              <span className="text-[var(--muted)]">
-                WAITING FOR OPPONENT...
-              </span>
-            )}
-            {gameState.state === "reveal_phase" && (
-              <span className="text-white font-iosevka-bold">
-                REVEALING CHOICES...
-              </span>
-            )}
-            {gameState.state === "game_over" && (
-              <span className="text-white font-iosevka-bold">GAME OVER!</span>
-            )}
-          </div>
-
-          {gameState.state === "commit_phase" && !me?.hasCommitted && (
-            <div className="scale-150 py-4">
-              <TimerDisplay turnEndTime={gameState.turnEndTime || null} />
-            </div>
-          )}
-
-          {/* Battle Arena */}
-          {gameState.state === "reveal_phase" ||
-          gameState.state === "game_over" ? (
-            <div className="flex justify-around items-center py-12 bg-[#111111] rounded-2xl border border-white/5 shadow-inner">
-              <div className="text-center flex flex-col items-center gap-4">
-                <div className="w-24 h-24 bg-[#222222] rounded-2xl flex items-center justify-center text-white border border-white/10 shadow-2xl">
-                  {getIcon(gameState.choices?.[me!.id], 48)}
-                </div>
-                <p className="text-xs font-iosevka-bold text-[var(--muted)] uppercase tracking-widest">
-                  You
-                </p>
+              <div className="w-full flex justify-center py-1">
+                <TimerDisplay turnEndTime={gameState.turnEndTime || null} size="lg" />
               </div>
+            )}
 
-              <div className="text-4xl font-iosevka-bold text-[#333333]">
-                VS
-              </div>
+            {/* Leave Match Button */}
+            {isGameStarted && gameState.state !== "game_over" && (
+              <Button
+                variant="ghost"
+                onClick={() => setIsExitModalOpen(true)}
+                className="w-full border-red-500/20 text-red-500 hover:bg-red-500/10 mt-2"
+              >
+                <X className="w-4 h-4 mr-2" />
+                <span>LEAVE MATCH</span>
+              </Button>
+            )}
+          </Card>
 
-              <div className="text-center flex flex-col items-center gap-4">
-                <div className="w-24 h-24 bg-[#222222] rounded-2xl flex items-center justify-center text-white border border-white/10 shadow-2xl">
-                  {getIcon(gameState.choices?.[opp!.id], 48)}
-                </div>
-                <p className="text-xs font-iosevka-bold text-[var(--muted)] uppercase tracking-widest">
-                  Opponent
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-6">
-              {(["rock", "paper", "scissors"] as RPSChoice[]).map((choice) => (
-                <button
-                  key={choice}
-                  disabled={me?.hasCommitted}
-                  onClick={() => commitChoice(choice)}
-                  className={`py-12 rounded-2xl transition-all flex justify-center items-center group relative overflow-hidden ${
-                    localChoice === choice
-                      ? "bg-[#2a2a2a] border-2 border-white/40 scale-105 shadow-2xl"
-                      : "bg-[#1a1a1a] hover:bg-[#222222] border border-[#333333] grayscale opacity-60 hover:grayscale-0 hover:opacity-100"
-                  } ${me?.hasCommitted && localChoice !== choice ? "opacity-10" : ""}`}
-                >
-                  <div
-                    className={`transition-transform duration-300 ${localChoice === choice ? "scale-110" : "group-hover:scale-110"}`}
-                  >
-                    {getIcon(choice, 48)}
+          {/* Right Column: Rock Paper Scissors Battle Arena */}
+          <Card className="w-full max-w-xl lg:max-w-2xl p-5 sm:p-8 flex flex-col items-center gap-6 bg-[#161616] border border-purple-500/20 shadow-2xl shrink-0">
+            {/* Battle Arena */}
+            {gameState.state === "reveal_phase" ||
+            gameState.state === "game_over" ? (
+              <div className="flex justify-around items-center py-8 sm:py-12 bg-[#111111] rounded-2xl border border-white/5 shadow-inner w-full">
+                <div className="text-center flex flex-col items-center gap-3">
+                  <div className="w-20 h-20 sm:w-28 sm:h-28 bg-[#222222] rounded-2xl flex items-center justify-center text-purple-400 border border-purple-500/30 shadow-2xl">
+                    {getIcon(gameState.choices?.[me!.id], 40)}
                   </div>
-                </button>
-              ))}
-            </div>
-          )}
+                  <p className="text-xs font-iosevka-bold text-[var(--muted)] uppercase tracking-widest">
+                    You
+                  </p>
+                </div>
 
-          {/* End Game Options */}
-          {gameState.state === "game_over" && (
-            <div className="pt-8 border-t border-white/5 relative z-10">
-              <ReturnToLobbyBadge
-                initialSeconds={
-                  returnToLobbyCountdown ||
-                  GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
-                }
-                barColorClass="bg-purple-500/30"
-              />
-              <EndMatchOptions
-                rematchRequested={rematchRequested}
-                opponentLeft={!!disconnectMessage}
-                hasOpponentRequested={
-                  gameState.rematchRequests?.find(
-                    (id) => id !== localSocketId,
-                  ) !== undefined
-                }
-                onRequestRematch={requestRematch}
-                onPlayAgain={playAgain}
-                primaryColorGradient="from-[#333333] to-[#1a1a1a]"
-                primaryColorHover="hover:from-[#444444] hover:to-[#222222]"
-              />
-            </div>
-          )}
-        </Card>
+                <div className="text-2xl sm:text-4xl font-iosevka-bold text-[#444444]">
+                  VS
+                </div>
+
+                <div className="text-center flex flex-col items-center gap-3">
+                  <div className="w-20 h-20 sm:w-28 sm:h-28 bg-[#222222] rounded-2xl flex items-center justify-center text-purple-400 border border-purple-500/30 shadow-2xl">
+                    {getIcon(gameState.choices?.[opp!.id], 40)}
+                  </div>
+                  <p className="text-xs font-iosevka-bold text-[var(--muted)] uppercase tracking-widest">
+                    Opponent
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3 sm:gap-6 w-full">
+                {(["rock", "paper", "scissors"] as RPSChoice[]).map((choice) => (
+                  <button
+                    key={choice}
+                    disabled={me?.hasCommitted}
+                    onClick={() => commitChoice(choice)}
+                    className={`py-6 sm:py-10 aspect-square rounded-2xl transition-all flex flex-col justify-center items-center gap-2 group relative overflow-hidden ${
+                      localChoice === choice
+                        ? "bg-[#2a2a2a] border-2 border-purple-500/60 text-purple-300 scale-105 shadow-2xl"
+                        : "bg-[#1a1a1a] hover:bg-[#222222] border border-[#333333] text-gray-400 hover:text-white grayscale opacity-70 hover:grayscale-0 hover:opacity-100"
+                    } ${me?.hasCommitted && localChoice !== choice ? "opacity-20 grayscale" : ""}`}
+                  >
+                    <div
+                      className={`transition-transform duration-300 ${localChoice === choice ? "scale-110" : "group-hover:scale-110"}`}
+                    >
+                      {getIcon(choice, 36)}
+                    </div>
+                    <span className="text-[10px] sm:text-xs font-iosevka-bold uppercase tracking-wider">
+                      {choice}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* End Game Options */}
+            {gameState.state === "game_over" && (
+              <div className="w-full pt-6 border-t border-white/5 relative z-10">
+                <ReturnToLobbyBadge
+                  initialSeconds={
+                    returnToLobbyCountdown ||
+                    GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
+                  }
+                  barColorClass="bg-purple-500/30"
+                />
+                <EndMatchOptions
+                  rematchRequested={rematchRequested}
+                  opponentLeft={!!disconnectMessage}
+                  hasOpponentRequested={
+                    gameState.rematchRequests?.find(
+                      (id) => id !== localSocketId,
+                    ) !== undefined
+                  }
+                  onRequestRematch={requestRematch}
+                  onPlayAgain={playAgain}
+                  primaryColorGradient="from-purple-600 to-indigo-900"
+                  primaryColorHover="hover:from-purple-500 hover:to-indigo-800"
+                />
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
     </GameShell>
   );

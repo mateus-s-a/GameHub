@@ -114,140 +114,149 @@ export default function GameConfigPanel({
   const isDisabled = (field: keyof GameSetupConfig): boolean =>
     !isHost || (isLobby && isFieldLobbyLocked(gameId, field));
 
+  if (!isHost && isLobby) {
+    return (
+      <div className="space-y-4 w-full font-iosevka-regular">
+        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+          <span className="text-xs font-iosevka-bold text-[var(--muted)] tracking-widest uppercase flex items-center gap-2">
+            <Lock className="w-3.5 h-3.5 text-blue-400" />
+            MATCH RULES (READ ONLY)
+          </span>
+          <span className="text-[10px] font-iosevka-bold px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 uppercase tracking-widest">
+            SET BY HOST
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          {/* Number of Rounds */}
+          <div className="p-4 rounded-xl bg-[#111111] border border-white/5 flex flex-col gap-1">
+            <span className="text-[11px] font-iosevka-bold text-[var(--muted)] uppercase tracking-wider">
+              Rounds Format
+            </span>
+            <span className="text-base font-iosevka-bold text-white uppercase tracking-wide">
+              {config.maxRounds === 1 ? "1 Round (Sudden Death)" : `Best of ${config.maxRounds}`}
+            </span>
+          </div>
+
+          {/* Turn Time */}
+          <div className="p-4 rounded-xl bg-[#111111] border border-white/5 flex flex-col gap-1">
+            <span className="text-[11px] font-iosevka-bold text-[var(--muted)] uppercase tracking-wider">
+              Turn Time Limit
+            </span>
+            <span className="text-base font-iosevka-bold text-white uppercase tracking-wide">
+              {config.timeLimit === 0 ? "Unlimited" : `${config.timeLimit} Seconds`}
+            </span>
+          </div>
+
+          {/* GTF Specific Rules */}
+          {gameId === "gtf" && (
+            <>
+              <div className="p-4 rounded-xl bg-[#111111] border border-white/5 flex flex-col gap-1">
+                <span className="text-[11px] font-iosevka-bold text-[var(--muted)] uppercase tracking-wider">
+                  Max Players
+                </span>
+                <span className="text-base font-iosevka-bold text-white uppercase tracking-wide">
+                  {config.maxPlayers || 2} Players
+                </span>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#111111] border border-white/5 flex flex-col gap-1">
+                <span className="text-[11px] font-iosevka-bold text-[var(--muted)] uppercase tracking-wider">
+                  Region / Continent
+                </span>
+                <span className="text-base font-iosevka-bold text-white uppercase tracking-wide">
+                  {config.region || "Global"}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const selectClass =
     "w-full bg-[#222222] text-white p-4 rounded-xl border border-[#333333] focus:outline-none focus:border-white/40 disabled:opacity-60 transition-all appearance-none cursor-pointer";
 
   return (
-    <div className="space-y-8 w-full font-iosevka-regular">
+    <div className="space-y-6 w-full font-iosevka-regular">
       {/* Number of Rounds */}
-      <div className="flex flex-col gap-4">
-        <label className="text-sm text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
+      <div className="flex flex-col gap-3">
+        <label className="text-xs text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
           Number of Rounds
         </label>
-        <div className="space-y-4">
-          <select
-            disabled={isDisabled("maxRounds")}
-            className={selectClass}
-            value={localConfig.maxRounds}
-            onChange={(e) => handleChange("maxRounds", Number(e.target.value))}
-          >
-            {ROUND_OPTIONS.map((val) => (
-              <option key={val} value={val}>
-                {val === 1 ? "1 Round (Sudden Death)" : `Best of ${val}`}
-              </option>
-            ))}
-          </select>
-
-          <StepSlider
-            options={ROUND_OPTIONS}
-            value={localConfig.maxRounds}
-            onChange={(v) => handleChange("maxRounds", v)}
-            disabled={isDisabled("maxRounds")}
-            label="Number of Rounds"
-            formatter={(val) => (val === 1 ? "1 Round" : `Best of ${val}`)}
-          />
-        </div>
+        <StepSlider
+          options={ROUND_OPTIONS}
+          value={localConfig.maxRounds}
+          onChange={(v) => handleChange("maxRounds", v)}
+          disabled={isDisabled("maxRounds")}
+          label="Number of Rounds"
+          formatter={(val) => (val === 1 ? "1 Round" : `Best of ${val}`)}
+        />
       </div>
 
       {/* Turn Time */}
-      <div className="flex flex-col gap-4">
-        <label className="text-sm text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
+      <div className="flex flex-col gap-3">
+        <label className="text-xs text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
           Turn Time
         </label>
-        <div className="space-y-4">
-          <select
-            disabled={isDisabled("timeLimit")}
-            className={selectClass}
-            value={localConfig.timeLimit}
-            onChange={(e) => handleChange("timeLimit", Number(e.target.value))}
-          >
-            {TIME_OPTIONS.map((val) => (
-              <option key={val} value={val}>
-                {val === 0
-                  ? "Unlimited"
-                  : `${val} Seconds ${val <= 5 ? "(Blitz)" : val === 15 ? "(Normal)" : ""}`}
-              </option>
-            ))}
-          </select>
-
-          <StepSlider
-            options={TIME_OPTIONS}
-            value={localConfig.timeLimit}
-            onChange={(v) => handleChange("timeLimit", v)}
-            disabled={isDisabled("timeLimit")}
-            label="Turn Time"
-            formatter={(val) => (val === 0 ? "Unlimited" : `${val}s`)}
-          />
-        </div>
+        <StepSlider
+          options={TIME_OPTIONS}
+          value={localConfig.timeLimit}
+          onChange={(v) => handleChange("timeLimit", v)}
+          disabled={isDisabled("timeLimit")}
+          label="Turn Time"
+          formatter={(val) => (val === 0 ? "Unlimited" : `${val}s`)}
+        />
       </div>
 
       {/* GTF Specific Options: Max Players & Region */}
       {gameId === "gtf" && (
         <>
-          <div className="flex flex-col gap-4">
-            <label className="text-sm text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
+          <div className="flex flex-col gap-3">
+            <label className="text-xs text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
               Max Players
             </label>
             <LockedFieldWrapper
               locked={isLobby && isFieldLobbyLocked(gameId, "maxPlayers")}
               isHost={isHost}
             >
-              <div className="space-y-4">
-                <select
-                  disabled={isDisabled("maxPlayers")}
-                  className={selectClass}
-                  value={localConfig.maxPlayers || 2}
-                  onChange={(e) =>
-                    handleChange("maxPlayers", Number(e.target.value))
-                  }
-                >
-                  {PLAYER_OPTIONS.map((val) => (
-                    <option key={val} value={val}>
-                      {val} Players{" "}
-                      {val === 2 ? "(PvP)" : val === 4 ? "(Small Group)" : ""}
-                    </option>
-                  ))}
-                </select>
-
-                <StepSlider
-                  options={PLAYER_OPTIONS}
-                  value={localConfig.maxPlayers || 2}
-                  onChange={(v) => handleChange("maxPlayers", v)}
-                  disabled={isDisabled("maxPlayers")}
-                  label="Max Players"
-                  formatter={(val) => `${val} Players`}
-                />
-              </div>
+              <StepSlider
+                options={PLAYER_OPTIONS}
+                value={localConfig.maxPlayers || 2}
+                onChange={(v) => handleChange("maxPlayers", v)}
+                disabled={isDisabled("maxPlayers")}
+                label="Max Players"
+                formatter={(val) => `${val} Players`}
+              />
             </LockedFieldWrapper>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <label className="text-sm text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
+          <div className="flex flex-col gap-3">
+            <label className="text-xs text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
               Region / Continent
             </label>
-            <div className="space-y-4">
-              <select
-                disabled={isDisabled("region")}
-                className={selectClass}
-                value={localConfig.region || "Global"}
-                onChange={(e) => handleChange("region", e.target.value)}
-              >
-                <option value="Global">Global / Worldwide</option>
-                <option value="Americas">Americas</option>
-                <option value="Africa">Africa</option>
-                <option value="Europe">Europe</option>
-                <option value="Asia">Asia</option>
-                <option value="Oceania">Oceania</option>
-              </select>
-            </div>
+            <select
+              disabled={isDisabled("region")}
+              className={selectClass}
+              value={localConfig.region || "Global"}
+              onChange={(e) => handleChange("region", e.target.value)}
+            >
+              <option value="Global">Global / Worldwide</option>
+              <option value="Americas">Americas</option>
+              <option value="Africa">Africa</option>
+              <option value="Europe">Europe</option>
+              <option value="Asia">Asia</option>
+              <option value="Oceania">Oceania</option>
+            </select>
           </div>
         </>
       )}
 
       {/* Action Buttons for Host in Lobby */}
       {isHost && isLobby && (
-        <div className="pt-4 space-y-3">
-          <div className="flex gap-3 h-14">
+        <div className="pt-2 space-y-3">
+          <div className="flex gap-3 h-12">
             <AnimatePresence>
               {hasChanges && (
                 <motion.div
@@ -260,9 +269,9 @@ export default function GameConfigPanel({
                   <Button
                     variant="ghost"
                     onClick={handleReset}
-                    className="w-full h-full border-2 border-white/5 hover:bg-white/5 text-white/60 font-iosevka-bold uppercase tracking-widest"
+                    className="w-full h-full border border-white/10 hover:bg-white/5 text-white/60 font-iosevka-bold text-xs uppercase tracking-widest"
                   >
-                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                     Reset
                   </Button>
                 </motion.div>
@@ -273,18 +282,18 @@ export default function GameConfigPanel({
               variant={hasChanges ? "highlight" : "ghost"}
               onClick={handleApply}
               disabled={!hasChanges || isPending}
-              className={`flex-[2] h-full transition-all duration-300 ${
+              className={`flex-[2] h-full transition-all duration-300 text-xs ${
                 hasChanges
                   ? "bg-gradient-to-r from-blue-500 to-indigo-600 border-none text-white shadow-lg shadow-blue-500/20"
-                  : "bg-white/5 border-white/10 opacity-40 grayscale"
+                  : "bg-white/5 border border-white/10 opacity-40 grayscale"
               }`}
             >
               <div className="flex items-center justify-center gap-2 font-iosevka-bold uppercase tracking-[0.2em]">
                 {isPending ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 ) : hasChanges ? (
                   <>
-                    <Check className="w-4 h-4" />
+                    <Check className="w-3.5 h-3.5" />
                     Apply Changes
                   </>
                 ) : (

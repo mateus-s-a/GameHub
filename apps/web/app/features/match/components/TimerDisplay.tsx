@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { Clock } from "lucide-react";
 
+export interface TimerDisplayProps {
+  turnEndTime: number | null;
+  size?: "sm" | "md" | "lg";
+}
+
 export default function TimerDisplay({
   turnEndTime,
-}: {
-  turnEndTime: number | null;
-}) {
+  size = "md",
+}: TimerDisplayProps) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   useEffect(() => {
@@ -35,11 +39,27 @@ export default function TimerDisplay({
 
   const isWarning = timeLeft <= 5;
 
+  const sizeClasses = {
+    sm: "px-3 py-1 text-sm border gap-1.5",
+    md: "px-4 py-1.5 text-base md:text-lg border gap-2",
+    lg: "px-6 py-2.5 text-xl md:text-2xl border-2 gap-2.5",
+  };
+
+  const iconSizes = {
+    sm: "w-4 h-4",
+    md: "w-5 h-5",
+    lg: "w-6 h-6",
+  };
+
   return (
     <div
-      className={`mt-4 px-6 py-3 rounded-full font-bold text-2xl shadow-lg border-2 font-iosevka-bold w-fit mx-auto transition-colors duration-300 flex items-center justify-center gap-2 ${isWarning ? "bg-red-900 border-red-500 text-red-200 animate-pulse" : "bg-gray-800 border-gray-600 text-blue-300"}`}
+      className={`rounded-full font-iosevka-bold shadow-lg w-fit mx-auto transition-colors duration-300 flex items-center justify-center ${sizeClasses[size]} ${
+        isWarning
+          ? "bg-red-950/80 border-red-500/80 text-red-200 animate-pulse shadow-red-900/40"
+          : "bg-[#181818] border-white/10 text-cyan-300 shadow-black/50"
+      }`}
     >
-      <Clock className="w-6 h-6" /> {timeLeft}s
+      <Clock className={iconSizes[size]} /> <span>{timeLeft}s</span>
     </div>
   );
 }
