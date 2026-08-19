@@ -68,10 +68,11 @@ export class ConnectFourLogic {
     if (this.players.size >= 2 || this.players.has(id)) return null;
     const color: ConnectFourColor = this.players.size === 0 ? "RED" : "YELLOW";
     this.players.set(id, color);
-    if (this.players.size === 2) {
-      this.startTurnTimer();
-    }
     return color;
+  }
+
+  startGame() {
+    this.startTurnTimer();
   }
 
   removePlayer(id: string) {

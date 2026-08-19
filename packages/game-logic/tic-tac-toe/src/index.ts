@@ -49,10 +49,11 @@ export class TicTacToeLogic {
     if (this.players.size >= 2 || this.players.has(id)) return null;
     const mark: PlayerMark = this.players.size === 0 ? "X" : "O";
     this.players.set(id, mark);
-    if (this.players.size === 2) {
-      this.startTurnTimer();
-    }
     return mark;
+  }
+
+  startGame() {
+    this.startTurnTimer();
   }
 
   removePlayer(id: string) {
