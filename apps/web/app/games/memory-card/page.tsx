@@ -373,6 +373,18 @@ export default function MemoryCardPage() {
                     : `${turnPlayerName}'S TURN`}
                 </span>
               )}
+              {gameStateData?.status === "round_result" && (
+                <span className="text-orange-400 font-iosevka-bold uppercase tracking-wider flex items-center gap-2 animate-pulse">
+                  <span className="w-2.5 h-2.5 rounded-full bg-orange-400 shrink-0" />
+                  {gameStateData.winnerId === "Draw"
+                    ? "ROUND TIED! NEXT ROUND STARTING..."
+                    : `${
+                        roomLobby?.players.find(
+                          (p) => p.id === gameStateData.winnerId
+                        )?.name || "PLAYER"
+                      } WON THE ROUND!`}
+                </span>
+              )}
               {gameStateData?.status === "game_over" && (
                 <span className="text-white font-iosevka-bold uppercase tracking-wider">
                   {gameStateData.winnerId === "Draw"
