@@ -8,7 +8,7 @@ import {
   GameId,
 } from "@gamehub/core";
 import { Button } from "@repo/ui/button";
-import { Lock, RefreshCw, Check } from "lucide-react";
+import { Lock, RefreshCw, Check, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import StepSlider from "@/features/setup/components/StepSlider";
 
@@ -19,6 +19,7 @@ import StepSlider from "@/features/setup/components/StepSlider";
 // ─────────────────────────────────────────────────────────────────────────────
 const LOBBY_LOCKED_FIELDS: Record<string, Array<keyof GameSetupConfig>> = {
   gtf: ["maxPlayers"],
+  mc: ["maxPlayers"],
 };
 
 function isFieldLobbyLocked(
@@ -250,6 +251,116 @@ export default function GameConfigPanel({
               <option value="Oceania">Oceania</option>
             </select>
           </div>
+        </>
+      )}
+
+      {/* Memory Card Specific Options: Max Players, Mode & Board Size */}
+      {gameId === "mc" && (
+        <>
+          <div className="flex flex-col gap-4">
+            <label className="text-sm text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
+              Max Players
+            </label>
+            <LockedFieldWrapper
+              locked={isLobby && isFieldLobbyLocked(gameId, "maxPlayers")}
+              isHost={isHost}
+            >
+              <div className="space-y-4">
+                <select
+                  disabled={isDisabled("maxPlayers")}
+                  className={selectClass}
+                  value={localConfig.maxPlayers || 2}
+                  onChange={(e) =>
+                    handleChange("maxPlayers", Number(e.target.value))
+                  }
+                >
+                  {PLAYER_OPTIONS.map((val) => (
+                    <option key={val} value={val}>
+                      {val} Players{" "}
+                      {val === 2 ? "(PvP)" : val === 4 ? "(Small Group)" : ""}
+                    </option>
+                  ))}
+                </select>
+
+                <StepSlider
+                  options={PLAYER_OPTIONS}
+                  value={localConfig.maxPlayers || 2}
+                  onChange={(v) => handleChange("maxPlayers", v)}
+                  disabled={isDisabled("maxPlayers")}
+                  label="Max Players"
+                  formatter={(val) => `${val} Players`}
+                />
+              </div>
+            </LockedFieldWrapper>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <label className="text-sm text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
+              Grid Mode & Balance
+            </label>
+            <div className="space-y-4">
+              <select
+                disabled={isDisabled("mode")}
+                className={selectClass}
+                value={localConfig.mode || "standard"}
+                onChange={(e) => handleChange("mode", e.target.value)}
+              >
+                <option value="standard">Standard (Auto-Balanced by Players)</option>
+                <option value="custom">Custom (Manual Board Filtering)</option>
+              </select>
+            </div>
+          </div>
+
+          {localConfig.mode === "custom" && (
+            <div className="flex flex-col gap-4">
+              <label className="text-sm text-[var(--muted)] font-iosevka-bold uppercase tracking-widest">
+                Custom Board Size
+              </label>
+              <div className="space-y-4">
+                <select
+                  disabled={isDisabled("boardSize")}
+                  className={selectClass}
+                  value={localConfig.boardSize || "6x4"}
+                  onChange={(e) => handleChange("boardSize", e.target.value)}
+                >
+                  <option value="4x4">4 × 4 Grid (8 Pairs)</option>
+                  <option value="6x4">6 × 4 Grid (12 Pairs)</option>
+                  <option value="6x5">6 × 5 Grid (15 Pairs)</option>
+                  <option value="6x6">6 × 6 Grid (18 Pairs)</option>
+                  <option value="8x5">8 × 5 Grid (20 Pairs)</option>
+                  <option value="8x6">8 × 6 Grid (24 Pairs)</option>
+                </select>
+
+                {/* "Não Recomendado" Info Banner when pairs are uneven for player count */}
+                {(() => {
+                  const size = localConfig.boardSize || "6x4";
+                  const [r, c] = size.split("x").map(Number);
+                  const totalPairs = Math.floor(((r || 6) * (c || 4)) / 2);
+                  const pCount = localConfig.maxPlayers || 2;
+                  const isUneven = totalPairs % pCount !== 0;
+
+                  if (isUneven) {
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3 text-amber-400"
+                      >
+                        <Info className="w-5 h-5 shrink-0 mt-0.5" />
+                        <div className="text-xs font-iosevka-regular leading-relaxed">
+                          <span className="font-iosevka-bold uppercase tracking-wider block mb-0.5">
+                            Não Recomendado
+                          </span>
+                          Esta combinação personalizada de {totalPairs} pares pode resultar em um número ímpar de pares por jogador ou ritmo desequilibrado para {pCount} jogadores. Recomendamos o modo Standard.
+                        </div>
+                      </motion.div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            </div>
+          )}
         </>
       )}
 

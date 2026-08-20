@@ -33,8 +33,9 @@ GameHub is a high-performance, real-time gaming platform designed with a **Modul
 | :---------------------- | :---------------- | :-------------------- |
 | **Tic Tac Toe**         | 2 Players         | Cyan (`#22d3ee`)      |
 | **Connect 4**           | 2 Players         | Red (`#ef4444`)       |
-| **Rock Paper Scissors** | 2 Players         | Purple (`#a855f7`)    |
+| **Memory Card**         | 2-4 Players       | Sunset Orange (`#f97316`) |
 | **Guess the Flag**      | 2-4 Players       | Emerald (`#10b981`)   |
+| **Rock Paper Scissors** | 2 Players         | Purple (`#a855f7`)    |
 | **Hangman**             | 2 Players         | Lime (`#84cc16`)      |
 
 ---
@@ -65,7 +66,7 @@ GameHub/
 │   └── api/          # Express & Socket.io backend server
 ├── packages/
 │   ├── core/         # Shared constants, themes & business logic
-│   ├── game-logic/   # Isolated game engines (ttt, connect-four, rps, gtf, hangman)
+│   ├── game-logic/   # Isolated game engines (ttt, connect-four, memory-card, rps, gtf, hangman)
 │   ├── types/        # Unified TypeScript interfaces
 │   ├── ui/           # Shared high-end UI component library
 │   └── config/       # Shared ESLint, Tailwind, and TS configs

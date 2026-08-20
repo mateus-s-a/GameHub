@@ -26,6 +26,11 @@ const GAME_THEMES: Record<
     glow: "shadow-red-500/50",
     border: "border-red-400/30",
   },
+  mc: {
+    gradient: "from-orange-500 to-amber-600",
+    glow: "shadow-orange-500/50",
+    border: "border-orange-400/30",
+  },
   gtf: {
     gradient: "from-emerald-500 to-teal-600",
     glow: "shadow-emerald-500/50",

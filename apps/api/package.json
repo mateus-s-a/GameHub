@@ -14,6 +14,7 @@
     "@gamehub/core": "*",
     "@gamehub/guess-the-flag": "*",
     "@gamehub/hangman": "*",
+    "@gamehub/memory-card": "*",
     "@gamehub/rock-paper-scissors": "*",
     "@gamehub/tic-tac-toe": "*",
     "@gamehub/types": "*",

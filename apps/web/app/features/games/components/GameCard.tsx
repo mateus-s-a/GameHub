@@ -8,6 +8,7 @@ import { type GameEntry, ANIMATION_TOKENS } from "@gamehub/core";
 const illustrationMap = {
   ttt: dynamic(() => import("./illustrations/TicTacToeHero")),
   c4: dynamic(() => import("./illustrations/ConnectFourHero")),
+  mc: dynamic(() => import("./illustrations/MemoryCardHero")),
   gtf: dynamic(() => import("./illustrations/GuessTheFlagHero")),
   rps: dynamic(() => import("./illustrations/RockPaperScissorsHero")),
   hangman: dynamic(() => import("./illustrations/HangmanHero")),
