@@ -342,6 +342,25 @@ export class MemoryCardLogic {
     return false;
   }
 
+  nextRound() {
+    if (this.currentRound < this.maxRounds) {
+      this.currentRound++;
+      this.winner = null;
+      this.isCheckingMatch = false;
+      this.flippedCardIds = [];
+      this.cards = this.generateDeck(
+        this.grid.rows,
+        this.grid.cols,
+        this.config.iconSet
+      );
+      this.currentTurnIndex =
+        this.playersOrder.length > 0
+          ? Math.floor(Math.random() * this.playersOrder.length)
+          : 0;
+      this.startTurnTimer();
+    }
+  }
+
   resetMatch() {
     this.rematchRequests.clear();
     this.winner = null;

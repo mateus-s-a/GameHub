@@ -113,6 +113,7 @@ export default function MemoryCardPage() {
     returnToLobbyCountdown,
     setReturnToLobbyCountdown,
     setIsHost,
+    isGameStarted,
     createRoom,
     joinRoom,
     leaveRoom,
@@ -255,7 +256,7 @@ export default function MemoryCardPage() {
   }
 
   // View 3: Room Lobby
-  if (roomId && roomLobby && roomLobby.status === "waiting") {
+  if (roomId && !isGameStarted) {
     return (
       <GameShell playerName={playerName}>
         <RoomLobby

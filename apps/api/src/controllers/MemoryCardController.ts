@@ -54,6 +54,11 @@ export class MemoryCardController {
       }, 1500);
 
       this.mismatchTimeouts.set(roomId, timeout);
+    } else if (game.state.status === "round_result") {
+      setTimeout(() => {
+        game.nextRound();
+        this.broadcastState(roomId);
+      }, 3000);
     } else if (game.state.status === "game_over") {
       handleAutoReturnToLobby(this.namespace, roomId, this.games);
     }
