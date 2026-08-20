@@ -694,7 +694,7 @@ mcNamespace.on("connection", (socket: Socket) => {
     socket,
     mcNamespace,
     "mc",
-    new Map(), // Placeholder map for LobbyEvents compatibility
+    memoryCardController.getGamesMap(),
     () => ({}), // Truthy placeholder for MemoryCardController
     undefined,
     (roomId: string) => {
@@ -706,6 +706,9 @@ mcNamespace.on("connection", (socket: Socket) => {
           room.config,
         );
       }
+    },
+    (roomId: string) => {
+      memoryCardController.removeGame(roomId);
     },
   );
 

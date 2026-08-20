@@ -139,6 +139,7 @@ export default function MemoryCardPage() {
     if (!socket) return;
 
     socket.on("gameState", (data: MemoryCardGameState) => {
+      if (!roomId) return;
       setSetupNeeded(false);
       setGameStateData(data);
     });
@@ -152,7 +153,7 @@ export default function MemoryCardPage() {
       socket.off("gameState");
       socket.off("rematchStarted");
     };
-  }, [socket, setReturnToLobbyCountdown]);
+  }, [socket, roomId, setReturnToLobbyCountdown]);
 
   const handleCardClick = (cardId: number) => {
     if (

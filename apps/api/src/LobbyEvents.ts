@@ -37,6 +37,7 @@ export function registerGenericLobbyEvents(
   onLeaveExtra?: (socketId: string) => void,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onGameStarted?: (roomId: string, game: any) => void,
+  onRoomDestroyed?: (roomId: string) => void,
 ) {
   // By default, joining sockets are lobby viewers until they enter a specific room
   socket.join("lobby_viewers");
@@ -192,6 +193,8 @@ export function registerGenericLobbyEvents(
       );
       namespace.to(roomId).emit("roomDestroyed");
       gameMap.delete(roomId);
+      if (onRoomDestroyed) onRoomDestroyed(roomId);
+      namespace.in(roomId).socketsLeave(roomId);
     } else {
       const game = gameMap.get(roomId);
       if (game && typeof game.removePlayer === "function") {
@@ -235,8 +238,10 @@ export function registerGenericLobbyEvents(
               clearInterval(terminationInterval);
               roomManager.removeRoom(roomId);
               gameMap.delete(roomId);
+              if (onRoomDestroyed) onRoomDestroyed(roomId);
               namespace.to(roomId).emit("roomDestroyed");
               namespace.to(roomId).emit("matchTerminated");
+              namespace.in(roomId).socketsLeave(roomId);
               namespace
                 .to("lobby_viewers")
                 .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
