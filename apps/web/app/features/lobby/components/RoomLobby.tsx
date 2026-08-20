@@ -36,6 +36,7 @@ const GAME_THEMES = {
     gradient: "from-orange-500 to-amber-600",
     glow: "shadow-orange-500/50",
     border: "border-orange-400/30",
+    badge: "bg-orange-500/10 text-orange-400 border-orange-500/30",
   },
   gtf: {
     gradient: "from-emerald-500 to-teal-600",
