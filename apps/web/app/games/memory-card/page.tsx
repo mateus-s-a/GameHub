@@ -27,6 +27,7 @@ import {
   Disc,
   Eye,
   Key,
+  X,
 } from "lucide-react";
 import { useMatchManager } from "@/features/match/hooks/useMatchManager";
 import { useRoomList } from "@/features/lobby/hooks/useRoomList";
@@ -39,11 +40,13 @@ import RoomBrowser from "@/features/lobby/components/RoomBrowser";
 import Scoreboard from "@/features/match/components/Scoreboard";
 import TimerDisplay from "@/features/match/components/TimerDisplay";
 import ConfirmModal from "@/(shared)/components/ui/ConfirmModal";
+import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
 import { ReturnToLobbyBadge } from "@/features/match/components/ReturnToLobbyBadge";
 import EndMatchOptions from "@/features/match/components/EndMatchOptions";
 import NavButton from "@/(shared)/components/ui/NavButton";
 import { GameShell } from "@repo/ui/game-shell";
 import { GAME_CONSTANTS } from "@gamehub/core";
+import { GameSetupConfig } from "@gamehub/types";
 
 // Symbol icon mapper
 const SYMBOL_ICONS: Record<string, React.ReactNode> = {
@@ -105,6 +108,8 @@ export default function MemoryCardPage() {
     roomLobby,
     roomId,
     tempNotification,
+    setTempNotification,
+    matchTerminationCountdown,
     returnToLobbyCountdown,
     setReturnToLobbyCountdown,
     setIsHost,
@@ -179,6 +184,20 @@ export default function MemoryCardPage() {
     setSetupNeeded(true);
   };
 
+  const handleJoinRoomClick = (joinRoomId: string) => {
+    if (socket) {
+      setIsHost(false);
+      socket.emit("joinSpecificRoom", joinRoomId);
+    }
+  };
+
+  const handleStartGame = (config: GameSetupConfig) => {
+    if (socket) {
+      socket.emit("createRoom", config);
+      setSetupNeeded(false);
+    }
+  };
+
   const isMyTurn = gameStateData?.turnPlayerId === localSocketId;
   const turnPlayerName =
     roomLobby?.players.find((p) => p.id === gameStateData?.turnPlayerId)?.name ||
@@ -212,10 +231,7 @@ export default function MemoryCardPage() {
           <div className="w-full flex justify-center">
             <GameSetup
               gameId="mc"
-              onStart={(config) => {
-                setSetupNeeded(false);
-                createRoom(config);
-              }}
+              onStart={handleStartGame}
               onCancel={() => setSetupNeeded(false)}
             />
           </div>
@@ -224,73 +240,104 @@ export default function MemoryCardPage() {
     );
   }
 
-  return (
-    <GameShell playerName={playerName}>
-      {/* 2. ROOM LOBBY WAITING AREA */}
-      {roomLobby && roomLobby.status === "waiting" && (
+  // View 2: Room Browser
+  if (!roomId && !setupNeeded) {
+    return (
+      <GameShell playerName={playerName}>
+        <RoomBrowser
+          rooms={rooms}
+          onCreateRoom={handleCreateRoomClick}
+          onJoinRoom={handleJoinRoomClick}
+          gameLabel="Memory Card"
+        />
+      </GameShell>
+    );
+  }
+
+  // View 3: Room Lobby
+  if (roomId && roomLobby && roomLobby.status === "waiting") {
+    return (
+      <GameShell playerName={playerName}>
         <RoomLobby
           roomLobby={roomLobby}
           localPlayerId={localSocketId || ""}
           onToggleReady={toggleReady}
           onStartMatch={startMatch}
-          onLeaveRoom={leaveRoom}
+          onLeaveRoom={handleLeaveRoom}
           onUpdateConfig={updateRoomConfig}
+          themeColor="orange"
           tempNotification={tempNotification}
         />
-      )}
+      </GameShell>
+    );
+  }
 
-      {/* 3. ROOM BROWSER & CREATION SELECTION */}
-      {!setupNeeded && !roomLobby && (
-        <RoomBrowser
-          gameLabel="Memory Card"
-          rooms={rooms}
-          onCreateRoom={handleCreateRoomClick}
-          onJoinRoom={(id) => joinRoom(id)}
+  // View 4: Active Game Screen
+  return (
+    <GameShell playerName={playerName}>
+      {matchTerminationCountdown !== null && (
+        <MatchTerminationBanner
+          countdown={matchTerminationCountdown}
+          title="Match Terminated"
+          message="Insufficient players remaining. Returning to lobby..."
         />
       )}
 
-      {/* 4. ACTIVE GAME SCREEN */}
-      {!setupNeeded && roomLobby && roomLobby.status !== "waiting" && (
-        <div className="w-full max-w-4xl flex flex-col items-center gap-6 relative px-4 pb-16">
-          {/* Header Navigation & Exit Button */}
-          <div className="w-full flex items-center justify-between">
-            <Button
-              onClick={() => setIsExitModalOpen(true)}
-              variant="ghost"
-              className="px-4 py-2 rounded-xl text-xs font-iosevka-bold tracking-widest uppercase border border-white/10 hover:border-white/20"
+      {/* Temporary Toast Notification */}
+      {tempNotification && (
+        <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-right duration-500">
+          <div className="bg-[#1a1a1a] border-l-4 border-orange-500/50 text-white px-6 py-4 rounded-r-xl shadow-2xl flex items-center gap-3">
+            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+            <span className="font-iosevka-medium whitespace-pre-line text-sm">
+              {tempNotification}
+            </span>
+            <button
+              onClick={() => setTempNotification(null)}
+              className="ml-4 text-gray-500 hover:text-white transition-colors"
             >
-              EXIT MATCH
-            </Button>
+              <X className="w-4 h-4" />
+            </button>
           </div>
+        </div>
+      )}
 
-          {/* Exit Confirmation Modal */}
-          <ConfirmModal
-            isOpen={isExitModalOpen}
-            title="Leave Memory Card Match?"
-            message="Are you sure you want to leave? Your match progress will be lost."
-            onConfirm={() => {
-              handleLeaveRoom();
-              setIsExitModalOpen(false);
-            }}
-            onCancel={() => setIsExitModalOpen(false)}
-            confirmText="Leave"
-            cancelText="Stay"
-            themeColor="orange"
-          />
+      {/* Exit Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isExitModalOpen}
+        title="Leave Memory Card Match?"
+        message="Are you sure you want to leave? Your match progress will be lost."
+        onConfirm={() => {
+          handleLeaveRoom();
+          setIsExitModalOpen(false);
+        }}
+        onCancel={() => setIsExitModalOpen(false)}
+        confirmText="Leave"
+        cancelText="Stay"
+        themeColor="orange"
+      />
 
-          <Card className="w-full p-6 md:p-8 flex flex-col items-center gap-6 bg-[#180d0a] border border-white/10 shadow-2xl">
-            {/* Header Info */}
-            <div className="flex justify-between w-full text-xs font-iosevka-bold tracking-widest uppercase text-[var(--muted)]">
+      <div className="w-full max-w-6xl mx-auto flex flex-col items-center">
+        {/* Responsive Grid Shell: Column on Mobile, 2-Column Split on Desktop */}
+        <div className="w-full flex flex-col lg:flex-row gap-6 lg:gap-8 items-center lg:items-start justify-center">
+          
+          {/* Left Column: HUD & Information Panel */}
+          <Card className="w-full lg:w-80 p-5 md:p-6 flex flex-col items-center gap-5 bg-[#180d0a] border border-orange-500/20 shadow-2xl shrink-0">
+            <h1 className="text-2xl md:text-3xl font-iosevka-bold text-white tracking-widest uppercase text-center drop-shadow-[0_0_12px_rgba(249,115,22,0.3)]">
+              Memory Card
+            </h1>
+
+            {/* Connection Status & Mode Badge */}
+            <div className="flex items-center justify-between w-full text-xs font-iosevka-bold tracking-widest uppercase">
               <span
-                className={`px-4 py-2 rounded-lg border ${
+                className={`px-3 py-1.5 rounded-lg border ${
                   localSocketId
-                    ? "bg-white/5 border-white/10"
-                    : "bg-orange-500/10 border-orange-500/20"
+                    ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
+                    : "bg-red-500/10 border-red-500/20 text-red-400"
                 }`}
               >
                 {localSocketId ? "CONNECTED" : "OFFLINE"}
               </span>
-              <span className="px-4 py-2 rounded-lg border border-orange-500/20 bg-orange-500/10 text-orange-400">
+              <span className="px-3 py-1.5 rounded-lg border border-orange-500/20 bg-orange-500/10 text-orange-400">
                 MODE: {gameStateData?.grid ? `${gameStateData.grid.cols}×${gameStateData.grid.rows}` : "STANDARD"}
               </span>
             </div>
@@ -311,22 +358,22 @@ export default function MemoryCardPage() {
               gameId="mc"
             />
 
-            {/* Turn Banner */}
-            <div className="text-center text-lg md:text-xl h-12 flex items-center justify-center w-full bg-[#20100c] rounded-xl border border-white/5 px-4">
+            {/* Turn Banner Status */}
+            <div className="text-center text-sm md:text-base py-3 px-4 flex items-center justify-center w-full bg-[#120806] rounded-xl border border-white/5 shadow-inner">
               {gameStateData?.status === "playing" && (
                 <span
-                  className={`font-iosevka-bold uppercase tracking-widest flex items-center gap-2 ${
+                  className={`font-iosevka-bold uppercase tracking-wider flex items-center gap-2 ${
                     isMyTurn ? "text-orange-400 animate-pulse" : "text-gray-400"
                   }`}
                 >
-                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
                   {isMyTurn
                     ? "YOUR TURN — FLIP A CARD"
                     : `${turnPlayerName}'S TURN`}
                 </span>
               )}
               {gameStateData?.status === "game_over" && (
-                <span className="text-white font-iosevka-bold uppercase tracking-widest">
+                <span className="text-white font-iosevka-bold uppercase tracking-wider">
                   {gameStateData.winnerId === "Draw"
                     ? "MATCH TIED!"
                     : `${
@@ -338,101 +385,116 @@ export default function MemoryCardPage() {
               )}
             </div>
 
-            {/* Timer Display */}
+            {/* Native TimerDisplay */}
             {gameStateData?.status === "playing" && gameStateData?.turnEndTime && (
-              <div className="scale-125 py-1">
-                <TimerDisplay turnEndTime={gameStateData.turnEndTime} />
+              <div className="w-full flex justify-center py-1">
+                <TimerDisplay turnEndTime={gameStateData.turnEndTime} size="md" />
               </div>
             )}
 
-            {/* 3D Memory Card Grid */}
-            {gameStateData?.grid && (
-              <div
-                className={`grid ${getGridColsClass(
-                  gameStateData.grid.cols
-                )} gap-2 md:gap-3 bg-[#120806] p-4 md:p-6 rounded-2xl border border-orange-500/20 shadow-inner w-full max-w-3xl`}
-              >
-                {gameStateData.cards.map((card: MemoryCardItem) => {
-                  const canClick =
-                    isMyTurn &&
-                    !card.isFlipped &&
-                    !card.isMatched &&
-                    !gameStateData.isCheckingMatch;
-
-                  return (
-                    <div
-                      key={card.id}
-                      className="w-full aspect-square relative"
-                      style={{ perspective: "1000px" }}
-                    >
-                      <motion.div
-                        className="w-full h-full relative cursor-pointer"
-                        style={{ transformStyle: "preserve-3d" }}
-                        animate={{
-                          rotateY: card.isFlipped || card.isMatched ? 180 : 0,
-                        }}
-                        transition={{ duration: 0.4, ease: "easeInOut" }}
-                        onClick={() => canClick && handleCardClick(card.id)}
-                      >
-                        {/* Verso da Carta (Face Down) */}
-                        <div
-                          className={`absolute inset-0 rounded-xl bg-[#221410] border border-orange-500/20 shadow-md flex flex-col items-center justify-center transition-colors ${
-                            canClick ? "hover:border-orange-500/50 hover:bg-[#2c1813]" : "opacity-80"
-                          }`}
-                          style={{ backfaceVisibility: "hidden" }}
-                        >
-                          <div className="w-7 h-7 md:w-9 md:h-9 rounded-full border border-orange-500/30 flex items-center justify-center text-orange-400/40 font-iosevka-bold text-[10px] md:text-xs">
-                            GH
-                          </div>
-                        </div>
-
-                        {/* Frente da Carta (Face Up) */}
-                        <div
-                          className={`absolute inset-0 rounded-xl bg-[#2a1712] border shadow-2xl flex items-center justify-center ${
-                            card.isMatched
-                              ? "border-orange-400 bg-orange-950/40 shadow-[0_0_15px_rgba(249,115,22,0.4)]"
-                              : "border-orange-500/40"
-                          }`}
-                          style={{
-                            backfaceVisibility: "hidden",
-                            transform: "rotateY(180deg)",
-                          }}
-                        >
-                          {SYMBOL_ICONS[card.symbol] || (
-                            <Sparkles className="w-6 h-6 text-orange-400" />
-                          )}
-                        </div>
-                      </motion.div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Game Over / Match End Actions Box */}
-            {gameStateData?.status === "game_over" && (
-              <div className="w-full pt-6 border-t border-white/5 relative z-10">
-                <ReturnToLobbyBadge
-                  initialSeconds={
-                    returnToLobbyCountdown ||
-                    GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
-                  }
-                  barColorClass="bg-orange-500/30"
-                />
-                <EndMatchOptions
-                  rematchRequested={rematchRequested}
-                  opponentLeft={false}
-                  hasOpponentRequested={false}
-                  onRequestRematch={handleRequestRematch}
-                  onPlayAgain={handleLeaveRoom}
-                  primaryColorGradient="from-orange-500 to-amber-600"
-                  primaryColorHover="hover:from-orange-400 hover:to-amber-500"
-                />
-              </div>
-            )}
+            {/* Leave Match Button */}
+            <Button
+              variant="ghost"
+              onClick={() => setIsExitModalOpen(true)}
+              className="w-full border-red-500/20 text-red-500 hover:bg-red-500/10 text-xs tracking-widest font-iosevka-bold uppercase"
+            >
+              LEAVE MATCH
+            </Button>
           </Card>
+
+          {/* Right Column: Central Game Arena */}
+          <div className="flex-1 w-full flex flex-col items-center">
+            <Card className="w-full p-4 md:p-6 flex flex-col items-center gap-6 bg-[#180d0a] border border-orange-500/20 shadow-2xl">
+              {/* 3D Memory Card Grid */}
+              {gameStateData?.grid && (
+                <div
+                  className={`grid ${getGridColsClass(
+                    gameStateData.grid.cols
+                  )} gap-2 md:gap-3 bg-[#120806] p-4 md:p-6 rounded-2xl border border-orange-500/20 shadow-inner w-full max-w-3xl`}
+                >
+                  {gameStateData.cards.map((card: MemoryCardItem) => {
+                    const canClick =
+                      isMyTurn &&
+                      !card.isFlipped &&
+                      !card.isMatched &&
+                      !gameStateData.isCheckingMatch;
+
+                    return (
+                      <div
+                        key={card.id}
+                        className="w-full aspect-square relative"
+                        style={{ perspective: "1000px" }}
+                      >
+                        <motion.div
+                          className="w-full h-full relative cursor-pointer"
+                          style={{ transformStyle: "preserve-3d" }}
+                          animate={{
+                            rotateY: card.isFlipped || card.isMatched ? 180 : 0,
+                          }}
+                          transition={{ duration: 0.4, ease: "easeInOut" }}
+                          onClick={() => canClick && handleCardClick(card.id)}
+                        >
+                          {/* Verso da Carta (Face Down) */}
+                          <div
+                            className={`absolute inset-0 rounded-xl bg-[#221410] border border-orange-500/20 shadow-md flex flex-col items-center justify-center transition-colors ${
+                              canClick ? "hover:border-orange-500/50 hover:bg-[#2c1813]" : "opacity-80"
+                            }`}
+                            style={{ backfaceVisibility: "hidden" }}
+                          >
+                            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full border border-orange-500/30 flex items-center justify-center text-orange-400/40 font-iosevka-bold text-[10px] md:text-xs">
+                              GH
+                            </div>
+                          </div>
+
+                          {/* Frente da Carta (Face Up) */}
+                          <div
+                            className={`absolute inset-0 rounded-xl bg-[#2a1712] border shadow-2xl flex items-center justify-center ${
+                              card.isMatched
+                                ? "border-orange-400 bg-orange-950/40 shadow-[0_0_15px_rgba(249,115,22,0.4)]"
+                                : "border-orange-500/40"
+                            }`}
+                            style={{
+                              backfaceVisibility: "hidden",
+                              transform: "rotateY(180deg)",
+                            }}
+                          >
+                            {SYMBOL_ICONS[card.symbol] || (
+                              <Sparkles className="w-6 h-6 text-orange-400" />
+                            )}
+                          </div>
+                        </motion.div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Game Over / Match End Actions Box */}
+              {gameStateData?.status === "game_over" && (
+                <div className="w-full pt-6 border-t border-white/5 relative z-10">
+                  <ReturnToLobbyBadge
+                    initialSeconds={
+                      returnToLobbyCountdown ||
+                      GAME_CONSTANTS.MATCH_AUTO_RETURN_DELAY_SEC
+                    }
+                    barColorClass="bg-orange-500/30"
+                  />
+                  <EndMatchOptions
+                    rematchRequested={rematchRequested}
+                    opponentLeft={false}
+                    hasOpponentRequested={false}
+                    onRequestRematch={handleRequestRematch}
+                    onPlayAgain={handleLeaveRoom}
+                    primaryColorGradient="from-orange-500 to-amber-600"
+                    primaryColorHover="hover:from-orange-400 hover:to-amber-500"
+                  />
+                </div>
+              )}
+            </Card>
+          </div>
         </div>
-      )}
+      </div>
     </GameShell>
   );
 }
+
