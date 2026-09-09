@@ -1,12 +1,24 @@
 import { z } from "zod";
 import { Socket } from "socket.io";
+import { sanitizeText } from "../lib/sanitize";
+
+export const playerNameSchema = z
+  .string()
+  .min(1, "Name must have at least 1 character")
+  .max(30, "Name must not exceed 30 characters")
+  .transform((val) => sanitizeText(val))
+  .refine((val) => val.length > 0, "Name cannot be empty or solely HTML tags");
 
 export const createRoomSchema = z
   .object({
     maxPlayers: z.number().int().min(2).max(4).optional(),
     maxRounds: z.number().int().min(1).max(20).optional(),
     timeLimit: z.number().int().min(5).max(120).optional(),
-    region: z.string().max(50).optional(),
+    region: z
+      .string()
+      .max(50)
+      .transform((val) => sanitizeText(val))
+      .optional(),
     mode: z.enum(["standard", "custom"]).optional(),
     boardSize: z.string().max(20).optional(),
   })
@@ -19,7 +31,11 @@ export const updateRoomConfigSchema = z.object({
   config: z.object({
     maxRounds: z.number().int().min(1).max(20).optional(),
     timeLimit: z.number().int().min(5).max(120).optional(),
-    region: z.string().max(50).optional(),
+    region: z
+      .string()
+      .max(50)
+      .transform((val) => sanitizeText(val))
+      .optional(),
     maxPlayers: z.number().int().min(2).max(4).optional(),
     mode: z.enum(["standard", "custom"]).optional(),
     boardSize: z.string().max(20).optional(),
@@ -47,7 +63,11 @@ export const commitChoiceRPSSchema = z.object({
 // Guess The Flag
 export const submitGuessGTFSchema = z.object({
   roomId: z.string().uuid("Invalid room ID"),
-  guess: z.string().min(1).max(100, "Guess cannot exceed 100 characters"),
+  guess: z
+    .string()
+    .min(1)
+    .max(100, "Guess cannot exceed 100 characters")
+    .transform((val) => sanitizeText(val)),
 });
 
 // Memory Card

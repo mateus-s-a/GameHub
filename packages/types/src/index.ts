@@ -50,3 +50,9 @@ export interface ServerStats {
   totalPlayers: number;
   gameBreakdown: Record<string, number>;
 }
+
+export interface RateLimitExceededEvent {
+  event: string;
+  message: string;
+  retryAfterSeconds: number;
+}

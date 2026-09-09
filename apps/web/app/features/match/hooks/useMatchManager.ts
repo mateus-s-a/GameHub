@@ -171,6 +171,11 @@ export function useMatchManager({
       },
     );
 
+    s.on("rateLimitExceeded", ({ message }: { message: string }) => {
+      setTempNotification(`⚠️ ${message}`);
+      setTimeout(() => setTempNotification(null), 4000);
+    });
+
     return () => {
       // SPA navigation guard: attempt clean leave before disconnect
       if (roomIdRef.current) {

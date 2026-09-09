@@ -7,6 +7,8 @@ import {
   updateRoomConfigSchema,
   validateSocketPayload,
 } from "./schemas/socketSchemas";
+import { checkSocketRateLimit } from "./middlewares/rateLimiterMiddleware";
+import { sanitizeText } from "./lib/sanitize";
 
 const matchReturnTimeouts = new Map<string, NodeJS.Timeout>();
 const reconnectionTimeouts = new Map<
@@ -79,6 +81,8 @@ export function registerGenericLobbyEvents(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   socket.on("createRoom", (rawConfig?: any) => {
+    if (!checkSocketRateLimit(socket, "createRoom", 5, 5)) return;
+
     const validatedConfig = validateSocketPayload(
       socket,
       createRoomSchema,
@@ -89,10 +93,11 @@ export function registerGenericLobbyEvents(
 
     socket.leave("lobby_viewers");
     const playerId = socket.data?.sessionId || socket.id;
-    const hostName =
+    const rawHostName =
       socket.data?.playerName ||
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
+    const hostName = sanitizeText(rawHostName) || "Player";
     const maxPlayers = validatedConfig?.maxPlayers || 2;
     const userId = socket.data?.user?.userId;
 
@@ -123,6 +128,8 @@ export function registerGenericLobbyEvents(
   });
 
   socket.on("joinSpecificRoom", (rawRoomId: string) => {
+    if (!checkSocketRateLimit(socket, "joinSpecificRoom", 8, 3)) return;
+
     const validatedRoomId = validateSocketPayload(
       socket,
       roomIdSchema,
@@ -134,10 +141,11 @@ export function registerGenericLobbyEvents(
     const roomId = validatedRoomId;
     socket.leave("lobby_viewers");
     const playerId = socket.data?.sessionId || socket.id;
-    const playerName =
+    const rawPlayerName =
       socket.data?.playerName ||
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
+    const playerName = sanitizeText(rawPlayerName) || "Player";
     const userId = socket.data?.user?.userId;
 
     // Check if player was in a reconnection grace period
@@ -190,6 +198,8 @@ export function registerGenericLobbyEvents(
   });
 
   socket.on("toggleReady", (rawRoomId: string) => {
+    if (!checkSocketRateLimit(socket, "toggleReady", 10, 3)) return;
+
     const validatedRoomId = validateSocketPayload(
       socket,
       roomIdSchema,
@@ -206,6 +216,8 @@ export function registerGenericLobbyEvents(
   });
 
   socket.on("startMatch", (rawRoomId: string) => {
+    if (!checkSocketRateLimit(socket, "startMatch", 5, 5)) return;
+
     const validatedRoomId = validateSocketPayload(
       socket,
       roomIdSchema,
@@ -542,6 +554,8 @@ export function registerGenericLobbyEvents(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   socket.on("updateRoomConfig", (rawData: any) => {
+    if (!checkSocketRateLimit(socket, "updateRoomConfig", 8, 3)) return;
+
     const validData = validateSocketPayload(
       socket,
       updateRoomConfigSchema,

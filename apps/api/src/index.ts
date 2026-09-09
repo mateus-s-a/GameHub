@@ -244,6 +244,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use("/api", apiRateLimiter);
+app.use("/api/auth", authRateLimiter);
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -304,6 +306,11 @@ import {
   gameMoveHangmanSchema,
   validateSocketPayload,
 } from "./schemas/socketSchemas";
+import {
+  authRateLimiter,
+  apiRateLimiter,
+  checkSocketRateLimit,
+} from "./middlewares/rateLimiterMiddleware";
 
 const loggedSessions = new Set<string>();
 function logConnection(socket: Socket, gameName: string) {
@@ -390,6 +397,8 @@ tttNamespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("makeMove", (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "makeMove", 8, 2)) return;
+
     const valid = validateSocketPayload(
       socket,
       makeMoveTTTSchema,
@@ -413,6 +422,8 @@ tttNamespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     const game = tttGames.get(roomId);
     if (!game) return;
 
@@ -495,6 +506,8 @@ c4Namespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("makeMove", (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "makeMove", 8, 2)) return;
+
     const valid = validateSocketPayload(
       socket,
       makeMoveC4Schema,
@@ -518,6 +531,8 @@ c4Namespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     const game = c4Games.get(roomId);
     if (!game) return;
 
@@ -574,6 +589,8 @@ rpsNamespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("commitChoice", (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "commitChoice", 8, 2)) return;
+
     const valid = validateSocketPayload(
       socket,
       commitChoiceRPSSchema,
@@ -598,6 +615,8 @@ rpsNamespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     const game = rpsGames.get(roomId);
     if (!game) return;
 
@@ -644,6 +663,8 @@ gtfNamespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("submitGuess", (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "submitGuess", 8, 2)) return;
+
     const valid = validateSocketPayload(
       socket,
       submitGuessGTFSchema,
@@ -673,6 +694,8 @@ gtfNamespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     const game = gtfGames.get(roomId);
     if (!game) return;
 
@@ -721,6 +744,8 @@ hangmanNamespace.on("connection", (socket: Socket) => {
   });
 
   socket.on(GameEvent.GAME_MOVE, (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "gameMove", 10, 2)) return;
+
     const valid = validateSocketPayload(
       socket,
       gameMoveHangmanSchema,
@@ -733,6 +758,8 @@ hangmanNamespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     hangmanController.handleRematch(socket.id, roomId);
   });
 });
@@ -773,6 +800,8 @@ mcNamespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("flipCard", (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "flipCard", 8, 2)) return;
+
     const valid = validateSocketPayload(
       socket,
       flipCardMCSchema,
@@ -785,6 +814,8 @@ mcNamespace.on("connection", (socket: Socket) => {
   });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     memoryCardController.handleRematch(socket, roomId);
   });
 });
@@ -994,6 +1025,22 @@ app.post("/api/auth/guest", (req, res) => {
 app.get("/api/auth/me", requireAuth, (req, res) => {
   AuthController.me(req as AuthenticatedRequest, res);
 });
+
+// Global Error Handler
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    console.error("[Express Error Handler]:", err);
+    const status = err.status || 500;
+    res.status(status).json({
+      error: status === 500 ? "Internal server error" : err.message,
+    });
+  },
+);
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {

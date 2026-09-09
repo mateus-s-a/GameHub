@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { AuthService } from "../services/authService";
+import { sanitizeText } from "../lib/sanitize";
 
 const registerSchema = z.object({
   username: z
@@ -15,7 +16,9 @@ const registerSchema = z.object({
   displayName: z
     .string()
     .min(2, "Display name must be at least 2 characters")
-    .max(30, "Display name must be at most 30 characters"),
+    .max(30, "Display name must be at most 30 characters")
+    .transform((val) => sanitizeText(val))
+    .refine((val) => val.length >= 2, "Display name must have at least 2 non-HTML characters"),
   sessionId: z.string().optional(),
 });
 
@@ -27,7 +30,11 @@ const loginSchema = z.object({
 
 const guestSchema = z.object({
   sessionId: z.string().optional(),
-  guestName: z.string().max(30).optional(),
+  guestName: z
+    .string()
+    .max(30)
+    .transform((val) => sanitizeText(val))
+    .optional(),
 });
 
 export class AuthController {
