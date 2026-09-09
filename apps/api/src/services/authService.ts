@@ -49,6 +49,11 @@ export class AuthService {
     const id = sessionId || randomUUID();
     const defaultName = guestName || `GUEST-${id.substring(0, 5).toUpperCase()}`;
 
+    // Gracefully use in-memory ephemeral session if DATABASE_URL is not yet configured
+    if (!process.env.DATABASE_URL) {
+      return { id, guestName: defaultName, userId: userId || null };
+    }
+
     try {
       const existing = await prisma.session.findUnique({
         where: { id },
@@ -86,6 +91,10 @@ export class AuthService {
     displayName: string,
     sessionId?: string,
   ) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("Database not configured. Please set DATABASE_URL in apps/api/.env");
+    }
+
     const existing = await prisma.user.findUnique({
       where: { username: username.toLowerCase() },
     });
@@ -129,6 +138,10 @@ export class AuthService {
     password: string,
     sessionId?: string,
   ) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("Database not configured. Please set DATABASE_URL in apps/api/.env");
+    }
+
     const user = await prisma.user.findUnique({
       where: { username: username.toLowerCase() },
     });
@@ -164,6 +177,10 @@ export class AuthService {
   }
 
   public static async getUserById(userId: string) {
+    if (!process.env.DATABASE_URL) {
+      return null;
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
