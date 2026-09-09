@@ -17,7 +17,10 @@ export function cancelAutoReturnToLobby(roomId: string) {
 }
 
 function getLogId(socket: Socket): string {
-  const playerName = socket.handshake.auth.playerName;
+  const playerName =
+    socket.data?.playerName ||
+    socket.handshake.auth.playerName ||
+    socket.id.substring(0, 5);
   const socketId = socket.id.substring(0, 5);
   if (playerName && !playerName.startsWith("PLAYER-")) {
     const safeName = playerName.replace(/\n/g, " ");
@@ -50,17 +53,24 @@ export function registerGenericLobbyEvents(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   socket.on("createRoom", (config?: any) => {
     socket.leave("lobby_viewers");
+    const playerId = socket.data?.sessionId || socket.id;
     const hostName =
+      socket.data?.playerName ||
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
     const maxPlayers = config?.maxPlayers || 2;
+    const userId = socket.data?.user?.userId;
+
     const room = roomManager.createRoom(
       gameType,
-      socket.id,
+      playerId,
       hostName,
       maxPlayers,
       config || {},
+      socket.id,
+      userId,
     );
+
     console.log(
       `[Lobby] [${gameType.toUpperCase()}] Room GH-${room.id.substring(0, 5).toUpperCase()} created by ${getLogId(socket)} (Host)`,
     );
@@ -79,10 +89,20 @@ export function registerGenericLobbyEvents(
 
   socket.on("joinSpecificRoom", (roomId: string) => {
     socket.leave("lobby_viewers");
+    const playerId = socket.data?.sessionId || socket.id;
     const playerName =
+      socket.data?.playerName ||
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
-    const room = roomManager.joinRoom(roomId, socket.id, playerName);
+    const userId = socket.data?.user?.userId;
+
+    const room = roomManager.joinRoom(
+      roomId,
+      playerId,
+      playerName,
+      socket.id,
+      userId,
+    );
     if (!room) {
       socket.emit("roomError", "Room is full or doesn't exist.");
       return;
@@ -94,7 +114,10 @@ export function registerGenericLobbyEvents(
     }
 
     socket.join(roomId);
-    socket.emit("matchFound", { roomId, isHost: false });
+    socket.emit("matchFound", {
+      roomId,
+      isHost: room.hostId === playerId || room.hostId === socket.id,
+    });
     console.log(
       `[Lobby] [${gameType.toUpperCase()}] ${getLogId(socket)} joined Room GH-${roomId.substring(0, 5).toUpperCase()} (${room.playerCount}/${room.maxPlayers} players)`,
     );
@@ -105,15 +128,18 @@ export function registerGenericLobbyEvents(
   });
 
   socket.on("toggleReady", (roomId: string) => {
-    const room = roomManager.toggleReady(roomId, socket.id);
+    const playerId = socket.data?.sessionId || socket.id;
+    const room = roomManager.toggleReady(roomId, playerId);
     if (room) {
       namespace.to(roomId).emit("roomLobbyUpdate", room);
     }
   });
 
   socket.on("startMatch", (roomId: string) => {
+    const playerId = socket.data?.sessionId || socket.id;
     const room = roomManager.getRoom(roomId);
-    if (!room || room.hostId !== socket.id) return;
+    if (!room || (room.hostId !== playerId && room.hostId !== socket.id))
+      return;
 
     if (room.players.length < 2) return;
     const allReady = room.players.every((p) => p.isReady);
@@ -153,7 +179,7 @@ export function registerGenericLobbyEvents(
         const game = gameMap.get(roomId);
         if (game && typeof game.addPlayer === "function") {
           for (const p of currentRoom.players) {
-            game.addPlayer(p.id);
+            game.addPlayer(p.socketId || p.id);
           }
         }
 
@@ -174,17 +200,28 @@ export function registerGenericLobbyEvents(
     const room = roomManager.getRoom(roomId);
     if (!room) return;
 
+    const playerId =
+      roomManager.getPlayerIdBySocketId(socket.id) ||
+      socket.data?.sessionId ||
+      socket.id;
+
     // Idempotency: skip if player already left (handles leaveRoom + disconnect race)
-    if (!room.players.find((p) => p.id === socket.id)) return;
+    if (
+      !room.players.find(
+        (p) => p.id === playerId || p.socketId === socket.id || p.id === socket.id,
+      )
+    )
+      return;
 
     const wasInProgress = room.status === "in_progress";
     const oldHostId = room.hostId;
     const leaverLogId = getLogId(socket);
     const leaverName =
+      socket.data?.playerName ||
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
 
-    const updatedRoom = roomManager.leaveRoom(roomId, socket.id);
+    const updatedRoom = roomManager.leaveRoom(roomId, playerId);
 
     if (!updatedRoom) {
       // Room empty (already deleted by RoomManager)
@@ -203,7 +240,7 @@ export function registerGenericLobbyEvents(
 
       // Preparation of notification message
       let message = `${leaverName} left the match`;
-      if (oldHostId === socket.id) {
+      if (oldHostId === playerId || oldHostId === socket.id) {
         message = `${leaverName} left (Host)\n${updatedRoom.hostName} is the new Host`;
       }
 
@@ -274,7 +311,13 @@ export function registerGenericLobbyEvents(
   });
 
   socket.on("disconnect", () => {
-    const roomId = roomManager.getRoomIdByPlayerId(socket.id);
+    const playerId =
+      roomManager.getPlayerIdBySocketId(socket.id) ||
+      socket.data?.sessionId ||
+      socket.id;
+    const roomId =
+      roomManager.getRoomIdByPlayerId(playerId) ||
+      roomManager.getRoomIdByPlayerId(socket.id);
     if (roomId) {
       socket.leave(roomId);
       if (onLeaveExtra) onLeaveExtra(socket.id);
@@ -294,8 +337,10 @@ export function registerGenericLobbyEvents(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   socket.on("updateRoomConfig", (data: { roomId: string; config: any }) => {
     const { roomId, config } = data;
+    const playerId = socket.data?.sessionId || socket.id;
     const room = roomManager.getRoom(roomId);
-    if (!room || room.hostId !== socket.id) return;
+    if (!room || (room.hostId !== playerId && room.hostId !== socket.id))
+      return;
 
     const updatedRoom = roomManager.updateRoomConfig(roomId, config);
     if (updatedRoom) {
@@ -348,4 +393,3 @@ export function handleAutoReturnToLobby(
 
   matchReturnTimeouts.set(roomId, timeout);
 }
-

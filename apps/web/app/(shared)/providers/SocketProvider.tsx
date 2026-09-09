@@ -89,10 +89,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
     console.log("Connecting to Socket at:", socketUrl);
+    const storedToken = localStorage.getItem("gh_auth_token");
     const s = io(socketUrl, {
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 2000,
-      auth: { sessionId },
+      auth: {
+        sessionId,
+        token: storedToken,
+        playerName: storedName || playerName,
+      },
     });
 
     s.on("connect", () => {

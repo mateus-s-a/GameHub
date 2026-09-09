@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "./(shared)/providers/AuthProvider";
 import { SocketProvider } from "./(shared)/providers/SocketProvider";
 import UserProfile from "./(shared)/components/ui/UserProfile";
 import ThemeController from "./(shared)/components/layout/ThemeController";
@@ -19,13 +20,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased min-h-screen selection:bg-cyan-500/30">
-        <SocketProvider>
-          <ThemeController />
-          <div className="bg-atmosphere" />
-          <TransitionProvider>{children}</TransitionProvider>
-          <UserProfile />
-          <VersionTag />
-        </SocketProvider>
+        <AuthProvider>
+          <SocketProvider>
+            <ThemeController />
+            <div className="bg-atmosphere" />
+            <TransitionProvider>{children}</TransitionProvider>
+            <UserProfile />
+            <VersionTag />
+          </SocketProvider>
+        </AuthProvider>
       </body>
     </html>
   );

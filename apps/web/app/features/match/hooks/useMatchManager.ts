@@ -46,10 +46,14 @@ export function useMatchManager({
 
   useEffect(() => {
     const sessionId = getSessionId();
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("gh_auth_token")
+        : null;
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
     const s: Socket = io(`${socketUrl}/${namespace}`, {
-      auth: { playerName, sessionId },
+      auth: { playerName, sessionId, token },
     });
     setSocket(s);
 

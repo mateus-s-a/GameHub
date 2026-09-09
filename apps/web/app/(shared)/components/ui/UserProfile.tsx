@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Check, X, ChevronLeft, Edit } from "lucide-react";
+import { User, Check, X, ChevronLeft, Edit, LogIn, LogOut, ShieldCheck } from "lucide-react";
 import { useSocket } from "../../providers/SocketProvider";
+import { useAuth } from "../../providers/AuthProvider";
 import LatencyIndicator from "./LatencyIndicator";
+import AuthModal from "./AuthModal";
 
 export default function UserProfile() {
   const {
@@ -16,7 +18,9 @@ export default function UserProfile() {
     isFirstVisit,
     dismissFirstVisitNotice,
   } = useSocket();
+  const { user, isAuthenticated, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [editValue, setEditValue] = useState(playerName);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -118,8 +122,15 @@ export default function UserProfile() {
               <div className="w-[1px] h-4 bg-white/10 ml-1" />
 
               {/* Avatar Icon */}
-              <div className="w-8 h-8 rounded-full bg-[#2a2a2a] flex items-center justify-center text-gray-400 border border-white/5 shrink-0">
-                <User className="w-4 h-4" />
+              <div className="relative w-8 h-8 rounded-full bg-[#2a2a2a] flex items-center justify-center text-gray-400 border border-white/5 shrink-0">
+                {isAuthenticated ? (
+                  <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                ) : (
+                  <User className="w-4 h-4" />
+                )}
+                {isAuthenticated && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#1a1a1a]" />
+                )}
               </div>
 
               {/* Name Input/Text */}
@@ -138,14 +149,21 @@ export default function UserProfile() {
                     maxLength={15}
                   />
                 ) : (
-                  <span className="text-white font-iosevka-bold text-sm tracking-widest truncate max-w-[120px]">
-                    {playerName}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-white font-iosevka-bold text-sm tracking-widest truncate max-w-[120px]">
+                      {playerName}
+                    </span>
+                    {isAuthenticated && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 uppercase tracking-wider">
+                        PRO
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
 
               {/* Edit Actions */}
-              {isEditing && (
+              {isEditing ? (
                 <div className="flex items-center gap-2 border-l border-white/10 pl-3 ml-1">
                   <button
                     onClick={handleCancel}
@@ -159,6 +177,33 @@ export default function UserProfile() {
                   >
                     <Check className="w-4 h-4" />
                   </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 border-l border-white/10 pl-2 ml-1">
+                  {isAuthenticated ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        logout();
+                      }}
+                      title="Sign Out"
+                      className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-red-400 rounded-full transition-colors"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAuthModalOpen(true);
+                      }}
+                      title="Sign In / Register"
+                      className="px-2.5 py-1 rounded-full text-[11px] bg-gradient-to-r from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 text-cyan-300 font-semibold border border-cyan-500/30 flex items-center gap-1 transition-all shadow-sm active:scale-95"
+                    >
+                      <LogIn className="w-3 h-3" />
+                      <span>Sign In</span>
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -179,6 +224,11 @@ export default function UserProfile() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
   );
 }

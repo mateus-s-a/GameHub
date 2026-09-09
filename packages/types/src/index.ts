@@ -7,6 +7,8 @@ export type RoomStatus = "waiting" | "starting" | "in_progress";
 
 export interface RoomLobbyPlayer {
   id: string;
+  socketId?: string;
+  userId?: string;
   name: string;
   isHost: boolean;
   isReady: boolean;

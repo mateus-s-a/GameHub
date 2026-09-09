@@ -5,15 +5,15 @@ services:
     env: node
     plan: free
     region: ohio # Adjust as needed
-    buildCommand: npm install && (cd apps/api && npx prisma generate) && npx turbo run build --filter=api
+    buildCommand: npm install && (cd apps/api && npx prisma generate && npx prisma db push --accept-data-loss) && npx turbo run build --filter=api
     startCommand: "cd apps/api && node dist/index.js"
     envVars:
       - key: PORT
         value: 3001
       - key: DATABASE_URL
-        fromDatabase:
-          name: gamehub-db
-          property: connectionString
+        sync: false # Set your Neon PostgreSQL connection string in Render Dashboard
+      - key: JWT_SECRET
+        generateValue: true # Render will automatically generate a secure random secret
       - key: NODE_VERSION
         value: 22
       # Optional: Set CORS_ORIGIN in the Render Dashboard to restrict origins.
@@ -37,7 +37,3 @@ services:
       - key: NODE_VERSION
         value: 22
 
-databases:
-  - name: gamehub-db
-    plan: free
-    region: ohio

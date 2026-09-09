@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -13,3 +7,76 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  passwordHash String
+  displayName  String
+  avatarUrl    String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  sessions     Session[]
+  matchPlayers MatchPlayer[]
+  hostedMatches Match[]      @relation("HostMatches")
+
+  @@map("users")
+}
+
+model Session {
+  id         String    @id @default(uuid())
+  userId     String?
+  token      String?   @unique
+  guestName  String?
+  createdAt  DateTime  @default(now())
+  lastActive DateTime  @updatedAt
+
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+enum MatchStatus {
+  WAITING
+  IN_PROGRESS
+  FINISHED
+  ABANDONED
+}
+
+model Match {
+  id        String        @id @default(uuid())
+  gameType  String
+  status    MatchStatus   @default(WAITING)
+  hostId    String?
+  winnerId  String?
+  config    Json          @default("{}")
+  createdAt DateTime      @default(now())
+  endedAt   DateTime?
+
+  host      User?         @relation("HostMatches", fields: [hostId], references: [id], onDelete: SetNull)
+  players   MatchPlayer[]
+
+  @@index([gameType, status])
+  @@map("matches")
+}
+
+model MatchPlayer {
+  id        String   @id @default(uuid())
+  matchId   String
+  userId    String?
+  sessionId String
+  score     Int      @default(0)
+  isWinner  Boolean  @default(false)
+  joinedAt  DateTime @default(now())
+
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([matchId, sessionId])
+  @@index([sessionId])
+  @@index([userId])
+  @@map("match_players")
+}
+

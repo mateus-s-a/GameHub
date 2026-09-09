@@ -243,6 +243,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -288,21 +289,31 @@ import {
 } from "./LobbyEvents";
 import { roomManager } from "./RoomManager";
 import { renderDashboard } from "./views/dashboard";
+import { AuthController } from "./controllers/authController";
+import {
+  requireAuth,
+  socketAuthMiddleware,
+  AuthenticatedRequest,
+} from "./middlewares/authMiddleware";
 
 const loggedSessions = new Set<string>();
 function logConnection(socket: Socket, gameName: string) {
-  const sessionId = socket.handshake.auth.sessionId;
+  const sessionId = socket.data?.sessionId || socket.handshake.auth.sessionId;
+  const playerName =
+    socket.data?.playerName || socket.handshake.auth.playerName;
   const logKey = `${gameName}:${sessionId || socket.id}`;
 
   if (!loggedSessions.has(logKey)) {
     console.log(
-      `[GameHub-API] User connected to ${gameName} (Socket: ${socket.id.substring(0, 5)})`,
+      `[GameHub-API] User connected to ${gameName} (Socket: ${socket.id.substring(0, 5)}, Session: ${sessionId?.substring(0, 5) || "N/A"}, Player: ${playerName || "Guest"})`,
     );
     loggedSessions.add(logKey);
 
     setTimeout(() => loggedSessions.delete(logKey), 5000);
   }
 }
+
+io.use(socketAuthMiddleware);
 
 io.on("connection", (socket: Socket) => {
   const sessionId = socket.handshake.auth.sessionId;
@@ -324,6 +335,7 @@ io.on("connection", (socket: Socket) => {
 });
 
 const tttNamespace = io.of("/ttt");
+tttNamespace.use(socketAuthMiddleware);
 const tttGames = new Map<string, TicTacToeLogic>();
 const tttSocketRooms = new Map<string, string>();
 
@@ -422,6 +434,7 @@ tttNamespace.on("connection", (socket: Socket) => {
 
 // --- Connect 4 Namespace ---
 const c4Namespace = io.of("/c4");
+c4Namespace.use(socketAuthMiddleware);
 const c4Games = new Map<string, ConnectFourLogic>();
 const c4SocketRooms = new Map<string, string>();
 
@@ -511,6 +524,7 @@ c4Namespace.on("connection", (socket: Socket) => {
 
 // --- Rock-Paper-Scissors Namespace ---
 const rpsNamespace = io.of("/rps");
+rpsNamespace.use(socketAuthMiddleware);
 const rpsGames = new Map<string, RPSLogic>();
 
 rpsNamespace.on("connection", (socket: Socket) => {
@@ -575,6 +589,7 @@ rpsNamespace.on("connection", (socket: Socket) => {
 
 // --- Guess the Flag Namespace ---
 const gtfNamespace = io.of("/gtf");
+gtfNamespace.use(socketAuthMiddleware);
 const gtfGames = new Map<string, GuessTheFlagLogic>();
 
 gtfNamespace.on("connection", (socket: Socket) => {
@@ -643,6 +658,7 @@ gtfNamespace.on("connection", (socket: Socket) => {
 
 // --- Hangman Namespace ---
 const hangmanNamespace = io.of("/hangman");
+hangmanNamespace.use(socketAuthMiddleware);
 const hangmanController = new HangmanController(hangmanNamespace);
 
 hangmanNamespace.on("connection", (socket: Socket) => {
@@ -685,6 +701,7 @@ hangmanNamespace.on("connection", (socket: Socket) => {
 
 // --- Memory Card Namespace ---
 const mcNamespace = io.of("/mc");
+mcNamespace.use(socketAuthMiddleware);
 const memoryCardController = new MemoryCardController(mcNamespace);
 
 mcNamespace.on("connection", (socket: Socket) => {
@@ -916,6 +933,23 @@ app.get("/", (req, res) => {
 
 app.get("/api/stats", (req, res) => {
   res.json(roomManager.getStats());
+});
+
+// Authentication & Session Routes
+app.post("/api/auth/register", (req, res) => {
+  AuthController.register(req, res);
+});
+
+app.post("/api/auth/login", (req, res) => {
+  AuthController.login(req, res);
+});
+
+app.post("/api/auth/guest", (req, res) => {
+  AuthController.guest(req, res);
+});
+
+app.get("/api/auth/me", requireAuth, (req, res) => {
+  AuthController.me(req as AuthenticatedRequest, res);
 });
 
 const PORT = process.env.PORT || 3001;
