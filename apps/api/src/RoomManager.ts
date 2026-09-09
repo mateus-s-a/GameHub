@@ -136,6 +136,60 @@ export class RoomManager {
     return available;
   }
 
+  public getActivePlayerCount(roomId: string): number {
+    const room = this.rooms.get(roomId);
+    if (!room) return 0;
+    return room.players.filter((p) => !p.isDisconnected).length;
+  }
+
+  public markPlayerDisconnected(
+    roomId: string,
+    playerId: string,
+  ): { room: RoomInfo; player: RoomLobbyPlayer; activeCount: number } | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    const player = room.players.find(
+      (p) => p.id === playerId || p.socketId === playerId,
+    );
+    if (!player) return null;
+
+    player.isDisconnected = true;
+    player.disconnectedAt = Date.now();
+    this.rooms.set(roomId, room);
+
+    const activeCount = room.players.filter((p) => !p.isDisconnected).length;
+    return { room, player, activeCount };
+  }
+
+  public rebindPlayer(
+    roomId: string,
+    playerId: string,
+    newSocketId: string,
+  ): { room: RoomInfo; player: RoomLobbyPlayer } | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    const player = room.players.find(
+      (p) => p.id === playerId || p.socketId === playerId,
+    );
+    if (!player) return null;
+
+    if (player.socketId && player.socketId !== newSocketId) {
+      this.socketToPlayerMap.delete(player.socketId);
+    }
+
+    player.socketId = newSocketId;
+    player.isDisconnected = false;
+    player.disconnectedAt = undefined;
+
+    this.socketToPlayerMap.set(newSocketId, player.id);
+    this.playerToRoomMap.set(player.id, roomId);
+    this.rooms.set(roomId, room);
+
+    return { room, player };
+  }
+
   public joinRoom(
     roomId: string,
     playerId: string,
@@ -154,6 +208,8 @@ export class RoomManager {
       if (socketId) existingPlayer.socketId = socketId;
       if (userId) existingPlayer.userId = userId;
       existingPlayer.name = playerName;
+      existingPlayer.isDisconnected = false;
+      existingPlayer.disconnectedAt = undefined;
       this.rooms.set(roomId, room);
       this.playerToRoomMap.set(playerId, roomId);
       if (socketId) this.socketToPlayerMap.set(socketId, playerId);

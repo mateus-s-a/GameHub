@@ -16,6 +16,7 @@ import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import { useMatchManager } from "@/features/match/hooks/useMatchManager";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
 import ReturnToLobbyBadge from "@/features/match/components/ReturnToLobbyBadge";
+import ReconnectionGraceBadge from "@/features/match/components/ReconnectionGraceBadge";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
@@ -58,6 +59,7 @@ export default function TicTacToeGame() {
     tempNotification,
     setTempNotification,
     rematchRequested,
+    reconnectionGrace,
     // Actions
     joinRoom,
     leaveRoom,
@@ -250,6 +252,8 @@ export default function TicTacToeGame() {
           message={tempNotification}
         />
       )}
+
+      <ReconnectionGraceBadge grace={reconnectionGrace} />
 
       {/* Temporary Toast Notification */}
       {tempNotification && (

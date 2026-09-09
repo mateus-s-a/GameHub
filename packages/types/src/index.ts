@@ -12,6 +12,15 @@ export interface RoomLobbyPlayer {
   name: string;
   isHost: boolean;
   isReady: boolean;
+  isDisconnected?: boolean;
+  disconnectedAt?: number;
+}
+
+export interface TemporaryDisconnectionEvent {
+  playerId: string;
+  playerName: string;
+  countdown: number;
+  isPaused: boolean;
 }
 
 export interface GameSetupConfig {

@@ -19,6 +19,7 @@ import RoomBrowser from "@/features/lobby/components/RoomBrowser";
 import RoomLobby from "@/features/lobby/components/RoomLobby";
 import { useMatchManager } from "@/features/match/hooks/useMatchManager";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
+import ReconnectionGraceBadge from "@/features/match/components/ReconnectionGraceBadge";
 import Scoreboard from "@/features/match/components/Scoreboard";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
@@ -61,6 +62,7 @@ export default function GuessTheFlagGame() {
     matchTerminationCountdown,
     tempNotification,
     setTempNotification,
+    reconnectionGrace,
     rematchRequested,
     setRematchRequested,
     // Actions
@@ -260,6 +262,8 @@ export default function GuessTheFlagGame() {
           message={tempNotification}
         />
       )}
+
+      <ReconnectionGraceBadge grace={reconnectionGrace} />
 
       {/* Temporary Toast Notification */}
       {tempNotification && (

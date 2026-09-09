@@ -295,6 +295,15 @@ import {
   socketAuthMiddleware,
   AuthenticatedRequest,
 } from "./middlewares/authMiddleware";
+import {
+  makeMoveTTTSchema,
+  makeMoveC4Schema,
+  commitChoiceRPSSchema,
+  submitGuessGTFSchema,
+  flipCardMCSchema,
+  gameMoveHangmanSchema,
+  validateSocketPayload,
+} from "./schemas/socketSchemas";
 
 const loggedSessions = new Set<string>();
 function logConnection(socket: Socket, gameName: string) {
@@ -380,22 +389,28 @@ tttNamespace.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on(
-    "makeMove",
-    ({ roomId, index }: { roomId: string; index: number }) => {
-      const game = tttGames.get(roomId);
-      if (!game) return;
+  socket.on("makeMove", (rawData: unknown) => {
+    const valid = validateSocketPayload(
+      socket,
+      makeMoveTTTSchema,
+      rawData,
+      "makeMove",
+    );
+    if (!valid) return;
 
-      if (game.makeMove(socket.id, index)) {
-        tttNamespace.to(roomId).emit("gameState", game.getPublicState());
-        if (game.state === "round_result") {
-          scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
-        } else if (game.state === "game_over") {
-          handleAutoReturnToLobby(tttNamespace, roomId, tttGames);
-        }
+    const { roomId, index } = valid;
+    const game = tttGames.get(roomId);
+    if (!game) return;
+
+    if (game.makeMove(socket.id, index)) {
+      tttNamespace.to(roomId).emit("gameState", game.getPublicState());
+      if (game.state === "round_result") {
+        scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
+      } else if (game.state === "game_over") {
+        handleAutoReturnToLobby(tttNamespace, roomId, tttGames);
       }
-    },
-  );
+    }
+  });
 
   socket.on("requestRematch", (roomId: string) => {
     const game = tttGames.get(roomId);
@@ -479,22 +494,28 @@ c4Namespace.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on(
-    "makeMove",
-    ({ roomId, col }: { roomId: string; col: number }) => {
-      const game = c4Games.get(roomId);
-      if (!game) return;
+  socket.on("makeMove", (rawData: unknown) => {
+    const valid = validateSocketPayload(
+      socket,
+      makeMoveC4Schema,
+      rawData,
+      "makeMove",
+    );
+    if (!valid) return;
 
-      if (game.makeMove(socket.id, col)) {
-        c4Namespace.to(roomId).emit("gameState", game.getPublicState());
-        if (game.state === "round_result") {
-          scheduleNextRound(c4Games, roomId, c4Namespace, 3000);
-        } else if (game.state === "game_over") {
-          handleAutoReturnToLobby(c4Namespace, roomId, c4Games);
-        }
+    const { roomId, col } = valid;
+    const game = c4Games.get(roomId);
+    if (!game) return;
+
+    if (game.makeMove(socket.id, col)) {
+      c4Namespace.to(roomId).emit("gameState", game.getPublicState());
+      if (game.state === "round_result") {
+        scheduleNextRound(c4Games, roomId, c4Namespace, 3000);
+      } else if (game.state === "game_over") {
+        handleAutoReturnToLobby(c4Namespace, roomId, c4Games);
       }
-    },
-  );
+    }
+  });
 
   socket.on("requestRematch", (roomId: string) => {
     const game = c4Games.get(roomId);
@@ -552,23 +573,29 @@ rpsNamespace.on("connection", (socket: Socket) => {
     rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
   });
 
-  socket.on(
-    "commitChoice",
-    ({ roomId, choice }: { roomId: string; choice: RPSChoice }) => {
-      const game = rpsGames.get(roomId);
-      if (!game) return;
+  socket.on("commitChoice", (rawData: unknown) => {
+    const valid = validateSocketPayload(
+      socket,
+      commitChoiceRPSSchema,
+      rawData,
+      "commitChoice",
+    );
+    if (!valid) return;
 
-      if (game.commitChoice(socket.id, choice)) {
-        // Broadcast state - note that choices are hidden if in commit_phase
-        rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
+    const { roomId, choice } = valid;
+    const game = rpsGames.get(roomId);
+    if (!game) return;
 
-        // If the round just finished, wait 3 seconds and go to next round automatically
-        if (game.state === "reveal_phase") {
-          scheduleNextRound(rpsGames, roomId, rpsNamespace, 3000);
-        }
+    if (game.commitChoice(socket.id, choice)) {
+      // Broadcast state - note that choices are hidden if in commit_phase
+      rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
+
+      // If the round just finished, wait 3 seconds and go to next round automatically
+      if (game.state === "reveal_phase") {
+        scheduleNextRound(rpsGames, roomId, rpsNamespace, 3000);
       }
-    },
-  );
+    }
+  });
 
   socket.on("requestRematch", (roomId: string) => {
     const game = rpsGames.get(roomId);
@@ -616,28 +643,34 @@ gtfNamespace.on("connection", (socket: Socket) => {
     gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
   });
 
-  socket.on(
-    "submitGuess",
-    ({ roomId, guess }: { roomId: string; guess: string }) => {
-      const game = gtfGames.get(roomId);
-      if (!game) return;
+  socket.on("submitGuess", (rawData: unknown) => {
+    const valid = validateSocketPayload(
+      socket,
+      submitGuessGTFSchema,
+      rawData,
+      "submitGuess",
+    );
+    if (!valid) return;
 
-      if (game.submitGuess(socket.id, guess)) {
-        gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
+    const { roomId, guess } = valid;
+    const game = gtfGames.get(roomId);
+    if (!game) return;
 
-        if (game.state === "round_result") {
-          scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
-            if (g.state === "guessing_phase") {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              startGTFRound(roomId, g as any);
-            } else if (g.state === "game_over") {
-              gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
-            }
-          });
-        }
+    if (game.submitGuess(socket.id, guess)) {
+      gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
+
+      if (game.state === "round_result") {
+        scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
+          if (g.state === "guessing_phase") {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            startGTFRound(roomId, g as any);
+          } else if (g.state === "game_over") {
+            gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
+          }
+        });
       }
-    },
-  );
+    }
+  });
 
   socket.on("requestRematch", (roomId: string) => {
     const game = gtfGames.get(roomId);
@@ -687,12 +720,17 @@ hangmanNamespace.on("connection", (socket: Socket) => {
     socket.join(roomId);
   });
 
-  socket.on(
-    GameEvent.GAME_MOVE,
-    ({ roomId, action }: { roomId: string; action: any }) => {
-      hangmanController.handleMove(socket, roomId, action);
-    },
-  );
+  socket.on(GameEvent.GAME_MOVE, (rawData: unknown) => {
+    const valid = validateSocketPayload(
+      socket,
+      gameMoveHangmanSchema,
+      rawData,
+      "gameMove",
+    );
+    if (!valid) return;
+    const { roomId, action } = valid;
+    hangmanController.handleMove(socket, roomId, action);
+  });
 
   socket.on("requestRematch", (roomId: string) => {
     hangmanController.handleRematch(socket.id, roomId);
@@ -734,12 +772,17 @@ mcNamespace.on("connection", (socket: Socket) => {
     memoryCardController.broadcastState(roomId);
   });
 
-  socket.on(
-    "flipCard",
-    ({ roomId, cardId }: { roomId: string; cardId: number }) => {
-      memoryCardController.handleFlipCard(socket, roomId, { cardId });
-    },
-  );
+  socket.on("flipCard", (rawData: unknown) => {
+    const valid = validateSocketPayload(
+      socket,
+      flipCardMCSchema,
+      rawData,
+      "flipCard",
+    );
+    if (!valid) return;
+    const { roomId, cardId } = valid;
+    memoryCardController.handleFlipCard(socket, roomId, { cardId });
+  });
 
   socket.on("requestRematch", (roomId: string) => {
     memoryCardController.handleRematch(socket, roomId);

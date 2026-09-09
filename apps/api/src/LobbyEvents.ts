@@ -1,8 +1,18 @@
 import { Socket, Namespace } from "socket.io";
 import { roomManager } from "./RoomManager";
 import { GAME_CONSTANTS } from "@gamehub/core";
+import {
+  createRoomSchema,
+  roomIdSchema,
+  updateRoomConfigSchema,
+  validateSocketPayload,
+} from "./schemas/socketSchemas";
 
 const matchReturnTimeouts = new Map<string, NodeJS.Timeout>();
+const reconnectionTimeouts = new Map<
+  string,
+  { interval: NodeJS.Timeout; remaining: number; isPaused: boolean }
+>();
 
 /**
  * Cancels a pending auto-return to lobby timeout.
@@ -14,6 +24,23 @@ export function cancelAutoReturnToLobby(roomId: string) {
     clearTimeout(timeout);
     matchReturnTimeouts.delete(roomId);
   }
+}
+
+/**
+ * Cancels a pending reconnection grace timeout for a player in a room.
+ */
+export function cancelReconnectionGrace(
+  roomId: string,
+  playerId: string,
+): boolean {
+  const timeoutKey = `${roomId}:${playerId}`;
+  const pending = reconnectionTimeouts.get(timeoutKey);
+  if (pending) {
+    clearInterval(pending.interval);
+    reconnectionTimeouts.delete(timeoutKey);
+    return true;
+  }
+  return false;
 }
 
 function getLogId(socket: Socket): string {
@@ -51,14 +78,22 @@ export function registerGenericLobbyEvents(
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  socket.on("createRoom", (config?: any) => {
+  socket.on("createRoom", (rawConfig?: any) => {
+    const validatedConfig = validateSocketPayload(
+      socket,
+      createRoomSchema,
+      rawConfig,
+      "createRoom",
+    );
+    if (rawConfig && validatedConfig === null) return;
+
     socket.leave("lobby_viewers");
     const playerId = socket.data?.sessionId || socket.id;
     const hostName =
       socket.data?.playerName ||
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
-    const maxPlayers = config?.maxPlayers || 2;
+    const maxPlayers = validatedConfig?.maxPlayers || 2;
     const userId = socket.data?.user?.userId;
 
     const room = roomManager.createRoom(
@@ -66,7 +101,7 @@ export function registerGenericLobbyEvents(
       playerId,
       hostName,
       maxPlayers,
-      config || {},
+      (validatedConfig as any) || {},
       socket.id,
       userId,
     );
@@ -74,7 +109,7 @@ export function registerGenericLobbyEvents(
     console.log(
       `[Lobby] [${gameType.toUpperCase()}] Room GH-${room.id.substring(0, 5).toUpperCase()} created by ${getLogId(socket)} (Host)`,
     );
-    const gameLogic = createGameLogic(config || {});
+    const gameLogic = createGameLogic(validatedConfig || {});
     if (gameLogic && typeof gameLogic.addPlayer === "function") {
       gameLogic.addPlayer(socket.id);
     }
@@ -87,7 +122,16 @@ export function registerGenericLobbyEvents(
       .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
   });
 
-  socket.on("joinSpecificRoom", (roomId: string) => {
+  socket.on("joinSpecificRoom", (rawRoomId: string) => {
+    const validatedRoomId = validateSocketPayload(
+      socket,
+      roomIdSchema,
+      rawRoomId,
+      "joinSpecificRoom",
+    );
+    if (!validatedRoomId) return;
+
+    const roomId = validatedRoomId;
     socket.leave("lobby_viewers");
     const playerId = socket.data?.sessionId || socket.id;
     const playerName =
@@ -95,6 +139,9 @@ export function registerGenericLobbyEvents(
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
     const userId = socket.data?.user?.userId;
+
+    // Check if player was in a reconnection grace period
+    const hadGracePeriod = cancelReconnectionGrace(roomId, playerId);
 
     const room = roomManager.joinRoom(
       roomId,
@@ -118,24 +165,56 @@ export function registerGenericLobbyEvents(
       roomId,
       isHost: room.hostId === playerId || room.hostId === socket.id,
     });
-    console.log(
-      `[Lobby] [${gameType.toUpperCase()}] ${getLogId(socket)} joined Room GH-${roomId.substring(0, 5).toUpperCase()} (${room.playerCount}/${room.maxPlayers} players)`,
-    );
+
+    if (hadGracePeriod) {
+      console.log(
+        `[GracePeriod] [${gameType.toUpperCase()}] ${getLogId(socket)} successfully reconnected to Room GH-${roomId.substring(0, 5).toUpperCase()}`,
+      );
+      namespace.to(roomId).emit("playerReconnected", {
+        playerId,
+        playerName,
+      });
+      if (game && typeof game.getPublicState === "function") {
+        socket.emit("gameState", game.getPublicState());
+      }
+    } else {
+      console.log(
+        `[Lobby] [${gameType.toUpperCase()}] ${getLogId(socket)} joined Room GH-${roomId.substring(0, 5).toUpperCase()} (${room.playerCount}/${room.maxPlayers} players)`,
+      );
+    }
+
     namespace
       .to("lobby_viewers")
       .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
     namespace.to(roomId).emit("roomLobbyUpdate", room);
   });
 
-  socket.on("toggleReady", (roomId: string) => {
+  socket.on("toggleReady", (rawRoomId: string) => {
+    const validatedRoomId = validateSocketPayload(
+      socket,
+      roomIdSchema,
+      rawRoomId,
+      "toggleReady",
+    );
+    if (!validatedRoomId) return;
+
     const playerId = socket.data?.sessionId || socket.id;
-    const room = roomManager.toggleReady(roomId, playerId);
+    const room = roomManager.toggleReady(validatedRoomId, playerId);
     if (room) {
-      namespace.to(roomId).emit("roomLobbyUpdate", room);
+      namespace.to(validatedRoomId).emit("roomLobbyUpdate", room);
     }
   });
 
-  socket.on("startMatch", (roomId: string) => {
+  socket.on("startMatch", (rawRoomId: string) => {
+    const validatedRoomId = validateSocketPayload(
+      socket,
+      roomIdSchema,
+      rawRoomId,
+      "startMatch",
+    );
+    if (!validatedRoomId) return;
+
+    const roomId = validatedRoomId;
     const playerId = socket.data?.sessionId || socket.id;
     const room = roomManager.getRoom(roomId);
     if (!room || (room.hostId !== playerId && room.hostId !== socket.id))
@@ -196,7 +275,10 @@ export function registerGenericLobbyEvents(
     }, 1000);
   });
 
-  const handleLeaveOrDisconnect = (roomId: string) => {
+  const handleLeaveOrDisconnect = (
+    roomId: string,
+    isIntentional: boolean = false,
+  ) => {
     const room = roomManager.getRoom(roomId);
     if (!room) return;
 
@@ -205,10 +287,11 @@ export function registerGenericLobbyEvents(
       socket.data?.sessionId ||
       socket.id;
 
-    // Idempotency: skip if player already left (handles leaveRoom + disconnect race)
+    // Idempotency: skip if player already left
     if (
       !room.players.find(
-        (p) => p.id === playerId || p.socketId === socket.id || p.id === socket.id,
+        (p) =>
+          p.id === playerId || p.socketId === socket.id || p.id === socket.id,
       )
     )
       return;
@@ -220,6 +303,93 @@ export function registerGenericLobbyEvents(
       socket.data?.playerName ||
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
+
+    // =========================================================================
+    // RECONNECTION GRACE PERIOD (30s) FOR INVOLUNTARY DISCONNECTIONS IN MATCH
+    // =========================================================================
+    if (wasInProgress && !isIntentional) {
+      const markResult = roomManager.markPlayerDisconnected(roomId, playerId);
+      if (markResult) {
+        const { activeCount } = markResult;
+        const isPaused = activeCount < 2; // Pause only if < 2 active players remain
+        let remainingSeconds = 30;
+        const timeoutKey = `${roomId}:${playerId}`;
+
+        console.log(
+          `[GracePeriod] [${gameType.toUpperCase()}] ${leaverName} temporarily disconnected from Room GH-${roomId.substring(0, 5).toUpperCase()} (${activeCount} active remain, isPaused: ${isPaused})`,
+        );
+
+        // Notify room about temporary disconnection
+        namespace.to(roomId).emit("playerTemporarilyDisconnected", {
+          playerId,
+          playerName: leaverName,
+          countdown: remainingSeconds,
+          isPaused,
+        });
+
+        if (!isPaused) {
+          namespace
+            .to(roomId)
+            .emit("playerLeft", `${leaverName} desconectou (30s para voltar)`);
+        }
+
+        const graceInterval = setInterval(() => {
+          remainingSeconds -= 1;
+
+          if (remainingSeconds > 0) {
+            namespace.to(roomId).emit("reconnectionCountdownUpdate", {
+              playerId,
+              countdown: remainingSeconds,
+              isPaused,
+            });
+          } else {
+            // 30 seconds expired without reconnection!
+            clearInterval(graceInterval);
+            reconnectionTimeouts.delete(timeoutKey);
+            console.log(
+              `[GracePeriod] [${gameType.toUpperCase()}] Grace period expired for ${leaverName} in Room GH-${roomId.substring(0, 5).toUpperCase()}`,
+            );
+
+            if (isPaused) {
+              // 2-Player Match (or < 2 active): Terminate match
+              handleLeaveOrDisconnect(roomId, true);
+            } else {
+              // 3+ Player Match: Eliminate ONLY the disconnected player; match continues!
+              const updatedRoom = roomManager.leaveRoom(roomId, playerId);
+              const game = gameMap.get(roomId);
+              if (game && typeof game.removePlayer === "function") {
+                game.removePlayer(socket.id);
+                game.removePlayer(playerId);
+              }
+
+              namespace.to(roomId).emit("playerEliminated", {
+                playerId,
+                playerName: leaverName,
+                reason: "Desconexão expirada (30s)",
+              });
+
+              if (updatedRoom) {
+                namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
+              }
+              namespace
+                .to("lobby_viewers")
+                .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
+            }
+          }
+        }, 1000);
+
+        reconnectionTimeouts.set(timeoutKey, {
+          interval: graceInterval,
+          remaining: remainingSeconds,
+          isPaused,
+        });
+
+        return;
+      }
+    }
+
+    // Cancel any active grace timer if leaving intentionally
+    cancelReconnectionGrace(roomId, playerId);
 
     const updatedRoom = roomManager.leaveRoom(roomId, playerId);
 
@@ -236,6 +406,7 @@ export function registerGenericLobbyEvents(
       const game = gameMap.get(roomId);
       if (game && typeof game.removePlayer === "function") {
         game.removePlayer(socket.id);
+        game.removePlayer(playerId);
       }
 
       // Preparation of notification message
@@ -303,11 +474,19 @@ export function registerGenericLobbyEvents(
       .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
   };
 
-  socket.on("leaveRoom", (roomId: string) => {
+  socket.on("leaveRoom", (rawRoomId: string) => {
+    const validatedRoomId = validateSocketPayload(
+      socket,
+      roomIdSchema,
+      rawRoomId,
+      "leaveRoom",
+    );
+    const roomId = validatedRoomId || rawRoomId;
+
     socket.leave(roomId);
     socket.join("lobby_viewers");
     if (onLeaveExtra) onLeaveExtra(socket.id);
-    handleLeaveOrDisconnect(roomId);
+    handleLeaveOrDisconnect(roomId, true); // Intentional leave
   });
 
   socket.on("disconnect", () => {
@@ -321,13 +500,40 @@ export function registerGenericLobbyEvents(
     if (roomId) {
       socket.leave(roomId);
       if (onLeaveExtra) onLeaveExtra(socket.id);
-      handleLeaveOrDisconnect(roomId);
+      handleLeaveOrDisconnect(roomId, false); // Involuntary disconnect (triggers 30s grace if in match)
     }
   });
 
-  socket.on("syncLobby", (roomId: string) => {
+  socket.on("syncLobby", (rawRoomId: string) => {
+    const validatedRoomId = validateSocketPayload(
+      socket,
+      roomIdSchema,
+      rawRoomId,
+      "syncLobby",
+    );
+    if (!validatedRoomId) return;
+
+    const roomId = validatedRoomId;
+    const playerId = socket.data?.sessionId || socket.id;
+
     socket.leave("lobby_viewers");
     socket.join(roomId);
+
+    // Cancel pending grace period if player was temporarily disconnected
+    const hadGracePeriod = cancelReconnectionGrace(roomId, playerId);
+    if (hadGracePeriod) {
+      const rebind = roomManager.rebindPlayer(roomId, playerId, socket.id);
+      if (rebind) {
+        console.log(
+          `[GracePeriod] [${gameType.toUpperCase()}] ${getLogId(socket)} reconnected via syncLobby to Room GH-${roomId.substring(0, 5).toUpperCase()}`,
+        );
+        namespace.to(roomId).emit("playerReconnected", {
+          playerId,
+          playerName: rebind.player.name,
+        });
+      }
+    }
+
     const room = roomManager.getRoom(roomId);
     if (room) {
       socket.emit("roomLobbyUpdate", room);
@@ -335,19 +541,27 @@ export function registerGenericLobbyEvents(
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  socket.on("updateRoomConfig", (data: { roomId: string; config: any }) => {
-    const { roomId, config } = data;
+  socket.on("updateRoomConfig", (rawData: any) => {
+    const validData = validateSocketPayload(
+      socket,
+      updateRoomConfigSchema,
+      rawData,
+      "updateRoomConfig",
+    );
+    if (!validData) return;
+
+    const { roomId, config } = validData;
     const playerId = socket.data?.sessionId || socket.id;
     const room = roomManager.getRoom(roomId);
     if (!room || (room.hostId !== playerId && room.hostId !== socket.id))
       return;
 
-    const updatedRoom = roomManager.updateRoomConfig(roomId, config);
+    const updatedRoom = roomManager.updateRoomConfig(roomId, config as any);
     if (updatedRoom) {
       // Update the game logic instance if it supports live updates
       const game = gameMap.get(roomId);
       if (game && typeof game.updateConfig === "function") {
-        game.updateConfig(config);
+        game.updateConfig(config as any);
       }
       namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
     }

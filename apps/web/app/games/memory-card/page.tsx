@@ -41,6 +41,7 @@ import Scoreboard from "@/features/match/components/Scoreboard";
 import TimerDisplay from "@/features/match/components/TimerDisplay";
 import ConfirmModal from "@/(shared)/components/ui/ConfirmModal";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
+import ReconnectionGraceBadge from "@/features/match/components/ReconnectionGraceBadge";
 import { ReturnToLobbyBadge } from "@/features/match/components/ReturnToLobbyBadge";
 import EndMatchOptions from "@/features/match/components/EndMatchOptions";
 import NavButton from "@/(shared)/components/ui/NavButton";
@@ -110,6 +111,7 @@ export default function MemoryCardPage() {
     tempNotification,
     setTempNotification,
     matchTerminationCountdown,
+    reconnectionGrace,
     returnToLobbyCountdown,
     setReturnToLobbyCountdown,
     setIsHost,
@@ -284,6 +286,8 @@ export default function MemoryCardPage() {
           message="Insufficient players remaining. Returning to lobby..."
         />
       )}
+
+      <ReconnectionGraceBadge grace={reconnectionGrace} />
 
       {/* Temporary Toast Notification */}
       {tempNotification && (

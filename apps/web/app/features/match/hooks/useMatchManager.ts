@@ -8,6 +8,13 @@ interface UseMatchManagerOptions {
   playerName: string;
 }
 
+export interface ReconnectionGraceState {
+  playerId: string;
+  playerName: string;
+  countdown: number;
+  isPaused: boolean;
+}
+
 export function useMatchManager({
   namespace,
   playerName,
@@ -30,6 +37,8 @@ export function useMatchManager({
   const [tempNotification, setTempNotification] = useState<string | null>(null);
   const [rematchRequested, setRematchRequested] = useState(false);
   const [roomLobby, setRoomLobby] = useState<RoomInfo | null>(null);
+  const [reconnectionGrace, setReconnectionGrace] =
+    useState<ReconnectionGraceState | null>(null);
 
   // Ref to capture current roomId for cleanup (useEffect closures can't read state reliably)
   const roomIdRef = useRef<string | null>(null);
@@ -42,6 +51,7 @@ export function useMatchManager({
     setTempNotification(null);
     setRematchRequested(false);
     setIsGameStarted(false);
+    setReconnectionGrace(null);
   }, []);
 
   useEffect(() => {
@@ -114,6 +124,51 @@ export function useMatchManager({
       setTempNotification(message);
       setTimeout(() => setTempNotification(null), 5000);
     });
+
+    s.on(
+      "playerTemporarilyDisconnected",
+      (data: ReconnectionGraceState) => {
+        setReconnectionGrace(data);
+      },
+    );
+
+    s.on(
+      "reconnectionCountdownUpdate",
+      ({
+        playerId,
+        countdown,
+        isPaused,
+      }: {
+        playerId: string;
+        countdown: number;
+        isPaused: boolean;
+      }) => {
+        setReconnectionGrace((prev) =>
+          prev ? { ...prev, playerId, countdown, isPaused } : null,
+        );
+      },
+    );
+
+    s.on("playerReconnected", ({ playerName }: { playerName: string }) => {
+      setReconnectionGrace(null);
+      setTempNotification(`${playerName} reconectou à partida!`);
+      setTimeout(() => setTempNotification(null), 4000);
+    });
+
+    s.on(
+      "playerEliminated",
+      ({
+        playerName,
+        reason,
+      }: {
+        playerName: string;
+        reason: string;
+      }) => {
+        setReconnectionGrace(null);
+        setTempNotification(`${playerName} foi eliminado (${reason})`);
+        setTimeout(() => setTempNotification(null), 5000);
+      },
+    );
 
     return () => {
       // SPA navigation guard: attempt clean leave before disconnect
@@ -228,5 +283,7 @@ export function useMatchManager({
     resetMatchStates,
     returnToLobbyCountdown,
     setReturnToLobbyCountdown,
+    reconnectionGrace,
+    setReconnectionGrace,
   };
 }
