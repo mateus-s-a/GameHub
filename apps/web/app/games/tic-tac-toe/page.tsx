@@ -50,6 +50,7 @@ export default function TicTacToeGame() {
   const {
     socket,
     localSocketId,
+    localPlayerId,
     roomId,
     setIsHost,
     isGameStarted,
@@ -224,7 +225,7 @@ export default function TicTacToeGame() {
       <GameShell playerName={playerName}>
         <RoomLobby
           roomLobby={roomLobby}
-          localPlayerId={localSocketId || ""}
+          localPlayerId={localPlayerId || localSocketId || ""}
           onToggleReady={toggleReady}
           onStartMatch={startMatch}
           onLeaveRoom={handleLeaveRoom}

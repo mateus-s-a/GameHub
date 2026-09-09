@@ -106,6 +106,7 @@ export default function MemoryCardPage() {
   const {
     socket,
     localSocketId,
+    localPlayerId,
     roomLobby,
     roomId,
     tempNotification,
@@ -264,7 +265,7 @@ export default function MemoryCardPage() {
       <GameShell playerName={playerName}>
         <RoomLobby
           roomLobby={roomLobby}
-          localPlayerId={localSocketId || ""}
+          localPlayerId={localPlayerId || localSocketId || ""}
           onToggleReady={toggleReady}
           onStartMatch={startMatch}
           onLeaveRoom={handleLeaveRoom}

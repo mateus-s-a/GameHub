@@ -35,6 +35,7 @@ export default function HangmanPage() {
   const {
     socket,
     localSocketId,
+    localPlayerId,
     roomId,
     setIsHost,
     isGameStarted,
@@ -199,7 +200,7 @@ export default function HangmanPage() {
       <GameShell playerName={playerName}>
         <RoomLobby
           roomLobby={roomLobby}
-          localPlayerId={localSocketId || ""}
+          localPlayerId={localPlayerId || localSocketId || ""}
           onToggleReady={toggleReady}
           onStartMatch={startMatch}
           onLeaveRoom={leaveRoom}

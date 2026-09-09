@@ -57,6 +57,7 @@ export default function ConnectFourGame() {
   const {
     socket,
     localSocketId,
+    localPlayerId,
     roomId,
     setIsHost,
     isGameStarted,
@@ -256,7 +257,7 @@ export default function ConnectFourGame() {
       <GameShell playerName={playerName}>
         <RoomLobby
           roomLobby={roomLobby}
-          localPlayerId={localSocketId || ""}
+          localPlayerId={localPlayerId || localSocketId || ""}
           onToggleReady={toggleReady}
           onStartMatch={startMatch}
           onLeaveRoom={handleLeaveRoom}

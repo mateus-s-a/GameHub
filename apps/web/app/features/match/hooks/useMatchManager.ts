@@ -80,10 +80,11 @@ export function useMatchManager({
 
     s.on("roomLobbyUpdate", (room: RoomInfo) => {
       setRoomLobby(room);
-      // Synchronize host status in case of migration
-      if (s.id) {
-        setIsHost(room.hostId === s.id);
-      }
+      // Synchronize host status in case of migration (check both socket.id and sessionId)
+      const currentSessionId = getSessionId();
+      setIsHost(
+        room.hostId === s.id || (!!currentSessionId && room.hostId === currentSessionId),
+      );
     });
 
     s.on("roomDestroyed", () => {
@@ -254,9 +255,12 @@ export function useMatchManager({
     [socket, roomId],
   );
 
+  const localPlayerId = getSessionId() || localSocketId;
+
   return {
     socket,
     localSocketId,
+    localPlayerId,
     roomId,
     setRoomId,
     isHost,

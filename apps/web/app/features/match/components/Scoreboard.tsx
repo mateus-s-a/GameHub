@@ -117,14 +117,23 @@ export default function Scoreboard({
         <div
           className={`flex-1 grid ${isMultiplayer ? "grid-cols-2 lg:grid-cols-4 gap-3" : "grid-cols-2 gap-16 w-full"}`}
         >
-          {players.map((player) => (
-            <ScoreCard
-              key={player.id}
-              player={player}
-              isLocal={player.id === localPlayerId}
-              accentColor={accentColor}
-            />
-          ))}
+          {players.map((player) => {
+            const sessionId =
+              typeof window !== "undefined"
+                ? localStorage.getItem("gh_session_id")
+                : null;
+            const isLocal =
+              player.id === localPlayerId ||
+              (!!sessionId && player.id === sessionId);
+            return (
+              <ScoreCard
+                key={player.id}
+                player={player}
+                isLocal={isLocal}
+                accentColor={accentColor}
+              />
+            );
+          })}
         </div>
 
         {/* Round Counter */}

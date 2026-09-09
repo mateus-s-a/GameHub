@@ -49,6 +49,7 @@ export default function RPSGame() {
   const {
     socket,
     localSocketId,
+    localPlayerId,
     roomId,
     setRoomId,
     isHost,
@@ -207,7 +208,7 @@ export default function RPSGame() {
       <GameShell playerName={playerName}>
         <RoomLobby
           roomLobby={roomLobby}
-          localPlayerId={localSocketId || ""}
+          localPlayerId={localPlayerId || localSocketId || ""}
           onToggleReady={() => socket?.emit("toggleReady", roomId)}
           onStartMatch={() => socket?.emit("startMatch", roomId)}
           onLeaveRoom={handleLeaveRoom}

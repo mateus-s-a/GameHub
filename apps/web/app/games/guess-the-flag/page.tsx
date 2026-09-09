@@ -51,6 +51,7 @@ export default function GuessTheFlagGame() {
   const {
     socket,
     localSocketId,
+    localPlayerId,
     roomId,
     setRoomId,
     isHost,
@@ -222,7 +223,7 @@ export default function GuessTheFlagGame() {
       <GameShell playerName={playerName}>
         <RoomLobby
           roomLobby={roomLobby}
-          localPlayerId={localSocketId || ""}
+          localPlayerId={localPlayerId || localSocketId || ""}
           onToggleReady={toggleReady}
           onStartMatch={startMatch}
           onLeaveRoom={handleLeaveRoom}
