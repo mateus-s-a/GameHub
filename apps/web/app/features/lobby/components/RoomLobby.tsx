@@ -67,12 +67,23 @@ export default function RoomLobby({
   onUpdateConfig,
   tempNotification,
 }: RoomLobbyProps) {
-  const { playerName } = useSocket();
+  const { playerName, socketId: globalSocketId } = useSocket();
   const [copied, setCopied] = useState(false);
 
   if (!roomLobby) return null;
 
-  const isHost = roomLobby.hostId === localPlayerId;
+  const sessionId =
+    typeof window !== "undefined" ? localStorage.getItem("gh_session_id") : null;
+  const isMe = (id?: string | null) => {
+    if (!id) return false;
+    return (
+      id === localPlayerId ||
+      id === globalSocketId ||
+      (!!sessionId && id === sessionId)
+    );
+  };
+
+  const isHost = isMe(roomLobby.hostId);
   const allReady = roomLobby.players.every((p) => p.isReady);
   const canStart = roomLobby.players.length >= 2 && allReady;
   const theme =
@@ -225,17 +236,17 @@ export default function RoomLobby({
                         <motion.div
                           className="shrink-0 ml-2"
                           whileHover={{
-                            scale: p.id === localPlayerId ? 1.05 : 1,
+                            scale: isMe(p.id) ? 1.05 : 1,
                           }}
-                          whileTap={{ scale: p.id === localPlayerId ? 0.95 : 1 }}
+                          whileTap={{ scale: isMe(p.id) ? 0.95 : 1 }}
                         >
                           <Button
                             variant={p.isReady ? "highlight" : "ghost"}
                             onClick={
-                              p.id === localPlayerId ? onToggleReady : undefined
+                              isMe(p.id) ? onToggleReady : undefined
                             }
-                            className={`px-3 md:px-6 py-2 rounded-full text-xs font-iosevka-bold tracking-widest border-white/10 disabled:opacity-80 ${p.id === localPlayerId && !p.isReady ? "animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.1)]" : ""}`}
-                            disabled={p.id !== localPlayerId}
+                            className={`px-3 md:px-6 py-2 rounded-full text-xs font-iosevka-bold tracking-widest border-white/10 disabled:opacity-80 ${isMe(p.id) && !p.isReady ? "animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.1)]" : ""}`}
+                            disabled={!isMe(p.id)}
                           >
                             {p.isReady ? "READY" : "WAITING"}
                           </Button>

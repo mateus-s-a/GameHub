@@ -1,8 +1,23 @@
 import { Socket, Namespace } from "socket.io";
 import { roomManager } from "./RoomManager";
 import { GAME_CONSTANTS } from "@gamehub/core";
+import {
+  createRoomSchema,
+  roomIdSchema,
+  updateRoomConfigSchema,
+  validateSocketPayload,
+} from "./schemas/socketSchemas";
+import { checkSocketRateLimit } from "./middlewares/rateLimiterMiddleware";
+import { sanitizeText } from "./lib/sanitize";
+import { MatchService } from "./services/matchService";
+import { roomActionLock } from "./lib/roomLock";
+import { roomTimerManager } from "./lib/roomTimer";
 
 const matchReturnTimeouts = new Map<string, NodeJS.Timeout>();
+const reconnectionTimeouts = new Map<
+  string,
+  { interval: NodeJS.Timeout; remaining: number; isPaused: boolean }
+>();
 
 /**
  * Cancels a pending auto-return to lobby timeout.
@@ -16,8 +31,28 @@ export function cancelAutoReturnToLobby(roomId: string) {
   }
 }
 
+/**
+ * Cancels a pending reconnection grace timeout for a player in a room.
+ */
+export function cancelReconnectionGrace(
+  roomId: string,
+  playerId: string,
+): boolean {
+  const timeoutKey = `${roomId}:${playerId}`;
+  const pending = reconnectionTimeouts.get(timeoutKey);
+  if (pending) {
+    clearInterval(pending.interval);
+    reconnectionTimeouts.delete(timeoutKey);
+    return true;
+  }
+  return false;
+}
+
 function getLogId(socket: Socket): string {
-  const playerName = socket.handshake.auth.playerName;
+  const playerName =
+    socket.data?.playerName ||
+    socket.handshake.auth.playerName ||
+    socket.id.substring(0, 5);
   const socketId = socket.id.substring(0, 5);
   if (playerName && !playerName.startsWith("PLAYER-")) {
     const safeName = playerName.replace(/\n/g, " ");
@@ -48,23 +83,41 @@ export function registerGenericLobbyEvents(
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  socket.on("createRoom", (config?: any) => {
+  socket.on("createRoom", (rawConfig?: any) => {
+    if (!checkSocketRateLimit(socket, "createRoom", 5, 5)) return;
+
+    const validatedConfig = validateSocketPayload(
+      socket,
+      createRoomSchema,
+      rawConfig,
+      "createRoom",
+    );
+    if (rawConfig && validatedConfig === null) return;
+
     socket.leave("lobby_viewers");
-    const hostName =
+    const playerId = socket.data?.sessionId || socket.id;
+    const rawHostName =
+      socket.data?.playerName ||
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
-    const maxPlayers = config?.maxPlayers || 2;
+    const hostName = sanitizeText(rawHostName) || "Player";
+    const maxPlayers = validatedConfig?.maxPlayers || 2;
+    const userId = socket.data?.user?.userId;
+
     const room = roomManager.createRoom(
       gameType,
-      socket.id,
+      playerId,
       hostName,
       maxPlayers,
-      config || {},
+      (validatedConfig as any) || {},
+      socket.id,
+      userId,
     );
+
     console.log(
       `[Lobby] [${gameType.toUpperCase()}] Room GH-${room.id.substring(0, 5).toUpperCase()} created by ${getLogId(socket)} (Host)`,
     );
-    const gameLogic = createGameLogic(config || {});
+    const gameLogic = createGameLogic(validatedConfig || {});
     if (gameLogic && typeof gameLogic.addPlayer === "function") {
       gameLogic.addPlayer(socket.id);
     }
@@ -77,12 +130,37 @@ export function registerGenericLobbyEvents(
       .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
   });
 
-  socket.on("joinSpecificRoom", (roomId: string) => {
+  socket.on("joinSpecificRoom", (rawRoomId: string) => {
+    if (!checkSocketRateLimit(socket, "joinSpecificRoom", 8, 3)) return;
+
+    const validatedRoomId = validateSocketPayload(
+      socket,
+      roomIdSchema,
+      rawRoomId,
+      "joinSpecificRoom",
+    );
+    if (!validatedRoomId) return;
+
+    const roomId = validatedRoomId;
     socket.leave("lobby_viewers");
-    const playerName =
+    const playerId = socket.data?.sessionId || socket.id;
+    const rawPlayerName =
+      socket.data?.playerName ||
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
-    const room = roomManager.joinRoom(roomId, socket.id, playerName);
+    const playerName = sanitizeText(rawPlayerName) || "Player";
+    const userId = socket.data?.user?.userId;
+
+    // Check if player was in a reconnection grace period
+    const hadGracePeriod = cancelReconnectionGrace(roomId, playerId);
+
+    const room = roomManager.joinRoom(
+      roomId,
+      playerId,
+      playerName,
+      socket.id,
+      userId,
+    );
     if (!room) {
       socket.emit("roomError", "Room is full or doesn't exist.");
       return;
@@ -94,26 +172,68 @@ export function registerGenericLobbyEvents(
     }
 
     socket.join(roomId);
-    socket.emit("matchFound", { roomId, isHost: false });
-    console.log(
-      `[Lobby] [${gameType.toUpperCase()}] ${getLogId(socket)} joined Room GH-${roomId.substring(0, 5).toUpperCase()} (${room.playerCount}/${room.maxPlayers} players)`,
-    );
+    socket.emit("matchFound", {
+      roomId,
+      isHost: room.hostId === playerId || room.hostId === socket.id,
+    });
+
+    if (hadGracePeriod) {
+      console.log(
+        `[GracePeriod] [${gameType.toUpperCase()}] ${getLogId(socket)} successfully reconnected to Room GH-${roomId.substring(0, 5).toUpperCase()}`,
+      );
+      namespace.to(roomId).emit("playerReconnected", {
+        playerId,
+        playerName,
+      });
+      if (game && typeof game.getPublicState === "function") {
+        socket.emit("gameState", game.getPublicState());
+      }
+    } else {
+      console.log(
+        `[Lobby] [${gameType.toUpperCase()}] ${getLogId(socket)} joined Room GH-${roomId.substring(0, 5).toUpperCase()} (${room.playerCount}/${room.maxPlayers} players)`,
+      );
+    }
+
     namespace
       .to("lobby_viewers")
       .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
     namespace.to(roomId).emit("roomLobbyUpdate", room);
   });
 
-  socket.on("toggleReady", (roomId: string) => {
-    const room = roomManager.toggleReady(roomId, socket.id);
+  socket.on("toggleReady", (rawRoomId: string) => {
+    if (!checkSocketRateLimit(socket, "toggleReady", 10, 3)) return;
+
+    const validatedRoomId = validateSocketPayload(
+      socket,
+      roomIdSchema,
+      rawRoomId,
+      "toggleReady",
+    );
+    if (!validatedRoomId) return;
+
+    const playerId = socket.data?.sessionId || socket.id;
+    const room = roomManager.toggleReady(validatedRoomId, playerId);
     if (room) {
-      namespace.to(roomId).emit("roomLobbyUpdate", room);
+      namespace.to(validatedRoomId).emit("roomLobbyUpdate", room);
     }
   });
 
-  socket.on("startMatch", (roomId: string) => {
+  socket.on("startMatch", (rawRoomId: string) => {
+    if (!checkSocketRateLimit(socket, "startMatch", 5, 5)) return;
+
+    const validatedRoomId = validateSocketPayload(
+      socket,
+      roomIdSchema,
+      rawRoomId,
+      "startMatch",
+    );
+    if (!validatedRoomId) return;
+
+    const roomId = validatedRoomId;
+    const playerId = socket.data?.sessionId || socket.id;
     const room = roomManager.getRoom(roomId);
-    if (!room || room.hostId !== socket.id) return;
+    if (!room || (room.hostId !== playerId && room.hostId !== socket.id))
+      return;
 
     if (room.players.length < 2) return;
     const allReady = room.players.every((p) => p.isReady);
@@ -145,6 +265,7 @@ export function registerGenericLobbyEvents(
         clearInterval(interval);
         currentRoom.status = "in_progress";
         currentRoom.countdown = null;
+        MatchService.recordMatchStart(currentRoom);
         console.log(
           `[Match] [${gameType.toUpperCase()}] Game started in Room GH-${roomId.substring(0, 5).toUpperCase()} with ${currentRoom.playerCount} players`,
         );
@@ -153,7 +274,7 @@ export function registerGenericLobbyEvents(
         const game = gameMap.get(roomId);
         if (game && typeof game.addPlayer === "function") {
           for (const p of currentRoom.players) {
-            game.addPlayer(p.id);
+            game.addPlayer(p.socketId || p.id);
           }
         }
 
@@ -170,21 +291,123 @@ export function registerGenericLobbyEvents(
     }, 1000);
   });
 
-  const handleLeaveOrDisconnect = (roomId: string) => {
+  const handleLeaveOrDisconnect = (
+    roomId: string,
+    isIntentional: boolean = false,
+  ) => {
     const room = roomManager.getRoom(roomId);
     if (!room) return;
 
-    // Idempotency: skip if player already left (handles leaveRoom + disconnect race)
-    if (!room.players.find((p) => p.id === socket.id)) return;
+    const playerId =
+      roomManager.getPlayerIdBySocketId(socket.id) ||
+      socket.data?.sessionId ||
+      socket.id;
+
+    // Idempotency: skip if player already left
+    if (
+      !room.players.find(
+        (p) =>
+          p.id === playerId || p.socketId === socket.id || p.id === socket.id,
+      )
+    )
+      return;
 
     const wasInProgress = room.status === "in_progress";
     const oldHostId = room.hostId;
     const leaverLogId = getLogId(socket);
     const leaverName =
+      socket.data?.playerName ||
       socket.handshake.auth.playerName ||
       `PLAYER-${socket.id.substring(0, 5).toUpperCase()}`;
 
-    const updatedRoom = roomManager.leaveRoom(roomId, socket.id);
+    // =========================================================================
+    // RECONNECTION GRACE PERIOD (30s) FOR INVOLUNTARY DISCONNECTIONS IN MATCH
+    // =========================================================================
+    if (wasInProgress && !isIntentional) {
+      const markResult = roomManager.markPlayerDisconnected(roomId, playerId);
+      if (markResult) {
+        const { activeCount } = markResult;
+        const isPaused = activeCount < 2; // Pause only if < 2 active players remain
+        let remainingSeconds = 30;
+        const timeoutKey = `${roomId}:${playerId}`;
+
+        console.log(
+          `[GracePeriod] [${gameType.toUpperCase()}] ${leaverName} temporarily disconnected from Room GH-${roomId.substring(0, 5).toUpperCase()} (${activeCount} active remain, isPaused: ${isPaused})`,
+        );
+
+        // Notify room about temporary disconnection
+        namespace.to(roomId).emit("playerTemporarilyDisconnected", {
+          playerId,
+          playerName: leaverName,
+          countdown: remainingSeconds,
+          isPaused,
+        });
+
+        if (!isPaused) {
+          namespace
+            .to(roomId)
+            .emit("playerLeft", `${leaverName} desconectou (30s para voltar)`);
+        }
+
+        const graceInterval = setInterval(() => {
+          remainingSeconds -= 1;
+
+          if (remainingSeconds > 0) {
+            namespace.to(roomId).emit("reconnectionCountdownUpdate", {
+              playerId,
+              countdown: remainingSeconds,
+              isPaused,
+            });
+          } else {
+            // 30 seconds expired without reconnection!
+            clearInterval(graceInterval);
+            reconnectionTimeouts.delete(timeoutKey);
+            console.log(
+              `[GracePeriod] [${gameType.toUpperCase()}] Grace period expired for ${leaverName} in Room GH-${roomId.substring(0, 5).toUpperCase()}`,
+            );
+
+            if (isPaused) {
+              // 2-Player Match (or < 2 active): Terminate match
+              handleLeaveOrDisconnect(roomId, true);
+            } else {
+              // 3+ Player Match: Eliminate ONLY the disconnected player; match continues!
+              const updatedRoom = roomManager.leaveRoom(roomId, playerId);
+              const game = gameMap.get(roomId);
+              if (game && typeof game.removePlayer === "function") {
+                game.removePlayer(socket.id);
+                game.removePlayer(playerId);
+              }
+
+              namespace.to(roomId).emit("playerEliminated", {
+                playerId,
+                playerName: leaverName,
+                reason: "Desconexão expirada (30s)",
+              });
+
+              if (updatedRoom) {
+                namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
+              }
+              namespace
+                .to("lobby_viewers")
+                .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
+            }
+          }
+        }, 1000);
+
+        reconnectionTimeouts.set(timeoutKey, {
+          interval: graceInterval,
+          remaining: remainingSeconds,
+          isPaused,
+        });
+
+        return;
+      }
+    }
+
+    // Cancel any active grace timer if leaving intentionally
+    cancelReconnectionGrace(roomId, playerId);
+
+    const updatedRoom = roomManager.leaveRoom(roomId, playerId);
 
     if (!updatedRoom) {
       // Room empty (already deleted by RoomManager)
@@ -193,17 +416,20 @@ export function registerGenericLobbyEvents(
       );
       namespace.to(roomId).emit("roomDestroyed");
       gameMap.delete(roomId);
+      roomActionLock.clearRoom(roomId);
+      roomTimerManager.clearAllTimers(roomId);
       if (onRoomDestroyed) onRoomDestroyed(roomId);
       namespace.in(roomId).socketsLeave(roomId);
     } else {
       const game = gameMap.get(roomId);
       if (game && typeof game.removePlayer === "function") {
         game.removePlayer(socket.id);
+        game.removePlayer(playerId);
       }
 
       // Preparation of notification message
       let message = `${leaverName} left the match`;
-      if (oldHostId === socket.id) {
+      if (oldHostId === playerId || oldHostId === socket.id) {
         message = `${leaverName} left (Host)\n${updatedRoom.hostName} is the new Host`;
       }
 
@@ -212,6 +438,8 @@ export function registerGenericLobbyEvents(
           // Cannot continue match with < 2 players - Match Terminated
           updatedRoom.status = "waiting";
           updatedRoom.countdown = 5; // Start backend countdown
+          MatchService.recordMatchAbandon(roomId);
+          roomTimerManager.clearTurnTimeout(roomId);
           console.log(
             `[Match] [${gameType.toUpperCase()}] Match in Room GH-${roomId.substring(0, 5).toUpperCase()} terminated (Insufficient players)`,
           );
@@ -238,6 +466,8 @@ export function registerGenericLobbyEvents(
               clearInterval(terminationInterval);
               roomManager.removeRoom(roomId);
               gameMap.delete(roomId);
+              roomActionLock.clearRoom(roomId);
+              roomTimerManager.clearAllTimers(roomId);
               if (onRoomDestroyed) onRoomDestroyed(roomId);
               namespace.to(roomId).emit("roomDestroyed");
               namespace.to(roomId).emit("matchTerminated");
@@ -266,25 +496,81 @@ export function registerGenericLobbyEvents(
       .emit("roomListUpdate", roomManager.getAvailableRooms(gameType));
   };
 
-  socket.on("leaveRoom", (roomId: string) => {
+  socket.on("leaveRoom", (rawRoomId: string) => {
+    const validatedRoomId = validateSocketPayload(
+      socket,
+      roomIdSchema,
+      rawRoomId,
+      "leaveRoom",
+    );
+    const roomId = validatedRoomId || rawRoomId;
+
     socket.leave(roomId);
     socket.join("lobby_viewers");
     if (onLeaveExtra) onLeaveExtra(socket.id);
-    handleLeaveOrDisconnect(roomId);
+    handleLeaveOrDisconnect(roomId, true); // Intentional leave
   });
 
   socket.on("disconnect", () => {
-    const roomId = roomManager.getRoomIdByPlayerId(socket.id);
+    const playerId =
+      roomManager.getPlayerIdBySocketId(socket.id) ||
+      socket.data?.sessionId ||
+      socket.id;
+    const roomId =
+      roomManager.getRoomIdByPlayerId(playerId) ||
+      roomManager.getRoomIdByPlayerId(socket.id);
     if (roomId) {
       socket.leave(roomId);
       if (onLeaveExtra) onLeaveExtra(socket.id);
-      handleLeaveOrDisconnect(roomId);
+      handleLeaveOrDisconnect(roomId, false); // Involuntary disconnect (triggers 30s grace if in match)
     }
   });
 
-  socket.on("syncLobby", (roomId: string) => {
+  socket.on(
+    "timeSync",
+    (
+      data: { clientSendTime: number },
+      callback: (res: { clientSendTime: number; serverTime: number }) => void,
+    ) => {
+      if (typeof callback === "function") {
+        callback({
+          clientSendTime: data?.clientSendTime || Date.now(),
+          serverTime: Date.now(),
+        });
+      }
+    },
+  );
+
+  socket.on("syncLobby", (rawRoomId: string) => {
+    const validatedRoomId = validateSocketPayload(
+      socket,
+      roomIdSchema,
+      rawRoomId,
+      "syncLobby",
+    );
+    if (!validatedRoomId) return;
+
+    const roomId = validatedRoomId;
+    const playerId = socket.data?.sessionId || socket.id;
+
     socket.leave("lobby_viewers");
     socket.join(roomId);
+
+    // Cancel pending grace period if player was temporarily disconnected
+    const hadGracePeriod = cancelReconnectionGrace(roomId, playerId);
+    if (hadGracePeriod) {
+      const rebind = roomManager.rebindPlayer(roomId, playerId, socket.id);
+      if (rebind) {
+        console.log(
+          `[GracePeriod] [${gameType.toUpperCase()}] ${getLogId(socket)} reconnected via syncLobby to Room GH-${roomId.substring(0, 5).toUpperCase()}`,
+        );
+        namespace.to(roomId).emit("playerReconnected", {
+          playerId,
+          playerName: rebind.player.name,
+        });
+      }
+    }
+
     const room = roomManager.getRoom(roomId);
     if (room) {
       socket.emit("roomLobbyUpdate", room);
@@ -292,17 +578,29 @@ export function registerGenericLobbyEvents(
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  socket.on("updateRoomConfig", (data: { roomId: string; config: any }) => {
-    const { roomId, config } = data;
-    const room = roomManager.getRoom(roomId);
-    if (!room || room.hostId !== socket.id) return;
+  socket.on("updateRoomConfig", (rawData: any) => {
+    if (!checkSocketRateLimit(socket, "updateRoomConfig", 8, 3)) return;
 
-    const updatedRoom = roomManager.updateRoomConfig(roomId, config);
+    const validData = validateSocketPayload(
+      socket,
+      updateRoomConfigSchema,
+      rawData,
+      "updateRoomConfig",
+    );
+    if (!validData) return;
+
+    const { roomId, config } = validData;
+    const playerId = socket.data?.sessionId || socket.id;
+    const room = roomManager.getRoom(roomId);
+    if (!room || (room.hostId !== playerId && room.hostId !== socket.id))
+      return;
+
+    const updatedRoom = roomManager.updateRoomConfig(roomId, config as any);
     if (updatedRoom) {
       // Update the game logic instance if it supports live updates
       const game = gameMap.get(roomId);
       if (game && typeof game.updateConfig === "function") {
-        game.updateConfig(config);
+        game.updateConfig(config as any);
       }
       namespace.to(roomId).emit("roomLobbyUpdate", updatedRoom);
     }
@@ -331,6 +629,8 @@ export function handleAutoReturnToLobby(
       // Completely remove the room instead of resetting it to make it "not visible"
       roomManager.removeRoom(roomId);
       gameMap.delete(roomId);
+      roomActionLock.clearRoom(roomId);
+      roomTimerManager.clearAllTimers(roomId);
 
       namespace.to(roomId).emit("roomDestroyed");
       namespace.to(roomId).emit("matchTerminated");
@@ -348,4 +648,3 @@ export function handleAutoReturnToLobby(
 
   matchReturnTimeouts.set(roomId, timeout);
 }
-

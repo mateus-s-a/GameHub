@@ -11,6 +11,38 @@ import { WordService } from "@gamehub/hangman";
 import { HangmanController } from "./controllers/HangmanController";
 import { MemoryCardController } from "./controllers/MemoryCardController";
 import { GameEvent } from "@gamehub/core";
+import {
+  registerGenericLobbyEvents,
+  handleAutoReturnToLobby,
+  cancelAutoReturnToLobby,
+} from "./LobbyEvents";
+import { roomManager } from "./RoomManager";
+import { renderDashboard } from "./views/dashboard";
+import { roomActionLock, LAG_COMPENSATION_BUFFER_MS } from "./lib/roomLock";
+import { roomTimerManager } from "./lib/roomTimer";
+import { setupRedisAdapter } from "./lib/redisAdapter";
+import { MatchService } from "./services/matchService";
+import { AuthController } from "./controllers/authController";
+import {
+  requireAuth,
+  socketAuthMiddleware,
+  AuthenticatedRequest,
+} from "./middlewares/authMiddleware";
+import {
+  makeMoveTTTSchema,
+  makeMoveC4Schema,
+  commitChoiceRPSSchema,
+  submitGuessGTFSchema,
+  flipCardMCSchema,
+  gameMoveHangmanSchema,
+  validateSocketPayload,
+} from "./schemas/socketSchemas";
+import {
+  authRateLimiter,
+  apiRateLimiter,
+  checkSocketRateLimit,
+} from "./middlewares/rateLimiterMiddleware";
+
 
 // Initialize word buffer
 WordService.init();
@@ -243,6 +275,9 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(express.json());
+app.use("/api", apiRateLimiter);
+app.use("/api/auth", authRateLimiter);
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -262,7 +297,7 @@ function scheduleNextRound(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onNextRound?: (game: any) => void,
 ) {
-  setTimeout(() => {
+  roomTimerManager.scheduleTransition(roomId, delayMs, () => {
     const game = gameMap.get(roomId);
     if (game) {
       game.nextRound();
@@ -278,25 +313,20 @@ function scheduleNextRound(
         namespace.to(roomId).emit("gameState", game.getPublicState());
       }
     }
-  }, delayMs);
+  });
 }
 
-import {
-  registerGenericLobbyEvents,
-  handleAutoReturnToLobby,
-  cancelAutoReturnToLobby,
-} from "./LobbyEvents";
-import { roomManager } from "./RoomManager";
-import { renderDashboard } from "./views/dashboard";
 
 const loggedSessions = new Set<string>();
 function logConnection(socket: Socket, gameName: string) {
-  const sessionId = socket.handshake.auth.sessionId;
+  const sessionId = socket.data?.sessionId || socket.handshake.auth.sessionId;
+  const playerName =
+    socket.data?.playerName || socket.handshake.auth.playerName;
   const logKey = `${gameName}:${sessionId || socket.id}`;
 
   if (!loggedSessions.has(logKey)) {
     console.log(
-      `[GameHub-API] User connected to ${gameName} (Socket: ${socket.id.substring(0, 5)})`,
+      `[GameHub-API] User connected to ${gameName} (Socket: ${socket.id.substring(0, 5)}, Session: ${sessionId?.substring(0, 5) || "N/A"}, Player: ${playerName || "Guest"})`,
     );
     loggedSessions.add(logKey);
 
@@ -304,10 +334,27 @@ function logConnection(socket: Socket, gameName: string) {
   }
 }
 
+io.use(socketAuthMiddleware);
+
 io.on("connection", (socket: Socket) => {
   const sessionId = socket.handshake.auth.sessionId;
   console.log(
     `[GameHub-API] Transport connection established: ${socket.id.substring(0, 5)} (Session: ${sessionId?.substring(0, 5) || "N/A"})`,
+  );
+
+  socket.on(
+    "timeSync",
+    (
+      data: { clientSendTime: number },
+      callback: (res: { clientSendTime: number; serverTime: number }) => void,
+    ) => {
+      if (typeof callback === "function") {
+        callback({
+          clientSendTime: data?.clientSendTime || Date.now(),
+          serverTime: Date.now(),
+        });
+      }
+    },
   );
 
   socket.on("latencyPing", (_clientTimestamp: number, callback: () => void) => {
@@ -324,8 +371,62 @@ io.on("connection", (socket: Socket) => {
 });
 
 const tttNamespace = io.of("/ttt");
+tttNamespace.use(socketAuthMiddleware);
 const tttGames = new Map<string, TicTacToeLogic>();
 const tttSocketRooms = new Map<string, string>();
+
+function scheduleTTTTurnTimeout(roomId: string) {
+  const game = tttGames.get(roomId);
+  if (!game || !game.turnEndTime || game.winner || game.state !== "playing") {
+    roomTimerManager.clearTurnTimeout(roomId);
+    return;
+  }
+
+  const targetTime = game.turnEndTime + LAG_COMPENSATION_BUFFER_MS;
+  roomTimerManager.scheduleTurnTimeout(roomId, targetTime, async () => {
+    if (!roomActionLock.acquireLock(roomId)) return;
+    try {
+      const g = tttGames.get(roomId);
+      if (!g || !g.turnEndTime || g.winner || g.state !== "playing") return;
+      if (Date.now() < g.turnEndTime + LAG_COMPENSATION_BUFFER_MS) return;
+
+      const emptyIndices: number[] = [];
+      for (let i = 0; i < g.board.length; i++) {
+        if (g.board[i] === null) {
+          emptyIndices.push(i);
+        }
+      }
+      if (emptyIndices.length > 0) {
+        const randomObj = emptyIndices[
+          Math.floor(Math.random() * emptyIndices.length)
+        ] as number;
+        let currentPlayerId: string | undefined;
+        for (const [id, mark] of g.players.entries()) {
+          if (mark === g.currentPlayer) {
+            currentPlayerId = id;
+            break;
+          }
+        }
+        if (currentPlayerId) {
+          g.makeMove(currentPlayerId, randomObj);
+          tttNamespace.to(roomId).emit("gameState", g.getPublicState());
+          const tttState = g.state as string;
+          if (tttState === "round_result") {
+            scheduleNextRound(tttGames, roomId, tttNamespace, 3000, () => {
+              scheduleTTTTurnTimeout(roomId);
+            });
+          } else if (tttState === "game_over") {
+            handleAutoReturnToLobby(tttNamespace, roomId, tttGames);
+          } else {
+            scheduleTTTTurnTimeout(roomId);
+          }
+        }
+      }
+    } finally {
+      roomActionLock.releaseLock(roomId);
+    }
+  });
+}
 
 tttNamespace.on("connection", (socket: Socket) => {
   logConnection(socket, "Tic-Tac-Toe");
@@ -340,6 +441,7 @@ tttNamespace.on("connection", (socket: Socket) => {
     (roomId, game) => {
       game.startGame();
       tttNamespace.to(roomId).emit("gameState", game.getPublicState());
+      scheduleTTTTurnTimeout(roomId);
     },
   );
 
@@ -368,24 +470,139 @@ tttNamespace.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on(
-    "makeMove",
-    ({ roomId, index }: { roomId: string; index: number }) => {
-      const game = tttGames.get(roomId);
-      if (!game) return;
+  socket.on("makeMove", (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "makeMove", 8, 2)) return;
 
-      if (game.makeMove(socket.id, index)) {
+    const valid = validateSocketPayload(
+      socket,
+      makeMoveTTTSchema,
+      rawData,
+      "makeMove",
+    );
+    if (!valid) return;
+
+    const { roomId, index } = valid;
+    const game = tttGames.get(roomId);
+    if (!game) return;
+
+    if (roomActionLock.isRoomLocked(roomId)) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "ROOM_LOCKED",
+        message: "Aguarde a resolução da jogada anterior!",
+      });
+      return;
+    }
+
+    const effectivePlayerId =
+      roomManager.getPlayerIdBySocketId(socket.id) ||
+      socket.data?.sessionId ||
+      socket.id;
+    const cd = roomActionLock.checkCooldown(roomId, effectivePlayerId, 250);
+    if (!cd.allowed) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "ACTION_COOLDOWN",
+        message: "Aguarde antes da próxima jogada.",
+      });
+      return;
+    }
+
+    const playerMark =
+      game.players.get(socket.id) || game.players.get(effectivePlayerId);
+    if (!playerMark) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "NOT_YOUR_TURN",
+        message: "Você não está participando desta partida!",
+      });
+      return;
+    }
+
+    if (game.state !== "playing") {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "GAME_NOT_IN_PROGRESS",
+        message: "A partida não está em andamento.",
+      });
+      return;
+    }
+
+    if (playerMark !== game.currentPlayer) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "NOT_YOUR_TURN",
+        message: "Não é a sua vez de jogar!",
+      });
+      return;
+    }
+
+    if (game.board[index] !== null) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "INVALID_POSITION",
+        message: "Esta posição já foi preenchida!",
+      });
+      return;
+    }
+
+    if (!roomActionLock.acquireLock(roomId)) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "ROOM_LOCKED",
+        message: "Ação concorrente detectada.",
+      });
+      return;
+    }
+
+    try {
+      const playerKey = game.players.has(socket.id)
+        ? socket.id
+        : effectivePlayerId;
+      if (game.makeMove(playerKey, index)) {
         tttNamespace.to(roomId).emit("gameState", game.getPublicState());
-        if (game.state === "round_result") {
-          scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
-        } else if (game.state === "game_over") {
+
+        const tttState = game.state as string;
+        if (tttState === "round_result") {
+          roomTimerManager.clearTurnTimeout(roomId);
+          roomActionLock.lockForTransition(roomId, 3000);
+          scheduleNextRound(tttGames, roomId, tttNamespace, 3000, () => {
+            roomActionLock.releaseLock(roomId);
+            scheduleTTTTurnTimeout(roomId);
+          });
+        } else if (tttState === "game_over") {
+          roomTimerManager.clearAllTimers(roomId);
           handleAutoReturnToLobby(tttNamespace, roomId, tttGames);
+          let winnerId: string | null = null;
+          if (game.winner && game.winner !== "Draw") {
+            for (const [pId, mark] of game.players.entries()) {
+              if (mark === game.winner) {
+                winnerId = pId;
+                break;
+              }
+            }
+          }
+          const scores: Record<string, number> = {};
+          for (const [pId, mark] of game.players.entries()) {
+            if (mark === "X" || mark === "O") {
+              scores[pId] = game.scores[mark];
+            }
+          }
+          MatchService.recordMatchFinish(roomId, { winnerId, scores });
+        } else {
+          scheduleTTTTurnTimeout(roomId);
         }
       }
-    },
-  );
+    } finally {
+      if ((game.state as string) === "playing") {
+        roomActionLock.releaseLock(roomId);
+      }
+    }
+  });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     const game = tttGames.get(roomId);
     if (!game) return;
 
@@ -410,6 +627,7 @@ tttNamespace.on("connection", (socket: Socket) => {
             });
           }
         }
+        scheduleTTTTurnTimeout(roomId);
       }
     } else {
       // Just one so far
@@ -422,8 +640,62 @@ tttNamespace.on("connection", (socket: Socket) => {
 
 // --- Connect 4 Namespace ---
 const c4Namespace = io.of("/c4");
+c4Namespace.use(socketAuthMiddleware);
 const c4Games = new Map<string, ConnectFourLogic>();
 const c4SocketRooms = new Map<string, string>();
+
+function scheduleC4TurnTimeout(roomId: string) {
+  const game = c4Games.get(roomId);
+  if (!game || !game.turnEndTime || game.winner || game.state !== "playing") {
+    roomTimerManager.clearTurnTimeout(roomId);
+    return;
+  }
+
+  const targetTime = game.turnEndTime + LAG_COMPENSATION_BUFFER_MS;
+  roomTimerManager.scheduleTurnTimeout(roomId, targetTime, async () => {
+    if (!roomActionLock.acquireLock(roomId)) return;
+    try {
+      const g = c4Games.get(roomId);
+      if (!g || !g.turnEndTime || g.winner || g.state !== "playing") return;
+      if (Date.now() < g.turnEndTime + LAG_COMPENSATION_BUFFER_MS) return;
+
+      const validCols: number[] = [];
+      for (let c = 0; c < 7; c++) {
+        if (g.board[5]?.[c] === null) {
+          validCols.push(c);
+        }
+      }
+      if (validCols.length > 0) {
+        const randomCol = validCols[
+          Math.floor(Math.random() * validCols.length)
+        ] as number;
+        let currentPlayerId: string | undefined;
+        for (const [id, color] of g.players.entries()) {
+          if (color === g.currentPlayer) {
+            currentPlayerId = id;
+            break;
+          }
+        }
+        if (currentPlayerId) {
+          g.makeMove(currentPlayerId, randomCol);
+          c4Namespace.to(roomId).emit("gameState", g.getPublicState());
+          const c4State = g.state as string;
+          if (c4State === "round_result") {
+            scheduleNextRound(c4Games, roomId, c4Namespace, 3000, () => {
+              scheduleC4TurnTimeout(roomId);
+            });
+          } else if (c4State === "game_over") {
+            handleAutoReturnToLobby(c4Namespace, roomId, c4Games);
+          } else {
+            scheduleC4TurnTimeout(roomId);
+          }
+        }
+      }
+    } finally {
+      roomActionLock.releaseLock(roomId);
+    }
+  });
+}
 
 c4Namespace.on("connection", (socket: Socket) => {
   logConnection(socket, "Connect 4");
@@ -438,6 +710,7 @@ c4Namespace.on("connection", (socket: Socket) => {
     (roomId, game) => {
       game.startGame();
       c4Namespace.to(roomId).emit("gameState", game.getPublicState());
+      scheduleC4TurnTimeout(roomId);
     },
   );
 
@@ -466,24 +739,139 @@ c4Namespace.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on(
-    "makeMove",
-    ({ roomId, col }: { roomId: string; col: number }) => {
-      const game = c4Games.get(roomId);
-      if (!game) return;
+  socket.on("makeMove", (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "makeMove", 8, 2)) return;
 
-      if (game.makeMove(socket.id, col)) {
+    const valid = validateSocketPayload(
+      socket,
+      makeMoveC4Schema,
+      rawData,
+      "makeMove",
+    );
+    if (!valid) return;
+
+    const { roomId, col } = valid;
+    const game = c4Games.get(roomId);
+    if (!game) return;
+
+    if (roomActionLock.isRoomLocked(roomId)) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "ROOM_LOCKED",
+        message: "Aguarde a resolução da jogada anterior!",
+      });
+      return;
+    }
+
+    const effectivePlayerId =
+      roomManager.getPlayerIdBySocketId(socket.id) ||
+      socket.data?.sessionId ||
+      socket.id;
+    const cd = roomActionLock.checkCooldown(roomId, effectivePlayerId, 250);
+    if (!cd.allowed) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "ACTION_COOLDOWN",
+        message: "Aguarde antes da próxima jogada.",
+      });
+      return;
+    }
+
+    const playerColor =
+      game.players.get(socket.id) || game.players.get(effectivePlayerId);
+    if (!playerColor) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "NOT_YOUR_TURN",
+        message: "Você não está participando desta partida!",
+      });
+      return;
+    }
+
+    if (game.state !== "playing") {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "GAME_NOT_IN_PROGRESS",
+        message: "A partida não está em andamento.",
+      });
+      return;
+    }
+
+    if (playerColor !== game.currentPlayer) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "NOT_YOUR_TURN",
+        message: "Não é a sua vez de jogar!",
+      });
+      return;
+    }
+
+    if (game.board[5]?.[col] !== null) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "INVALID_POSITION",
+        message: "Esta coluna já está cheia!",
+      });
+      return;
+    }
+
+    if (!roomActionLock.acquireLock(roomId)) {
+      socket.emit("invalidMove", {
+        event: "makeMove",
+        reason: "ROOM_LOCKED",
+        message: "Ação concorrente detectada.",
+      });
+      return;
+    }
+
+    try {
+      const playerKey = game.players.has(socket.id)
+        ? socket.id
+        : effectivePlayerId;
+      if (game.makeMove(playerKey, col)) {
         c4Namespace.to(roomId).emit("gameState", game.getPublicState());
-        if (game.state === "round_result") {
-          scheduleNextRound(c4Games, roomId, c4Namespace, 3000);
-        } else if (game.state === "game_over") {
+
+        const c4State = game.state as string;
+        if (c4State === "round_result") {
+          roomTimerManager.clearTurnTimeout(roomId);
+          roomActionLock.lockForTransition(roomId, 3000);
+          scheduleNextRound(c4Games, roomId, c4Namespace, 3000, () => {
+            roomActionLock.releaseLock(roomId);
+            scheduleC4TurnTimeout(roomId);
+          });
+        } else if (c4State === "game_over") {
+          roomTimerManager.clearAllTimers(roomId);
           handleAutoReturnToLobby(c4Namespace, roomId, c4Games);
+          let winnerId: string | null = null;
+          if (game.winner && game.winner !== "Draw") {
+            for (const [pId, color] of game.players.entries()) {
+              if (color === game.winner) {
+                winnerId = pId;
+                break;
+              }
+            }
+          }
+          const scores: Record<string, number> = {};
+          for (const [pId, color] of game.players.entries()) {
+            if (color === "RED" || color === "YELLOW") {
+              scores[pId] = game.scores[color];
+            }
+          }
+          MatchService.recordMatchFinish(roomId, { winnerId, scores });
+        } else {
+          scheduleC4TurnTimeout(roomId);
         }
       }
-    },
-  );
+    } finally {
+      if ((game.state as string) === "playing") {
+        roomActionLock.releaseLock(roomId);
+      }
+    }
+  });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     const game = c4Games.get(roomId);
     if (!game) return;
 
@@ -502,6 +890,7 @@ c4Namespace.on("connection", (socket: Socket) => {
             });
           }
         }
+        scheduleC4TurnTimeout(roomId);
       }
     } else {
       c4Namespace.to(roomId).emit("gameState", game.getPublicState());
@@ -511,7 +900,56 @@ c4Namespace.on("connection", (socket: Socket) => {
 
 // --- Rock-Paper-Scissors Namespace ---
 const rpsNamespace = io.of("/rps");
+rpsNamespace.use(socketAuthMiddleware);
 const rpsGames = new Map<string, RPSLogic>();
+
+function scheduleRPSTurnTimeout(roomId: string) {
+  const game = rpsGames.get(roomId);
+  if (!game || !game.turnEndTime || game.state !== "commit_phase") {
+    roomTimerManager.clearTurnTimeout(roomId);
+    return;
+  }
+
+  const targetTime = game.turnEndTime + LAG_COMPENSATION_BUFFER_MS;
+  roomTimerManager.scheduleTurnTimeout(roomId, targetTime, async () => {
+    if (!roomActionLock.acquireLock(roomId)) return;
+    try {
+      const g = rpsGames.get(roomId);
+      if (!g || g.state !== "commit_phase") return;
+
+      let changed = false;
+      for (const [playerId, player] of g.players.entries()) {
+        if (!player.hasCommitted) {
+          g.commitChoice(
+            playerId,
+            ["rock", "paper", "scissors"][
+              Math.floor(Math.random() * 3)
+            ] as RPSChoice,
+          );
+          changed = true;
+        }
+      }
+      if (changed) {
+        rpsNamespace.to(roomId).emit("gameState", g.getPublicState());
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((g as any).state === "reveal_phase") {
+          roomTimerManager.clearTurnTimeout(roomId);
+          roomActionLock.lockForTransition(roomId, 3000);
+          scheduleNextRound(rpsGames, roomId, rpsNamespace, 3000, (nextG) => {
+            roomActionLock.releaseLock(roomId);
+            if (nextG.state === "commit_phase") {
+              nextG.beginCommitPhase();
+              scheduleRPSTurnTimeout(roomId);
+            }
+            rpsNamespace.to(roomId).emit("gameState", nextG.getPublicState());
+          });
+        }
+      }
+    } finally {
+      roomActionLock.releaseLock(roomId);
+    }
+  });
+}
 
 rpsNamespace.on("connection", (socket: Socket) => {
   logConnection(socket, "Rock-Paper-Scissors");
@@ -526,6 +964,7 @@ rpsNamespace.on("connection", (socket: Socket) => {
     (roomId, game) => {
       game.startGame();
       rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
+      scheduleRPSTurnTimeout(roomId);
     },
   );
 
@@ -538,25 +977,116 @@ rpsNamespace.on("connection", (socket: Socket) => {
     rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
   });
 
-  socket.on(
-    "commitChoice",
-    ({ roomId, choice }: { roomId: string; choice: RPSChoice }) => {
-      const game = rpsGames.get(roomId);
-      if (!game) return;
+  socket.on("commitChoice", (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "commitChoice", 8, 2)) return;
 
-      if (game.commitChoice(socket.id, choice)) {
-        // Broadcast state - note that choices are hidden if in commit_phase
-        rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
+    const valid = validateSocketPayload(
+      socket,
+      commitChoiceRPSSchema,
+      rawData,
+      "commitChoice",
+    );
+    if (!valid) return;
 
-        // If the round just finished, wait 3 seconds and go to next round automatically
-        if (game.state === "reveal_phase") {
-          scheduleNextRound(rpsGames, roomId, rpsNamespace, 3000);
+    const { roomId, choice } = valid;
+    const game = rpsGames.get(roomId);
+    if (!game) return;
+
+    if (roomActionLock.isRoomLocked(roomId)) {
+      socket.emit("invalidMove", {
+        event: "commitChoice",
+        reason: "ROOM_LOCKED",
+        message: "Aguarde a revelação da rodada anterior!",
+      });
+      return;
+    }
+
+    const effectivePlayerId =
+      roomManager.getPlayerIdBySocketId(socket.id) ||
+      socket.data?.sessionId ||
+      socket.id;
+    const cd = roomActionLock.checkCooldown(roomId, effectivePlayerId, 250);
+    if (!cd.allowed) {
+      socket.emit("invalidMove", {
+        event: "commitChoice",
+        reason: "ACTION_COOLDOWN",
+        message: "Aguarde antes da próxima jogada.",
+      });
+      return;
+    }
+
+    const playerKey = game.players.has(socket.id)
+      ? socket.id
+      : (game.players.has(effectivePlayerId) ? effectivePlayerId : null);
+
+    if (!playerKey) {
+      socket.emit("invalidMove", {
+        event: "commitChoice",
+        reason: "NOT_YOUR_TURN",
+        message: "Você não está participando desta partida!",
+      });
+      return;
+    }
+
+    if (game.state !== "commit_phase") {
+      socket.emit("invalidMove", {
+        event: "commitChoice",
+        reason: "GAME_NOT_IN_PROGRESS",
+        message: "A rodada não está na fase de escolhas.",
+      });
+      return;
+    }
+
+    if (game.players.get(playerKey)?.hasCommitted) {
+      socket.emit("invalidMove", {
+        event: "commitChoice",
+        reason: "ALREADY_COMMITTED",
+        message: "Você já realizou sua escolha nesta rodada!",
+      });
+      return;
+    }
+
+    if (game.commitChoice(playerKey, choice)) {
+      rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
+
+      const rpsState = game.state as string;
+      if (rpsState === "reveal_phase") {
+        roomTimerManager.clearTurnTimeout(roomId);
+        roomActionLock.lockForTransition(roomId, 3000);
+        scheduleNextRound(rpsGames, roomId, rpsNamespace, 3000, (nextG) => {
+          roomActionLock.releaseLock(roomId);
+          if (nextG.state === "commit_phase") {
+            nextG.beginCommitPhase();
+            scheduleRPSTurnTimeout(roomId);
+          }
+          rpsNamespace.to(roomId).emit("gameState", nextG.getPublicState());
+        });
+      } else if (rpsState === "game_over") {
+        roomTimerManager.clearAllTimers(roomId);
+        handleAutoReturnToLobby(rpsNamespace, roomId, rpsGames);
+        const scores: Record<string, number> = {};
+        let highestScore = -1;
+        let winnerId: string | null = null;
+        for (const [pId, p] of game.players.entries()) {
+          scores[pId] = p.score;
+          if (p.score > highestScore) {
+            highestScore = p.score;
+            winnerId = pId;
+          } else if (p.score === highestScore) {
+            winnerId = null;
+          }
         }
+        MatchService.recordMatchFinish(roomId, {
+          winnerId,
+          scores,
+        });
       }
-    },
-  );
+    }
+  });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     const game = rpsGames.get(roomId);
     if (!game) return;
 
@@ -565,6 +1095,7 @@ rpsNamespace.on("connection", (socket: Socket) => {
       game.reset();
       rpsNamespace.to(roomId).emit("rematchStarted");
       rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
+      scheduleRPSTurnTimeout(roomId);
     } else {
       rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
     }
@@ -575,6 +1106,7 @@ rpsNamespace.on("connection", (socket: Socket) => {
 
 // --- Guess the Flag Namespace ---
 const gtfNamespace = io.of("/gtf");
+gtfNamespace.use(socketAuthMiddleware);
 const gtfGames = new Map<string, GuessTheFlagLogic>();
 
 gtfNamespace.on("connection", (socket: Socket) => {
@@ -601,30 +1133,114 @@ gtfNamespace.on("connection", (socket: Socket) => {
     gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
   });
 
-  socket.on(
-    "submitGuess",
-    ({ roomId, guess }: { roomId: string; guess: string }) => {
-      const game = gtfGames.get(roomId);
-      if (!game) return;
+  socket.on("submitGuess", (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "submitGuess", 8, 2)) return;
 
-      if (game.submitGuess(socket.id, guess)) {
-        gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
+    const valid = validateSocketPayload(
+      socket,
+      submitGuessGTFSchema,
+      rawData,
+      "submitGuess",
+    );
+    if (!valid) return;
 
-        if (game.state === "round_result") {
-          scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
-            if (g.state === "guessing_phase") {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              startGTFRound(roomId, g as any);
-            } else if (g.state === "game_over") {
-              gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
+    const { roomId, guess } = valid;
+    const game = gtfGames.get(roomId);
+    if (!game) return;
+
+    if (roomActionLock.isRoomLocked(roomId)) {
+      socket.emit("invalidMove", {
+        event: "submitGuess",
+        reason: "ROOM_LOCKED",
+        message: "Aguarde o início da próxima rodada!",
+      });
+      return;
+    }
+
+    const effectivePlayerId =
+      roomManager.getPlayerIdBySocketId(socket.id) ||
+      socket.data?.sessionId ||
+      socket.id;
+    const cd = roomActionLock.checkCooldown(roomId, effectivePlayerId, 250);
+    if (!cd.allowed) {
+      socket.emit("invalidMove", {
+        event: "submitGuess",
+        reason: "ACTION_COOLDOWN",
+        message: "Aguarde antes da próxima jogada.",
+      });
+      return;
+    }
+
+    const playerKey = game.players.has(socket.id)
+      ? socket.id
+      : (game.players.has(effectivePlayerId) ? effectivePlayerId : null);
+
+    if (!playerKey) {
+      socket.emit("invalidMove", {
+        event: "submitGuess",
+        reason: "NOT_YOUR_TURN",
+        message: "Você não está participando desta partida!",
+      });
+      return;
+    }
+
+    if (game.state !== "guessing_phase") {
+      socket.emit("invalidMove", {
+        event: "submitGuess",
+        reason: "GAME_NOT_IN_PROGRESS",
+        message: "Aguarde a rodada estar ativa para enviar palpites.",
+      });
+      return;
+    }
+
+    const player = game.players.get(playerKey);
+    if (player?.hasGuessed) {
+      socket.emit("invalidMove", {
+        event: "submitGuess",
+        reason: "ALREADY_COMMITTED",
+        message: "Você já enviou seu palpite nesta rodada!",
+      });
+      return;
+    }
+
+    if (game.submitGuess(playerKey, guess)) {
+      gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
+
+      const gtfState = game.state as string;
+      if (gtfState === "round_result") {
+        roomTimerManager.clearTurnTimeout(roomId);
+        roomActionLock.lockForTransition(roomId, 5000);
+        scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
+          roomActionLock.releaseLock(roomId);
+          if (g.state === "guessing_phase") {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            startGTFRound(roomId, g as any);
+          } else if (g.state === "game_over") {
+            roomTimerManager.clearAllTimers(roomId);
+            gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
+            handleAutoReturnToLobby(gtfNamespace, roomId, gtfGames);
+            let highestScore = -1;
+            let winnerId: string | null = null;
+            const scores: Record<string, number> = {};
+            for (const [pId, p] of g.players.entries()) {
+              scores[pId] = p.score;
+              if (p.score > highestScore) {
+                highestScore = p.score;
+                winnerId = pId;
+              } else if (p.score === highestScore) {
+                winnerId = null; // tie
+              }
             }
-          });
-        }
+            MatchService.recordMatchFinish(roomId, { winnerId, scores });
+          }
+        });
       }
-    },
-  );
+    }
+  });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     const game = gtfGames.get(roomId);
     if (!game) return;
 
@@ -643,6 +1259,7 @@ gtfNamespace.on("connection", (socket: Socket) => {
 
 // --- Hangman Namespace ---
 const hangmanNamespace = io.of("/hangman");
+hangmanNamespace.use(socketAuthMiddleware);
 const hangmanController = new HangmanController(hangmanNamespace);
 
 hangmanNamespace.on("connection", (socket: Socket) => {
@@ -671,20 +1288,30 @@ hangmanNamespace.on("connection", (socket: Socket) => {
     socket.join(roomId);
   });
 
-  socket.on(
-    GameEvent.GAME_MOVE,
-    ({ roomId, action }: { roomId: string; action: any }) => {
-      hangmanController.handleMove(socket, roomId, action);
-    },
-  );
+  socket.on(GameEvent.GAME_MOVE, (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "gameMove", 10, 2)) return;
+
+    const valid = validateSocketPayload(
+      socket,
+      gameMoveHangmanSchema,
+      rawData,
+      "gameMove",
+    );
+    if (!valid) return;
+    const { roomId, action } = valid;
+    hangmanController.handleMove(socket, roomId, action);
+  });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     hangmanController.handleRematch(socket.id, roomId);
   });
 });
 
 // --- Memory Card Namespace ---
 const mcNamespace = io.of("/mc");
+mcNamespace.use(socketAuthMiddleware);
 const memoryCardController = new MemoryCardController(mcNamespace);
 
 mcNamespace.on("connection", (socket: Socket) => {
@@ -717,14 +1344,23 @@ mcNamespace.on("connection", (socket: Socket) => {
     memoryCardController.broadcastState(roomId);
   });
 
-  socket.on(
-    "flipCard",
-    ({ roomId, cardId }: { roomId: string; cardId: number }) => {
-      memoryCardController.handleFlipCard(socket, roomId, { cardId });
-    },
-  );
+  socket.on("flipCard", (rawData: unknown) => {
+    if (!checkSocketRateLimit(socket, "flipCard", 8, 2)) return;
+
+    const valid = validateSocketPayload(
+      socket,
+      flipCardMCSchema,
+      rawData,
+      "flipCard",
+    );
+    if (!valid) return;
+    const { roomId, cardId } = valid;
+    memoryCardController.handleFlipCard(socket, roomId, { cardId });
+  });
 
   socket.on("requestRematch", (roomId: string) => {
+    if (!checkSocketRateLimit(socket, "requestRematch", 5, 5)) return;
+
     memoryCardController.handleRematch(socket, roomId);
   });
 });
@@ -776,149 +1412,96 @@ function startGTFRound(roomId: string, game: GuessTheFlagLogic) {
     options.map((o) => o.name),
   );
   gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
+  scheduleGTFTurnTimeout(roomId);
 }
 
-// Global Matchmaking Game Loop Enforcer
-setInterval(() => {
-  const now = Date.now();
-
-  // Check TicTacToe
-  for (const [roomId, game] of tttGames.entries()) {
-    if (game.turnEndTime && now >= game.turnEndTime && !game.winner) {
-      const emptyIndices: number[] = [];
-      for (let i = 0; i < game.board.length; i++) {
-        if (game.board[i] === null) {
-          emptyIndices.push(i);
-        }
-      }
-      if (emptyIndices.length > 0) {
-        const randomObj = emptyIndices[
-          Math.floor(Math.random() * emptyIndices.length)
-        ] as number;
-        let currentPlayerId: string | undefined;
-        for (const [id, mark] of game.players.entries()) {
-          if (mark === game.currentPlayer) {
-            currentPlayerId = id;
-            break;
-          }
-        }
-        if (currentPlayerId) {
-          game.makeMove(currentPlayerId, randomObj);
-          tttNamespace.to(roomId).emit("gameState", game.getPublicState());
-          if (game.state === "round_result") {
-            scheduleNextRound(tttGames, roomId, tttNamespace, 3000);
-          } else if (game.state === "game_over") {
-            handleAutoReturnToLobby(tttNamespace, roomId, tttGames);
-          }
-        }
-      }
-    }
+function scheduleGTFTurnTimeout(roomId: string) {
+  const game = gtfGames.get(roomId);
+  if (!game || !game.turnEndTime || game.state !== "guessing_phase") {
+    roomTimerManager.clearTurnTimeout(roomId);
+    return;
   }
 
-  // Check Connect 4
-  for (const [roomId, game] of c4Games.entries()) {
-    if (game.turnEndTime && now >= game.turnEndTime && !game.winner) {
-      const validCols: number[] = [];
-      for (let c = 0; c < 7; c++) {
-        if (game.board[5]?.[c] === null) {
-          validCols.push(c);
+  const targetTime = game.turnEndTime + LAG_COMPENSATION_BUFFER_MS;
+  roomTimerManager.scheduleTurnTimeout(roomId, targetTime, async () => {
+    if (!roomActionLock.acquireLock(roomId)) return;
+    try {
+      const g = gtfGames.get(roomId);
+      if (!g || g.state !== "guessing_phase") return;
+
+      g.timeoutRound();
+      gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
+
+      scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (nextG) => {
+        if (nextG.state === "guessing_phase") {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          startGTFRound(roomId, nextG as any);
+        } else if (nextG.state === "game_over") {
+          gtfNamespace.to(roomId).emit("gameState", nextG.getPublicState());
         }
-      }
-      if (validCols.length > 0) {
-        const randomCol = validCols[
-          Math.floor(Math.random() * validCols.length)
-        ] as number;
-        let currentPlayerId: string | undefined;
-        for (const [id, color] of game.players.entries()) {
-          if (color === game.currentPlayer) {
-            currentPlayerId = id;
-            break;
-          }
-        }
-        if (currentPlayerId) {
-          game.makeMove(currentPlayerId, randomCol);
-          c4Namespace.to(roomId).emit("gameState", game.getPublicState());
-          if (game.state === "round_result") {
-            scheduleNextRound(c4Games, roomId, c4Namespace, 3000);
-          } else if (game.state === "game_over") {
-            handleAutoReturnToLobby(c4Namespace, roomId, c4Games);
-          }
-        }
-      }
+      });
+    } finally {
+      roomActionLock.releaseLock(roomId);
     }
-  }
+  });
+}
 
-  // Check RPS
-  for (const [roomId, game] of rpsGames.entries()) {
-    if (
-      game.state === "commit_phase" &&
-      game.turnEndTime &&
-      now >= game.turnEndTime
-    ) {
-      let changed = false;
-      for (const [playerId, player] of game.players.entries()) {
-        if (!player.hasCommitted) {
-          game.commitChoice(
-            playerId,
-            ["rock", "paper", "scissors"][
-              Math.floor(Math.random() * 3)
-            ] as RPSChoice,
-          );
-          changed = true;
-        }
-      }
-      if (changed) {
-        rpsNamespace.to(roomId).emit("gameState", game.getPublicState());
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((game as any).state === "reveal_phase") {
-          scheduleNextRound(rpsGames, roomId, rpsNamespace, 3000, (g) => {
-            if (g.state === "commit_phase") g.beginCommitPhase();
-            rpsNamespace.to(roomId).emit("gameState", g.getPublicState());
-          });
-        }
-      }
-    }
-  }
-
-  // Check GTF
-  for (const [roomId, game] of gtfGames.entries()) {
-    if (
-      game.state === "guessing_phase" &&
-      game.turnEndTime &&
-      now >= game.turnEndTime
-    ) {
-      game.timeoutRound();
-      gtfNamespace.to(roomId).emit("gameState", game.getPublicState());
-
-      setTimeout(() => {
-        scheduleNextRound(gtfGames, roomId, gtfNamespace, 5000, (g) => {
-          if (g.state === "guessing_phase") {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            startGTFRound(roomId, g as any);
-          } else if (g.state === "game_over") {
-            gtfNamespace.to(roomId).emit("gameState", g.getPublicState());
-          }
-        });
-      }, 0);
-    }
-  }
-
-  // Check Hangman
-  hangmanController.checkTimeouts();
-
-  // Check Memory Card
-  memoryCardController.checkTimeouts();
-}, 1000);
-
+// Observabilidade dos Timers Orientados a Eventos
+console.log("[GameHub-API] Event-Driven RoomTimerManager active (O(1) timers per match, zero polling).");
 app.get("/", (req, res) => {
   res.send(renderDashboard(roomManager.getStats()));
 });
 
 app.get("/api/stats", (req, res) => {
-  res.json(roomManager.getStats());
+  res.json({
+    ...roomManager.getStats(),
+    timers: roomTimerManager.getStats(),
+  });
 });
 
+// Authentication & Session Routes
+app.post("/api/auth/register", (req, res) => {
+  AuthController.register(req, res);
+});
+
+app.post("/api/auth/login", (req, res) => {
+  AuthController.login(req, res);
+});
+
+app.post("/api/auth/guest", (req, res) => {
+  AuthController.guest(req, res);
+});
+
+app.get("/api/auth/me", requireAuth, (req, res) => {
+  AuthController.me(req as AuthenticatedRequest, res);
+});
+
+// Global Error Handler
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    console.error("[Express Error Handler]:", err);
+    const status = err.status || 500;
+    res.status(status).json({
+      error: status === 500 ? "Internal server error" : err.message,
+    });
+  },
+);
+
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+
+async function bootstrap() {
+  await setupRedisAdapter(io);
+
+  server.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
+}
+
+bootstrap().catch((err) => {
+  console.error("[Bootstrap Error]:", err);
 });

@@ -13,6 +13,7 @@ import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import { useMatchManager } from "@/features/match/hooks/useMatchManager";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
 import ReturnToLobbyBadge from "@/features/match/components/ReturnToLobbyBadge";
+import ReconnectionGraceBadge from "@/features/match/components/ReconnectionGraceBadge";
 import { GameShell } from "@repo/ui/game-shell";
 import { Card } from "@repo/ui/card";
 import { Button } from "@repo/ui/button";
@@ -56,6 +57,7 @@ export default function ConnectFourGame() {
   const {
     socket,
     localSocketId,
+    localPlayerId,
     roomId,
     setIsHost,
     isGameStarted,
@@ -65,6 +67,7 @@ export default function ConnectFourGame() {
     tempNotification,
     setTempNotification,
     rematchRequested,
+    reconnectionGrace,
     // Actions
     leaveRoom,
     toggleReady,
@@ -254,7 +257,7 @@ export default function ConnectFourGame() {
       <GameShell playerName={playerName}>
         <RoomLobby
           roomLobby={roomLobby}
-          localPlayerId={localSocketId || ""}
+          localPlayerId={localPlayerId || localSocketId || ""}
           onToggleReady={toggleReady}
           onStartMatch={startMatch}
           onLeaveRoom={handleLeaveRoom}
@@ -283,6 +286,8 @@ export default function ConnectFourGame() {
           message={tempNotification}
         />
       )}
+
+      <ReconnectionGraceBadge grace={reconnectionGrace} />
 
       {/* Temporary Toast Notification */}
       {tempNotification && (

@@ -17,6 +17,7 @@ import MatchTerminationBanner from "@/features/match/components/MatchTermination
 import Scoreboard from "@/features/match/components/Scoreboard";
 import EndMatchOptions from "@/features/match/components/EndMatchOptions";
 import ReturnToLobbyBadge from "@/features/match/components/ReturnToLobbyBadge";
+import ReconnectionGraceBadge from "@/features/match/components/ReconnectionGraceBadge";
 import { Mountain, FileText, Scissors, HelpCircle, X } from "lucide-react";
 import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import RoomBrowser from "@/features/lobby/components/RoomBrowser";
@@ -48,6 +49,7 @@ export default function RPSGame() {
   const {
     socket,
     localSocketId,
+    localPlayerId,
     roomId,
     setRoomId,
     isHost,
@@ -59,6 +61,7 @@ export default function RPSGame() {
     matchTerminationCountdown,
     tempNotification,
     setTempNotification,
+    reconnectionGrace,
     rematchRequested,
     setRematchRequested,
     // Actions
@@ -205,7 +208,7 @@ export default function RPSGame() {
       <GameShell playerName={playerName}>
         <RoomLobby
           roomLobby={roomLobby}
-          localPlayerId={localSocketId || ""}
+          localPlayerId={localPlayerId || localSocketId || ""}
           onToggleReady={() => socket?.emit("toggleReady", roomId)}
           onStartMatch={() => socket?.emit("startMatch", roomId)}
           onLeaveRoom={handleLeaveRoom}
@@ -246,6 +249,8 @@ export default function RPSGame() {
           message={tempNotification}
         />
       )}
+
+      <ReconnectionGraceBadge grace={reconnectionGrace} />
 
       {tempNotification && (
         <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-right duration-500">

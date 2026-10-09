@@ -9,12 +9,30 @@ import { randomUUID } from "crypto";
 export class RoomManager {
   private rooms: Map<string, RoomInfo> = new Map();
   private playerToRoomMap: Map<string, string> = new Map();
+  private socketToPlayerMap: Map<string, string> = new Map();
 
   constructor() {}
 
   /**
-   * O(1) reverse lookup: find which room a player is in.
-   * Used by the disconnect handler to clean up ghost rooms.
+   * Fast lookup: map socketId to persistent playerId (sessionId).
+   */
+  public bindSocketToPlayer(socketId: string, playerId: string): void {
+    this.socketToPlayerMap.set(socketId, playerId);
+  }
+
+  public getPlayerIdBySocketId(socketId: string): string | null {
+    return this.socketToPlayerMap.get(socketId) ?? null;
+  }
+
+  public unbindSocket(socketId: string): string | null {
+    const playerId = this.socketToPlayerMap.get(socketId) ?? null;
+    this.socketToPlayerMap.delete(socketId);
+    return playerId;
+  }
+
+  /**
+   * O(1) reverse lookup: find which room a player (sessionId) is in.
+   * Used by the disconnect handler to clean up ghost rooms or manage reconnections.
    */
   public getRoomIdByPlayerId(playerId: string): string | null {
     return this.playerToRoomMap.get(playerId) ?? null;
@@ -26,6 +44,8 @@ export class RoomManager {
     hostName: string,
     maxPlayers: number,
     config?: GameSetupConfig,
+    socketId?: string,
+    userId?: string,
   ): RoomInfo {
     const roomId = randomUUID();
     const hostPlayer: RoomLobbyPlayer = {
@@ -33,6 +53,8 @@ export class RoomManager {
       name: hostName,
       isHost: true,
       isReady: false,
+      socketId,
+      userId,
     };
 
     const newRoom: RoomInfo = {
@@ -52,6 +74,9 @@ export class RoomManager {
     };
     this.rooms.set(roomId, newRoom);
     this.playerToRoomMap.set(hostId, roomId);
+    if (socketId) {
+      this.socketToPlayerMap.set(socketId, hostId);
+    }
     return newRoom;
   }
 
@@ -59,7 +84,9 @@ export class RoomManager {
     const room = this.rooms.get(roomId);
     if (!room) return null;
 
-    const player = room.players.find((p) => p.id === playerId);
+    const player = room.players.find(
+      (p) => p.id === playerId || p.socketId === playerId,
+    );
     if (player) {
       player.isReady = !player.isReady;
     }
@@ -88,9 +115,12 @@ export class RoomManager {
   public removeRoom(roomId: string): boolean {
     const room = this.rooms.get(roomId);
     if (room) {
-      // Clean up all player entries from the index
+      // Clean up all player entries from the indices
       for (const player of room.players) {
         this.playerToRoomMap.delete(player.id);
+        if (player.socketId) {
+          this.socketToPlayerMap.delete(player.socketId);
+        }
       }
     }
     return this.rooms.delete(roomId);
@@ -106,13 +136,85 @@ export class RoomManager {
     return available;
   }
 
+  public getActivePlayerCount(roomId: string): number {
+    const room = this.rooms.get(roomId);
+    if (!room) return 0;
+    return room.players.filter((p) => !p.isDisconnected).length;
+  }
+
+  public markPlayerDisconnected(
+    roomId: string,
+    playerId: string,
+  ): { room: RoomInfo; player: RoomLobbyPlayer; activeCount: number } | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    const player = room.players.find(
+      (p) => p.id === playerId || p.socketId === playerId,
+    );
+    if (!player) return null;
+
+    player.isDisconnected = true;
+    player.disconnectedAt = Date.now();
+    this.rooms.set(roomId, room);
+
+    const activeCount = room.players.filter((p) => !p.isDisconnected).length;
+    return { room, player, activeCount };
+  }
+
+  public rebindPlayer(
+    roomId: string,
+    playerId: string,
+    newSocketId: string,
+  ): { room: RoomInfo; player: RoomLobbyPlayer } | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    const player = room.players.find(
+      (p) => p.id === playerId || p.socketId === playerId,
+    );
+    if (!player) return null;
+
+    if (player.socketId && player.socketId !== newSocketId) {
+      this.socketToPlayerMap.delete(player.socketId);
+    }
+
+    player.socketId = newSocketId;
+    player.isDisconnected = false;
+    player.disconnectedAt = undefined;
+
+    this.socketToPlayerMap.set(newSocketId, player.id);
+    this.playerToRoomMap.set(player.id, roomId);
+    this.rooms.set(roomId, room);
+
+    return { room, player };
+  }
+
   public joinRoom(
     roomId: string,
     playerId: string,
     playerName: string,
+    socketId?: string,
+    userId?: string,
   ): RoomInfo | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
+
+    // Reconnection check: if player (sessionId) already in room, update socket
+    const existingPlayer = room.players.find(
+      (p) => p.id === playerId || (socketId && p.socketId === socketId),
+    );
+    if (existingPlayer) {
+      if (socketId) existingPlayer.socketId = socketId;
+      if (userId) existingPlayer.userId = userId;
+      existingPlayer.name = playerName;
+      existingPlayer.isDisconnected = false;
+      existingPlayer.disconnectedAt = undefined;
+      this.rooms.set(roomId, room);
+      this.playerToRoomMap.set(playerId, roomId);
+      if (socketId) this.socketToPlayerMap.set(socketId, playerId);
+      return room;
+    }
 
     if (room.playerCount < room.maxPlayers && room.status === "waiting") {
       room.playerCount += 1;
@@ -121,10 +223,13 @@ export class RoomManager {
         name: playerName,
         isHost: false,
         isReady: false,
+        socketId,
+        userId,
       });
 
       this.rooms.set(roomId, room);
       this.playerToRoomMap.set(playerId, roomId);
+      if (socketId) this.socketToPlayerMap.set(socketId, playerId);
       return room;
     }
     return null;
@@ -134,9 +239,20 @@ export class RoomManager {
     const room = this.rooms.get(roomId);
     if (!room) return null;
 
-    room.players = room.players.filter((p) => p.id !== playerId);
+    const targetPlayer = room.players.find(
+      (p) => p.id === playerId || p.socketId === playerId,
+    );
+    const resolvedPlayerId = targetPlayer ? targetPlayer.id : playerId;
+
+    room.players = room.players.filter(
+      (p) => p.id !== resolvedPlayerId && p.socketId !== resolvedPlayerId,
+    );
     room.playerCount = room.players.length;
-    this.playerToRoomMap.delete(playerId);
+    this.playerToRoomMap.delete(resolvedPlayerId);
+
+    if (targetPlayer?.socketId) {
+      this.socketToPlayerMap.delete(targetPlayer.socketId);
+    }
 
     // Se a sala ficar vazia, destruímos ela
     if (room.playerCount <= 0) {
@@ -145,7 +261,7 @@ export class RoomManager {
     }
 
     // Se o HOST saiu, migramos o cargo para o próximo jogador
-    if (room.hostId === playerId) {
+    if (room.hostId === resolvedPlayerId || room.hostId === playerId) {
       const newHost = room.players[0];
       if (newHost) {
         room.hostId = newHost.id;

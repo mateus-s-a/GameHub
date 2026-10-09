@@ -1,5 +1,8 @@
-import { useState, useEffect } from "react";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import { Clock } from "lucide-react";
+import { useSocket } from "../../../(shared)/providers/SocketProvider";
 
 export interface TimerDisplayProps {
   turnEndTime: number | null;
@@ -11,6 +14,13 @@ export default function TimerDisplay({
   size = "md",
 }: TimerDisplayProps) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const { getEstimatedServerTime } = useSocket();
+
+  const calculateRemaining = useCallback(() => {
+    if (!turnEndTime) return null;
+    const nowServer = getEstimatedServerTime ? getEstimatedServerTime() : Date.now();
+    return Math.max(0, Math.ceil((turnEndTime - nowServer) / 1000));
+  }, [turnEndTime, getEstimatedServerTime]);
 
   useEffect(() => {
     if (!turnEndTime) {
@@ -19,10 +29,7 @@ export default function TimerDisplay({
     }
 
     const interval = setInterval(() => {
-      const remaining = Math.max(
-        0,
-        Math.ceil((turnEndTime - Date.now()) / 1000),
-      );
+      const remaining = calculateRemaining();
       setTimeLeft(remaining);
       if (remaining === 0) {
         clearInterval(interval);
@@ -30,10 +37,10 @@ export default function TimerDisplay({
     }, 100);
 
     // Initial check
-    setTimeLeft(Math.max(0, Math.ceil((turnEndTime - Date.now()) / 1000)));
+    setTimeLeft(calculateRemaining());
 
     return () => clearInterval(interval);
-  }, [turnEndTime]);
+  }, [turnEndTime, calculateRemaining]);
 
   if (timeLeft === null) return null;
 

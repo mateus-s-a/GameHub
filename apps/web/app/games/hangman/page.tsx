@@ -13,6 +13,7 @@ import { useRoomList } from "@/features/lobby/hooks/useRoomList";
 import RoomBrowser from "@/features/lobby/components/RoomBrowser";
 import RoomLobby from "@/features/lobby/components/RoomLobby";
 import MatchTerminationBanner from "@/features/match/components/MatchTerminationBanner";
+import ReconnectionGraceBadge from "@/features/match/components/ReconnectionGraceBadge";
 import AlertModal from "@/(shared)/components/ui/AlertModal";
 import NavButton from "@/(shared)/components/ui/NavButton";
 import VirtualKeyboard from "@/features/games/components/hangman/VirtualKeyboard";
@@ -34,6 +35,7 @@ export default function HangmanPage() {
   const {
     socket,
     localSocketId,
+    localPlayerId,
     roomId,
     setIsHost,
     isGameStarted,
@@ -42,6 +44,7 @@ export default function HangmanPage() {
     matchTerminationCountdown,
     tempNotification,
     setTempNotification,
+    reconnectionGrace,
     rematchRequested,
     // Actions
     joinRoom,
@@ -197,7 +200,7 @@ export default function HangmanPage() {
       <GameShell playerName={playerName}>
         <RoomLobby
           roomLobby={roomLobby}
-          localPlayerId={localSocketId || ""}
+          localPlayerId={localPlayerId || localSocketId || ""}
           onToggleReady={toggleReady}
           onStartMatch={startMatch}
           onLeaveRoom={leaveRoom}
@@ -218,6 +221,8 @@ export default function HangmanPage() {
           message="Insufficient players remaining. Returning to lobby..."
         />
       )}
+
+      <ReconnectionGraceBadge grace={reconnectionGrace} />
 
       <MatchLayout
         gameId="hangman"

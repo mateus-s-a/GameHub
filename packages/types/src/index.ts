@@ -7,9 +7,20 @@ export type RoomStatus = "waiting" | "starting" | "in_progress";
 
 export interface RoomLobbyPlayer {
   id: string;
+  socketId?: string;
+  userId?: string;
   name: string;
   isHost: boolean;
   isReady: boolean;
+  isDisconnected?: boolean;
+  disconnectedAt?: number;
+}
+
+export interface TemporaryDisconnectionEvent {
+  playerId: string;
+  playerName: string;
+  countdown: number;
+  isPaused: boolean;
 }
 
 export interface GameSetupConfig {
@@ -38,4 +49,33 @@ export interface ServerStats {
   totalRooms: number;
   totalPlayers: number;
   gameBreakdown: Record<string, number>;
+}
+
+export interface RateLimitExceededEvent {
+  event: string;
+  message: string;
+  retryAfterSeconds: number;
+}
+
+export type InvalidMoveReason =
+  | "NOT_YOUR_TURN"
+  | "ROOM_LOCKED"
+  | "ACTION_COOLDOWN"
+  | "INVALID_POSITION"
+  | "ALREADY_COMMITTED"
+  | "GAME_NOT_IN_PROGRESS";
+
+export interface InvalidMoveEvent {
+  event: string;
+  reason: InvalidMoveReason;
+  message: string;
+}
+
+export interface TimeSyncRequest {
+  clientSendTime: number;
+}
+
+export interface TimeSyncResponse {
+  clientSendTime: number;
+  serverTime: number;
 }

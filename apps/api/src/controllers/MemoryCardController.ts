@@ -4,10 +4,13 @@ import {
   handleAutoReturnToLobby,
   cancelAutoReturnToLobby,
 } from "../LobbyEvents";
+import { roomManager } from "../RoomManager";
+import { roomActionLock, LAG_COMPENSATION_BUFFER_MS } from "../lib/roomLock";
+import { roomTimerManager } from "../lib/roomTimer";
+import { MatchService } from "../services/matchService";
 
 export class MemoryCardController {
   private games: Map<string, MemoryCardLogic> = new Map();
-  private mismatchTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(private namespace: Namespace) {}
 
@@ -30,6 +33,7 @@ export class MemoryCardController {
     const game = new MemoryCardLogic(playerIds, config);
     this.games.set(roomId, game);
     this.broadcastState(roomId);
+    this.scheduleTurnTimeout(roomId);
   }
 
   public handleFlipCard(
@@ -40,27 +44,113 @@ export class MemoryCardController {
     const game = this.games.get(roomId);
     if (!game) return;
 
-    const result = game.flipCard(socket.id, cardId);
+    if (
+      roomActionLock.isRoomLocked(roomId) ||
+      game.isCheckingMatch
+    ) {
+      socket.emit("invalidMove", {
+        event: "flipCard",
+        reason: "ROOM_LOCKED",
+        message: "Aguarde a resolução das cartas anteriores!",
+      });
+      return;
+    }
+
+    const effectivePlayerId =
+      roomManager.getPlayerIdBySocketId(socket.id) ||
+      socket.data?.sessionId ||
+      socket.id;
+
+    const cd = roomActionLock.checkCooldown(roomId, effectivePlayerId, 250);
+    if (!cd.allowed) {
+      socket.emit("invalidMove", {
+        event: "flipCard",
+        reason: "ACTION_COOLDOWN",
+        message: "Aguarde antes da próxima jogada.",
+      });
+      return;
+    }
+
+    const activePlayerKey = game.playersOrder.includes(socket.id)
+      ? socket.id
+      : (game.playersOrder.includes(effectivePlayerId) ? effectivePlayerId : null);
+
+    if (!activePlayerKey) {
+      socket.emit("invalidMove", {
+        event: "flipCard",
+        reason: "NOT_YOUR_TURN",
+        message: "Você não está participando desta partida!",
+      });
+      return;
+    }
+
+    if (game.state.status !== "playing") {
+      socket.emit("invalidMove", {
+        event: "flipCard",
+        reason: "GAME_NOT_IN_PROGRESS",
+        message: "A partida não está em andamento.",
+      });
+      return;
+    }
+
+    if (game.playersOrder[game.currentTurnIndex] !== activePlayerKey) {
+      socket.emit("invalidMove", {
+        event: "flipCard",
+        reason: "NOT_YOUR_TURN",
+        message: "Não é a sua vez de jogar!",
+      });
+      return;
+    }
+
+    const card = game.cards[cardId];
+    if (!card || card.isFlipped || card.isMatched) {
+      socket.emit("invalidMove", {
+        event: "flipCard",
+        reason: "INVALID_POSITION",
+        message: "Esta carta já foi virada!",
+      });
+      return;
+    }
+
+    const result = game.flipCard(activePlayerKey, cardId);
     if (!result.success) return;
 
     this.broadcastState(roomId);
 
     if (result.matchResult === "mismatch") {
-      // Delay de 1.5s para memorização visual de todos os jogadores antes de desvirar
-      const timeout = setTimeout(() => {
-        game.resolveMismatch();
-        this.mismatchTimeouts.delete(roomId);
-        this.broadcastState(roomId);
-      }, 1500);
+      // Cancela o timer de turno anterior e trava a sala por 1.5s
+      roomTimerManager.clearTurnTimeout(roomId);
+      roomActionLock.lockForTransition(roomId, 1500);
 
-      this.mismatchTimeouts.set(roomId, timeout);
-    } else if (game.state.status === "round_result") {
-      setTimeout(() => {
-        game.nextRound();
+      roomTimerManager.scheduleTransition(roomId, 1500, () => {
+        game.resolveMismatch();
+        roomActionLock.releaseLock(roomId);
         this.broadcastState(roomId);
-      }, 3000);
-    } else if (game.state.status === "game_over") {
+        this.scheduleTurnTimeout(roomId);
+      });
+    } else if ((game.state.status as string) === "round_result") {
+      roomTimerManager.clearTurnTimeout(roomId);
+      roomActionLock.lockForTransition(roomId, 3000);
+      roomTimerManager.scheduleTransition(roomId, 3000, () => {
+        game.nextRound();
+        roomActionLock.releaseLock(roomId);
+        this.broadcastState(roomId);
+        this.scheduleTurnTimeout(roomId);
+      });
+    } else if ((game.state.status as string) === "game_over") {
+      roomTimerManager.clearAllTimers(roomId);
       handleAutoReturnToLobby(this.namespace, roomId, this.games);
+      const scores: Record<string, number> = {};
+      for (const [pId, score] of game.scores.entries()) {
+        scores[pId] = score;
+      }
+      MatchService.recordMatchFinish(roomId, {
+        winnerId: game.winner || null,
+        scores,
+      });
+    } else {
+      // Jogada concluída sem mismatch: agenda o próximo turno
+      this.scheduleTurnTimeout(roomId);
     }
   }
 
@@ -77,26 +167,32 @@ export class MemoryCardController {
     }
   }
 
-  public checkTimeouts() {
-    const now = Date.now();
-    for (const [roomId, game] of this.games.entries()) {
-      if (!game || !game.state) continue;
-
-      if (
-        game.state.status === "playing" &&
-        game.state.turnEndTime &&
-        now >= game.state.turnEndTime
-      ) {
-        // Se houver mismatch timeout pendente na sala, cancela
-        if (this.mismatchTimeouts.has(roomId)) {
-          clearTimeout(this.mismatchTimeouts.get(roomId));
-          this.mismatchTimeouts.delete(roomId);
-        }
-
-        game.handleTimeout();
-        this.broadcastState(roomId);
-      }
+  private scheduleTurnTimeout(roomId: string) {
+    const game = this.games.get(roomId);
+    if (!game || !game.state || game.state.status !== "playing" || !game.state.turnEndTime) {
+      roomTimerManager.clearTurnTimeout(roomId);
+      return;
     }
+
+    const targetTime = game.state.turnEndTime + LAG_COMPENSATION_BUFFER_MS;
+    roomTimerManager.scheduleTurnTimeout(roomId, targetTime, async () => {
+      if (!roomActionLock.acquireLock(roomId)) return;
+      try {
+        const g = this.games.get(roomId);
+        if (!g || !g.state || g.state.status !== "playing" || !g.state.turnEndTime) return;
+        if (Date.now() < g.state.turnEndTime + LAG_COMPENSATION_BUFFER_MS) return;
+
+        g.handleTimeout();
+        this.broadcastState(roomId);
+        this.scheduleTurnTimeout(roomId);
+      } finally {
+        roomActionLock.releaseLock(roomId);
+      }
+    });
+  }
+
+  public checkTimeouts() {
+    // Deprecated: substituído por RoomTimerManager orientado a eventos
   }
 
   public broadcastState(roomId: string) {
@@ -106,10 +202,8 @@ export class MemoryCardController {
   }
 
   public removeGame(roomId: string) {
-    if (this.mismatchTimeouts.has(roomId)) {
-      clearTimeout(this.mismatchTimeouts.get(roomId));
-      this.mismatchTimeouts.delete(roomId);
-    }
+    roomTimerManager.clearAllTimers(roomId);
+    roomActionLock.clearRoom(roomId);
     this.games.delete(roomId);
   }
 
