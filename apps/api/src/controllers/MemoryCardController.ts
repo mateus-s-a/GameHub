@@ -6,11 +6,11 @@ import {
 } from "../LobbyEvents";
 import { roomManager } from "../RoomManager";
 import { roomActionLock, LAG_COMPENSATION_BUFFER_MS } from "../lib/roomLock";
+import { roomTimerManager } from "../lib/roomTimer";
 import { MatchService } from "../services/matchService";
 
 export class MemoryCardController {
   private games: Map<string, MemoryCardLogic> = new Map();
-  private mismatchTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(private namespace: Namespace) {}
 
@@ -33,6 +33,7 @@ export class MemoryCardController {
     const game = new MemoryCardLogic(playerIds, config);
     this.games.set(roomId, game);
     this.broadcastState(roomId);
+    this.scheduleTurnTimeout(roomId);
   }
 
   public handleFlipCard(
@@ -45,7 +46,6 @@ export class MemoryCardController {
 
     if (
       roomActionLock.isRoomLocked(roomId) ||
-      this.mismatchTimeouts.has(roomId) ||
       game.isCheckingMatch
     ) {
       socket.emit("invalidMove", {
@@ -118,25 +118,27 @@ export class MemoryCardController {
     this.broadcastState(roomId);
 
     if (result.matchResult === "mismatch") {
-      // Delay de 1.5s para memorização visual de todos os jogadores antes de desvirar
+      // Cancela o timer de turno anterior e trava a sala por 1.5s
+      roomTimerManager.clearTurnTimeout(roomId);
       roomActionLock.lockForTransition(roomId, 1500);
 
-      const timeout = setTimeout(() => {
+      roomTimerManager.scheduleTransition(roomId, 1500, () => {
         game.resolveMismatch();
-        this.mismatchTimeouts.delete(roomId);
         roomActionLock.releaseLock(roomId);
         this.broadcastState(roomId);
-      }, 1500);
-
-      this.mismatchTimeouts.set(roomId, timeout);
+        this.scheduleTurnTimeout(roomId);
+      });
     } else if ((game.state.status as string) === "round_result") {
+      roomTimerManager.clearTurnTimeout(roomId);
       roomActionLock.lockForTransition(roomId, 3000);
-      setTimeout(() => {
+      roomTimerManager.scheduleTransition(roomId, 3000, () => {
         game.nextRound();
         roomActionLock.releaseLock(roomId);
         this.broadcastState(roomId);
-      }, 3000);
+        this.scheduleTurnTimeout(roomId);
+      });
     } else if ((game.state.status as string) === "game_over") {
+      roomTimerManager.clearAllTimers(roomId);
       handleAutoReturnToLobby(this.namespace, roomId, this.games);
       const scores: Record<string, number> = {};
       for (const [pId, score] of game.scores.entries()) {
@@ -146,6 +148,9 @@ export class MemoryCardController {
         winnerId: game.winner || null,
         scores,
       });
+    } else {
+      // Jogada concluída sem mismatch: agenda o próximo turno
+      this.scheduleTurnTimeout(roomId);
     }
   }
 
@@ -162,27 +167,32 @@ export class MemoryCardController {
     }
   }
 
-  public checkTimeouts() {
-    const now = Date.now();
-    for (const [roomId, game] of this.games.entries()) {
-      if (!game || !game.state) continue;
-
-      if (
-        game.state.status === "playing" &&
-        game.state.turnEndTime &&
-        now >= (game.state.turnEndTime + LAG_COMPENSATION_BUFFER_MS)
-      ) {
-        // Se houver mismatch timeout pendente na sala, cancela
-        if (this.mismatchTimeouts.has(roomId)) {
-          clearTimeout(this.mismatchTimeouts.get(roomId));
-          this.mismatchTimeouts.delete(roomId);
-          roomActionLock.releaseLock(roomId);
-        }
-
-        game.handleTimeout();
-        this.broadcastState(roomId);
-      }
+  private scheduleTurnTimeout(roomId: string) {
+    const game = this.games.get(roomId);
+    if (!game || !game.state || game.state.status !== "playing" || !game.state.turnEndTime) {
+      roomTimerManager.clearTurnTimeout(roomId);
+      return;
     }
+
+    const targetTime = game.state.turnEndTime + LAG_COMPENSATION_BUFFER_MS;
+    roomTimerManager.scheduleTurnTimeout(roomId, targetTime, async () => {
+      if (!roomActionLock.acquireLock(roomId)) return;
+      try {
+        const g = this.games.get(roomId);
+        if (!g || !g.state || g.state.status !== "playing" || !g.state.turnEndTime) return;
+        if (Date.now() < g.state.turnEndTime + LAG_COMPENSATION_BUFFER_MS) return;
+
+        g.handleTimeout();
+        this.broadcastState(roomId);
+        this.scheduleTurnTimeout(roomId);
+      } finally {
+        roomActionLock.releaseLock(roomId);
+      }
+    });
+  }
+
+  public checkTimeouts() {
+    // Deprecated: substituído por RoomTimerManager orientado a eventos
   }
 
   public broadcastState(roomId: string) {
@@ -192,10 +202,7 @@ export class MemoryCardController {
   }
 
   public removeGame(roomId: string) {
-    if (this.mismatchTimeouts.has(roomId)) {
-      clearTimeout(this.mismatchTimeouts.get(roomId));
-      this.mismatchTimeouts.delete(roomId);
-    }
+    roomTimerManager.clearAllTimers(roomId);
     roomActionLock.clearRoom(roomId);
     this.games.delete(roomId);
   }

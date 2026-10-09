@@ -4,7 +4,7 @@
   "description": "Backend API and Socket server for GamesHub",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r src/generated dist/",
     "dev": "ts-node-dev src/index.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "start": "node dist/index.js"
@@ -19,6 +19,7 @@
     "@gamehub/tic-tac-toe": "*",
     "@gamehub/types": "*",
     "@prisma/client": "^6.19.3",
+    "@socket.io/redis-adapter": "^8.3.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -26,6 +27,7 @@
     "express-rate-limit": "^8.7.0",
     "isomorphic-dompurify": "^3.19.0",
     "jsonwebtoken": "^9.0.3",
+    "redis": "^6.3.0",
     "socket.io": "^4.8.0",
     "zod": "^4.5.4"
   },

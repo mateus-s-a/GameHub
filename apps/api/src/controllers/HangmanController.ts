@@ -12,6 +12,7 @@ import {
 } from "../LobbyEvents";
 import { roomManager } from "../RoomManager";
 import { roomActionLock, LAG_COMPENSATION_BUFFER_MS } from "../lib/roomLock";
+import { roomTimerManager } from "../lib/roomTimer";
 import { MatchService } from "../services/matchService";
 
 export class HangmanController {
@@ -34,6 +35,7 @@ export class HangmanController {
 
     this.games.set(roomId, game);
     this.broadcastState(roomId);
+    this.scheduleRoundTimeout(roomId);
   }
 
   private normalizeHangmanConfig(raw?: any) {
@@ -142,12 +144,14 @@ export class HangmanController {
     game.state.nextRoundStartTime = Date.now() + 5000;
     this.broadcastState(roomId);
 
+    roomTimerManager.clearTurnTimeout(roomId);
+
     if (game.state.currentRound < game.state.maxRounds) {
       roomActionLock.lockForTransition(roomId, 5000);
-      // Transition to next round after 5 seconds
-      setTimeout(async () => {
+      // Transition to next round after 5 seconds via RoomTimerManager
+      roomTimerManager.scheduleTransition(roomId, 5000, async () => {
         await this.startNextRound(roomId);
-      }, 5000);
+      });
     } else {
       // End of match
       this.namespace
@@ -188,17 +192,35 @@ export class HangmanController {
 
     roomActionLock.releaseLock(roomId);
     this.broadcastState(roomId);
+    this.scheduleRoundTimeout(roomId);
+  }
+
+  private scheduleRoundTimeout(roomId: string) {
+    const game = this.games.get(roomId);
+    if (!game || !game.state.turnEndTime || game.state.isTransitioning) {
+      roomTimerManager.clearTurnTimeout(roomId);
+      return;
+    }
+
+    const targetTime = game.state.turnEndTime + LAG_COMPENSATION_BUFFER_MS;
+    roomTimerManager.scheduleTurnTimeout(roomId, targetTime, async () => {
+      if (!roomActionLock.acquireLock(roomId)) return;
+      try {
+        const g = this.games.get(roomId);
+        if (!g || !g.state.turnEndTime || g.state.isTransitioning) return;
+        if (Date.now() < g.state.turnEndTime + LAG_COMPENSATION_BUFFER_MS) return;
+
+        g.handleTimeout();
+        this.broadcastState(roomId);
+        this.handleRoundEnd(roomId);
+      } finally {
+        roomActionLock.releaseLock(roomId);
+      }
+    });
   }
 
   public async checkTimeouts() {
-    const now = Date.now();
-    for (const [roomId, game] of this.games.entries()) {
-      if (game.state.turnEndTime && now >= (game.state.turnEndTime + LAG_COMPENSATION_BUFFER_MS)) {
-        game.handleTimeout();
-        this.broadcastState(roomId);
-        this.handleRoundEnd(roomId);
-      }
-    }
+    // Deprecated: substituído por RoomTimerManager orientado a eventos
   }
 
   public async handleRematch(socketId: string, roomId: string) {
@@ -255,6 +277,7 @@ export class HangmanController {
   }
 
   public removeGame(roomId: string) {
+    roomTimerManager.clearAllTimers(roomId);
     roomActionLock.clearRoom(roomId);
     this.games.delete(roomId);
   }

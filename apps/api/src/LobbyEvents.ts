@@ -11,6 +11,7 @@ import { checkSocketRateLimit } from "./middlewares/rateLimiterMiddleware";
 import { sanitizeText } from "./lib/sanitize";
 import { MatchService } from "./services/matchService";
 import { roomActionLock } from "./lib/roomLock";
+import { roomTimerManager } from "./lib/roomTimer";
 
 const matchReturnTimeouts = new Map<string, NodeJS.Timeout>();
 const reconnectionTimeouts = new Map<
@@ -415,6 +416,8 @@ export function registerGenericLobbyEvents(
       );
       namespace.to(roomId).emit("roomDestroyed");
       gameMap.delete(roomId);
+      roomActionLock.clearRoom(roomId);
+      roomTimerManager.clearAllTimers(roomId);
       if (onRoomDestroyed) onRoomDestroyed(roomId);
       namespace.in(roomId).socketsLeave(roomId);
     } else {
@@ -436,6 +439,7 @@ export function registerGenericLobbyEvents(
           updatedRoom.status = "waiting";
           updatedRoom.countdown = 5; // Start backend countdown
           MatchService.recordMatchAbandon(roomId);
+          roomTimerManager.clearTurnTimeout(roomId);
           console.log(
             `[Match] [${gameType.toUpperCase()}] Match in Room GH-${roomId.substring(0, 5).toUpperCase()} terminated (Insufficient players)`,
           );
@@ -463,6 +467,7 @@ export function registerGenericLobbyEvents(
               roomManager.removeRoom(roomId);
               gameMap.delete(roomId);
               roomActionLock.clearRoom(roomId);
+              roomTimerManager.clearAllTimers(roomId);
               if (onRoomDestroyed) onRoomDestroyed(roomId);
               namespace.to(roomId).emit("roomDestroyed");
               namespace.to(roomId).emit("matchTerminated");
@@ -625,6 +630,7 @@ export function handleAutoReturnToLobby(
       roomManager.removeRoom(roomId);
       gameMap.delete(roomId);
       roomActionLock.clearRoom(roomId);
+      roomTimerManager.clearAllTimers(roomId);
 
       namespace.to(roomId).emit("roomDestroyed");
       namespace.to(roomId).emit("matchTerminated");
