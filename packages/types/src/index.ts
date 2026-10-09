@@ -56,3 +56,17 @@ export interface RateLimitExceededEvent {
   message: string;
   retryAfterSeconds: number;
 }
+
+export type InvalidMoveReason =
+  | "NOT_YOUR_TURN"
+  | "ROOM_LOCKED"
+  | "ACTION_COOLDOWN"
+  | "INVALID_POSITION"
+  | "ALREADY_COMMITTED"
+  | "GAME_NOT_IN_PROGRESS";
+
+export interface InvalidMoveEvent {
+  event: string;
+  reason: InvalidMoveReason;
+  message: string;
+}

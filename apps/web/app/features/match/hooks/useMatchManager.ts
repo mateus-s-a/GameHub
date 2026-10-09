@@ -176,6 +176,11 @@ export function useMatchManager({
       setTimeout(() => setTempNotification(null), 4000);
     });
 
+    s.on("invalidMove", ({ message }: { message: string }) => {
+      setTempNotification(`⚠️ ${message}`);
+      setTimeout(() => setTempNotification(null), 3000);
+    });
+
     return () => {
       // SPA navigation guard: attempt clean leave before disconnect
       if (roomIdRef.current) {

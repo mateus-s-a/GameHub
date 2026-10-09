@@ -9,6 +9,8 @@ import {
 } from "./schemas/socketSchemas";
 import { checkSocketRateLimit } from "./middlewares/rateLimiterMiddleware";
 import { sanitizeText } from "./lib/sanitize";
+import { MatchService } from "./services/matchService";
+import { roomActionLock } from "./lib/roomLock";
 
 const matchReturnTimeouts = new Map<string, NodeJS.Timeout>();
 const reconnectionTimeouts = new Map<
@@ -262,6 +264,7 @@ export function registerGenericLobbyEvents(
         clearInterval(interval);
         currentRoom.status = "in_progress";
         currentRoom.countdown = null;
+        MatchService.recordMatchStart(currentRoom);
         console.log(
           `[Match] [${gameType.toUpperCase()}] Game started in Room GH-${roomId.substring(0, 5).toUpperCase()} with ${currentRoom.playerCount} players`,
         );
@@ -432,6 +435,7 @@ export function registerGenericLobbyEvents(
           // Cannot continue match with < 2 players - Match Terminated
           updatedRoom.status = "waiting";
           updatedRoom.countdown = 5; // Start backend countdown
+          MatchService.recordMatchAbandon(roomId);
           console.log(
             `[Match] [${gameType.toUpperCase()}] Match in Room GH-${roomId.substring(0, 5).toUpperCase()} terminated (Insufficient players)`,
           );
@@ -458,6 +462,7 @@ export function registerGenericLobbyEvents(
               clearInterval(terminationInterval);
               roomManager.removeRoom(roomId);
               gameMap.delete(roomId);
+              roomActionLock.clearRoom(roomId);
               if (onRoomDestroyed) onRoomDestroyed(roomId);
               namespace.to(roomId).emit("roomDestroyed");
               namespace.to(roomId).emit("matchTerminated");
@@ -604,6 +609,7 @@ export function handleAutoReturnToLobby(
       // Completely remove the room instead of resetting it to make it "not visible"
       roomManager.removeRoom(roomId);
       gameMap.delete(roomId);
+      roomActionLock.clearRoom(roomId);
 
       namespace.to(roomId).emit("roomDestroyed");
       namespace.to(roomId).emit("matchTerminated");
