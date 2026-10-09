@@ -11,6 +11,36 @@ import { WordService } from "@gamehub/hangman";
 import { HangmanController } from "./controllers/HangmanController";
 import { MemoryCardController } from "./controllers/MemoryCardController";
 import { GameEvent } from "@gamehub/core";
+import {
+  registerGenericLobbyEvents,
+  handleAutoReturnToLobby,
+  cancelAutoReturnToLobby,
+} from "./LobbyEvents";
+import { roomManager } from "./RoomManager";
+import { renderDashboard } from "./views/dashboard";
+import { roomActionLock, LAG_COMPENSATION_BUFFER_MS } from "./lib/roomLock";
+import { MatchService } from "./services/matchService";
+import { AuthController } from "./controllers/authController";
+import {
+  requireAuth,
+  socketAuthMiddleware,
+  AuthenticatedRequest,
+} from "./middlewares/authMiddleware";
+import {
+  makeMoveTTTSchema,
+  makeMoveC4Schema,
+  commitChoiceRPSSchema,
+  submitGuessGTFSchema,
+  flipCardMCSchema,
+  gameMoveHangmanSchema,
+  validateSocketPayload,
+} from "./schemas/socketSchemas";
+import {
+  authRateLimiter,
+  apiRateLimiter,
+  checkSocketRateLimit,
+} from "./middlewares/rateLimiterMiddleware";
+
 
 // Initialize word buffer
 WordService.init();
@@ -284,35 +314,6 @@ function scheduleNextRound(
   }, delayMs);
 }
 
-import {
-  registerGenericLobbyEvents,
-  handleAutoReturnToLobby,
-  cancelAutoReturnToLobby,
-} from "./LobbyEvents";
-import { roomManager } from "./RoomManager";
-import { renderDashboard } from "./views/dashboard";
-import { roomActionLock } from "./lib/roomLock";
-import { MatchService } from "./services/matchService";
-import { AuthController } from "./controllers/authController";
-import {
-  requireAuth,
-  socketAuthMiddleware,
-  AuthenticatedRequest,
-} from "./middlewares/authMiddleware";
-import {
-  makeMoveTTTSchema,
-  makeMoveC4Schema,
-  commitChoiceRPSSchema,
-  submitGuessGTFSchema,
-  flipCardMCSchema,
-  gameMoveHangmanSchema,
-  validateSocketPayload,
-} from "./schemas/socketSchemas";
-import {
-  authRateLimiter,
-  apiRateLimiter,
-  checkSocketRateLimit,
-} from "./middlewares/rateLimiterMiddleware";
 
 const loggedSessions = new Set<string>();
 function logConnection(socket: Socket, gameName: string) {
@@ -337,6 +338,21 @@ io.on("connection", (socket: Socket) => {
   const sessionId = socket.handshake.auth.sessionId;
   console.log(
     `[GameHub-API] Transport connection established: ${socket.id.substring(0, 5)} (Session: ${sessionId?.substring(0, 5) || "N/A"})`,
+  );
+
+  socket.on(
+    "timeSync",
+    (
+      data: { clientSendTime: number },
+      callback: (res: { clientSendTime: number; serverTime: number }) => void,
+    ) => {
+      if (typeof callback === "function") {
+        callback({
+          clientSendTime: data?.clientSendTime || Date.now(),
+          serverTime: Date.now(),
+        });
+      }
+    },
   );
 
   socket.on("latencyPing", (_clientTimestamp: number, callback: () => void) => {
@@ -1223,7 +1239,7 @@ setInterval(() => {
 
   // Check TicTacToe
   for (const [roomId, game] of tttGames.entries()) {
-    if (game.turnEndTime && now >= game.turnEndTime && !game.winner) {
+    if (game.turnEndTime && now >= (game.turnEndTime + LAG_COMPENSATION_BUFFER_MS) && !game.winner) {
       const emptyIndices: number[] = [];
       for (let i = 0; i < game.board.length; i++) {
         if (game.board[i] === null) {
@@ -1256,7 +1272,7 @@ setInterval(() => {
 
   // Check Connect 4
   for (const [roomId, game] of c4Games.entries()) {
-    if (game.turnEndTime && now >= game.turnEndTime && !game.winner) {
+    if (game.turnEndTime && now >= (game.turnEndTime + LAG_COMPENSATION_BUFFER_MS) && !game.winner) {
       const validCols: number[] = [];
       for (let c = 0; c < 7; c++) {
         if (game.board[5]?.[c] === null) {
@@ -1292,7 +1308,7 @@ setInterval(() => {
     if (
       game.state === "commit_phase" &&
       game.turnEndTime &&
-      now >= game.turnEndTime
+      now >= (game.turnEndTime + LAG_COMPENSATION_BUFFER_MS)
     ) {
       let changed = false;
       for (const [playerId, player] of game.players.entries()) {

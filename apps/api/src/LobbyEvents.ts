@@ -521,6 +521,21 @@ export function registerGenericLobbyEvents(
     }
   });
 
+  socket.on(
+    "timeSync",
+    (
+      data: { clientSendTime: number },
+      callback: (res: { clientSendTime: number; serverTime: number }) => void,
+    ) => {
+      if (typeof callback === "function") {
+        callback({
+          clientSendTime: data?.clientSendTime || Date.now(),
+          serverTime: Date.now(),
+        });
+      }
+    },
+  );
+
   socket.on("syncLobby", (rawRoomId: string) => {
     const validatedRoomId = validateSocketPayload(
       socket,

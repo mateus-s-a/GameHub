@@ -11,7 +11,7 @@ import {
   cancelAutoReturnToLobby,
 } from "../LobbyEvents";
 import { roomManager } from "../RoomManager";
-import { roomActionLock } from "../lib/roomLock";
+import { roomActionLock, LAG_COMPENSATION_BUFFER_MS } from "../lib/roomLock";
 import { MatchService } from "../services/matchService";
 
 export class HangmanController {
@@ -193,7 +193,7 @@ export class HangmanController {
   public async checkTimeouts() {
     const now = Date.now();
     for (const [roomId, game] of this.games.entries()) {
-      if (game.state.turnEndTime && now >= game.state.turnEndTime) {
+      if (game.state.turnEndTime && now >= (game.state.turnEndTime + LAG_COMPENSATION_BUFFER_MS)) {
         game.handleTimeout();
         this.broadcastState(roomId);
         this.handleRoundEnd(roomId);

@@ -5,7 +5,7 @@ import {
   cancelAutoReturnToLobby,
 } from "../LobbyEvents";
 import { roomManager } from "../RoomManager";
-import { roomActionLock } from "../lib/roomLock";
+import { roomActionLock, LAG_COMPENSATION_BUFFER_MS } from "../lib/roomLock";
 import { MatchService } from "../services/matchService";
 
 export class MemoryCardController {
@@ -170,7 +170,7 @@ export class MemoryCardController {
       if (
         game.state.status === "playing" &&
         game.state.turnEndTime &&
-        now >= game.state.turnEndTime
+        now >= (game.state.turnEndTime + LAG_COMPENSATION_BUFFER_MS)
       ) {
         // Se houver mismatch timeout pendente na sala, cancela
         if (this.mismatchTimeouts.has(roomId)) {

@@ -90,3 +90,10 @@ export class RoomActionLockManager {
 }
 
 export const roomActionLock = new RoomActionLockManager();
+
+/**
+ * Universal Lag Compensation Buffer (ms)
+ * Gives players with high network latency a fair tolerance window
+ * before server timeout triggers an automated move or round termination.
+ */
+export const LAG_COMPENSATION_BUFFER_MS = 500;

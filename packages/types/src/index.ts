@@ -70,3 +70,12 @@ export interface InvalidMoveEvent {
   reason: InvalidMoveReason;
   message: string;
 }
+
+export interface TimeSyncRequest {
+  clientSendTime: number;
+}
+
+export interface TimeSyncResponse {
+  clientSendTime: number;
+  serverTime: number;
+}

@@ -16,6 +16,8 @@ interface SocketContextType {
   isFirstVisit: boolean;
   dismissFirstVisitNotice: () => void;
   latency: number | null;
+  clockOffset: number;
+  getEstimatedServerTime: () => number;
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -31,6 +33,8 @@ const SocketContext = createContext<SocketContextType>({
   isFirstVisit: false,
   dismissFirstVisitNotice: () => {},
   latency: null,
+  clockOffset: 0,
+  getEstimatedServerTime: () => Date.now(),
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -55,8 +59,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   // Onboarding first-time visit state
   const [isFirstVisit, setIsFirstVisit] = useState<boolean>(false);
 
-  // Latency monitoring state
+  // Latency & Clock Synchronization state (Cristian algorithm / SNTP)
   const [latency, setLatency] = useState<number | null>(null);
+  const [clockOffset, setClockOffset] = useState<number>(0);
+  const clockOffsetRef = React.useRef<number>(0);
+  clockOffsetRef.current = clockOffset;
+
+  const getEstimatedServerTime = React.useCallback(() => {
+    return Date.now() + clockOffsetRef.current;
+  }, []);
 
   // Player state
   const [playerName, setPlayerName] = useState<string>("GUEST");
@@ -117,31 +128,53 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  // Latency monitoring polling effect (every 3 seconds)
+  // High-Precision NTP Clock Sync & Latency monitoring (Cristian Algorithm)
   useEffect(() => {
     if (!socket || !isConnected) {
       setLatency(null);
       return;
     }
 
-    const measureLatency = () => {
-      const start = Date.now();
-      socket.emit("latencyPing", start, () => {
-        const rawRtt = Math.max(1, Date.now() - start);
-        setLatency((prev) => {
-          if (prev === null) return rawRtt;
-          // Exponential Moving Average (EMA) for smooth UI transitions
-          return Math.round(prev * 0.7 + rawRtt * 0.3);
-        });
-      });
+    const performSync = (isInitialBurst: boolean = false) => {
+      const clientSend = Date.now();
+      socket.emit(
+        "timeSync",
+        { clientSendTime: clientSend },
+        (res: { clientSendTime: number; serverTime: number }) => {
+          const clientRecv = Date.now();
+          const rtt = Math.max(1, clientRecv - (res?.clientSendTime || clientSend));
+          const oneWay = rtt / 2;
+          const calculatedOffset = res?.serverTime
+            ? res.serverTime - (clientSend + oneWay)
+            : 0;
+
+          setLatency((prev) => {
+            if (prev === null) return rtt;
+            return Math.round(prev * 0.6 + rtt * 0.4);
+          });
+
+          setClockOffset((prev) => {
+            if (isInitialBurst || prev === 0) return calculatedOffset;
+            // Smooth offset transitions to prevent visible clock jumps
+            return Math.round(prev * 0.7 + calculatedOffset * 0.3);
+          });
+        },
+      );
     };
 
-    // Measure immediately on connect
-    measureLatency();
+    // Initial 3-sample burst upon connection to eliminate route asymmetry jitter
+    performSync(true);
+    const burst1 = setTimeout(() => performSync(true), 300);
+    const burst2 = setTimeout(() => performSync(true), 600);
 
-    const interval = setInterval(measureLatency, 3000);
+    // Periodic clock calibration every 5 seconds
+    const interval = setInterval(() => performSync(false), 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(burst1);
+      clearTimeout(burst2);
+      clearInterval(interval);
+    };
   }, [socket, isConnected]);
 
   const updatePlayerName = (newName: string) => {
@@ -176,6 +209,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         isFirstVisit,
         dismissFirstVisitNotice,
         latency,
+        clockOffset,
+        getEstimatedServerTime,
       }}
     >
       {children}
